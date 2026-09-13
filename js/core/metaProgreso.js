@@ -22,8 +22,8 @@ import * as Nube from './nube.js';
 // corrupto se lleva por delante un hueco, no los tres: con todo en una clave,
 // un JSON roto dejaría al jugador sin ninguna de sus partidas.
 const NUM_HUECOS = 3;
-const CLAVE_HUECO = 'emerita-meta-v2-hueco';
-const CLAVE_ULTIMO = 'emerita-hueco-usado';
+const CLAVE_HUECO = 'extremadura-meta-v2-hueco';
+const CLAVE_ULTIMO = 'extremadura-hueco-usado';
 
 // La clave de la versión de una sola partida. NO se lee ni se borra: se queda
 // donde está, intacta, y simplemente ya no la mira nadie. Sergio pidió que los
@@ -31,6 +31,45 @@ const CLAVE_ULTIMO = 'emerita-hueco-usado';
 // si algún día lo quiere de vuelta, sigue en el navegador.
 const CLAVE_VIEJA = 'emerita-meta-v1';
 void CLAVE_VIEJA;
+
+// --- EL CAMBIO DE NOMBRE DEL JUEGO -------------------------------------------
+//
+// El juego se llamaba Emerita Survivors y sus claves empezaban por `emerita-`.
+// Al renombrarlo, esas claves dejarían de mirarse y todo el mundo abriría el
+// juego con cero denarios, cero héroes y las tres partidas en blanco. No es que
+// se borre nada —sigue en el navegador— pero para quien lo abre es exactamente
+// lo mismo que si se hubiera borrado.
+//
+// Así que se copia una vez: si existe la clave vieja y no la nueva, se traslada
+// tal cual. El contenido no cambia de forma, solo de nombre.
+//
+// SE COPIA Y NO SE MUEVE, a propósito: lo viejo se queda donde está. Si algo
+// saliera mal en el traslado, el progreso original sigue intacto y recuperable
+// a mano desde la consola del navegador. Borrarlo no ahorra nada que importe —
+// son unos kilobytes— y cierra esa puerta para siempre.
+//
+// Y va DENTRO de un try que se traga todo: un navegador con el almacenamiento
+// bloqueado tiene que poder jugar igual, solo que sin guardar (ver el resto del
+// archivo, que ya lo trata así en todas partes).
+const PREFIJO_VIEJO = 'emerita-';
+const PREFIJO_NUEVO = 'extremadura-';
+
+function migrarClaves() {
+  try {
+    const claves = [];
+    for (let i = 0; i < NUM_HUECOS; i++) {
+      claves.push(CLAVE_HUECO.slice(PREFIJO_NUEVO.length) + i);
+    }
+    claves.push(CLAVE_ULTIMO.slice(PREFIJO_NUEVO.length));
+    for (const sufijo of claves) {
+      const nueva = PREFIJO_NUEVO + sufijo;
+      if (localStorage.getItem(nueva) !== null) continue;   // ya migrada
+      const valor = localStorage.getItem(PREFIJO_VIEJO + sufijo);
+      if (valor !== null) localStorage.setItem(nueva, valor);
+    }
+  } catch { /* sin almacenamiento: se juega igual, sin guardar */ }
+}
+migrarClaves();
 
 function claveDe(hueco) { return CLAVE_HUECO + hueco; }
 

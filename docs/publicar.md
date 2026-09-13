@@ -7,7 +7,7 @@ hay que subirlo a mano.
 
 ## GitHub Pages — automático
 
-**https://sergiosanchezcustodio.github.io/emerita-survivors/**
+**https://sergiosanchezcustodio.github.io/extremadura-survivors/**
 
 Sirve la rama `master` tal cual, desde la raíz. No hay que hacer nada: cada
 `git push` reconstruye el sitio en un minuto o dos. Funciona porque el juego no
@@ -21,20 +21,20 @@ silencioso en un asset, y eso no se ve hasta que alguien juega.
 Comprobar que ha salido:
 
 ```powershell
-gh api repos/sergiosanchezcustodio/emerita-survivors/pages/builds/latest --jq '.status'
+gh api repos/sergiosanchezcustodio/extremadura-survivors/pages/builds/latest --jq '.status'
 ```
 
 ---
 
 ## itch.io — a mano
 
-**https://sergiosanchezcustodio.itch.io/emerita-survivors**
+**https://sergiosanchezcustodio.itch.io/extremadura-survivors**
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File herramientas\empaquetar-web.ps1
 ```
 
-Deja `dist/emerita-survivors-web.zip`, unos 26 MB. Se sube en **Edit game →
+Deja `dist/extremadura-survivors-web.zip`, unos 26 MB. Se sube en **Edit game →
 Uploads**, arrastrando el `.zip`, marcando **"This file will be played in the
 browser"** y dejando **960 × 540** como tamaño del embed (o cualquier múltiplo
 entero de 480 × 270).

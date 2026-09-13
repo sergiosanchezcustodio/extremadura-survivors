@@ -1,4 +1,4 @@
-# Emerita Survivors
+# Extremadura Survivors
 
 ## Restricciones (no negociables)
 - Cero dependencias externas. Solo HTML/CSS/JS con módulos ES6 nativos.

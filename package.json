@@ -1,5 +1,5 @@
 {
-  "name": "emerita-survivors-herramientas",
+  "name": "extremadura-survivors-herramientas",
   "private": true,
   "type": "module",
   "description": "SOLO HERRAMIENTAS DE DESARROLLO. El juego no depende de nada de aquí: es HTML, CSS y módulos ES6 nativos, y se sirve tal cual. Este package.json existe únicamente para que las pruebas de herramientas/ puedan abrir un navegador de verdad.",

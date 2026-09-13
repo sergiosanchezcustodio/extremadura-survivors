@@ -169,7 +169,7 @@ App**:
 
 | Campo | Valor |
 |---|---|
-| Homepage URL | `https://sergiosanchezcustodio.github.io/emerita-survivors/` |
+| Homepage URL | `https://sergiosanchezcustodio.github.io/extremadura-survivors/` |
 | Authorization callback URL | `https://emerita-partidas.sergiosanchezcustodio.workers.dev/auth/github/callback` |
 
 **La callback URL tiene que ser exacta**, letra por letra: el Worker la

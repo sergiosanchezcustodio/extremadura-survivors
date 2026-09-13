@@ -1,10 +1,10 @@
 {
-  "name": "emerita-survivors",
+  "name": "extremadura-survivors",
   "version": "1.0.0",
   "description": "Survivors-like ambientado en la Emerita Augusta romana",
   "main": "index.html",
   "window": {
-    "title": "Emerita Survivors",
+    "title": "Extremadura Survivors",
     "icon": "icono.png",
     "width": 1280,
     "height": 760,

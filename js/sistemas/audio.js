@@ -203,7 +203,18 @@ const VOLUMEN_EFECTOS = 0.6;
 
 // Ajustes de VOLUMEN, guardados aparte del progreso META. Son de esta máquina,
 // no algo que se haya ganado jugando, así que "empezar de cero" no los toca.
-const CLAVE_VOL = 'emerita-volumen-v1';
+// Cambió de `emerita-volumen-v1` con el nombre del juego, y se arrastra el valor
+// anterior igual que el progreso (ver migrarClaves en core/metaProgreso.js): a
+// quien tenía la música bajada no puede volvérsele a subir sola por un cambio de
+// nombre que no ha pedido.
+const CLAVE_VOL = 'extremadura-volumen-v1';
+const CLAVE_VOL_VIEJA = 'emerita-volumen-v1';
+try {
+  if (localStorage.getItem(CLAVE_VOL) === null) {
+    const previo = localStorage.getItem(CLAVE_VOL_VIEJA);
+    if (previo !== null) localStorage.setItem(CLAVE_VOL, previo);
+  }
+} catch { /* sin almacenamiento: valores por defecto */ }
 // El <audio> del narrador, si hay uno hablando ahora mismo. Solo puede haber
 // uno: dos voces a la vez no se entienden, y cuando se pide una nueva la
 // anterior sobra siempre.

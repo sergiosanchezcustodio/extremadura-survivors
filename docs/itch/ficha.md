@@ -1,7 +1,7 @@
 # La ficha de itch.io
 
 Todo lo de este documento es **para pegar a mano** en
-[itch.io/game/edit/…](https://sergiosanchezcustodio.itch.io/emerita-survivors),
+[itch.io/game/edit/…](https://sergiosanchezcustodio.itch.io/extremadura-survivors),
 y no por pereza: itch.io **no tiene API de escritura** para la ficha de un
 juego. Se puede subir la build —eso lo hace `herramientas/publicar-itch.ps1` con
 butler— pero el título, la descripción, los tags, la portada y el tamaño del
@@ -91,7 +91,7 @@ De `docs/capturas/`, en este orden, que va de lo que engancha a lo que explica:
 > build, ni una línea de framework. 480 × 270 con escalado entero.
 >
 > Código abierto bajo GPL-3.0:
-> [github.com/sergiosanchezcustodio/emerita-survivors](https://github.com/sergiosanchezcustodio/emerita-survivors)
+> [github.com/sergiosanchezcustodio/extremadura-survivors](https://github.com/sergiosanchezcustodio/extremadura-survivors)
 >
 > Creado con ayuda de inteligencia artificial.
 

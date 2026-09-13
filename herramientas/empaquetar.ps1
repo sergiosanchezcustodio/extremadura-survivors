@@ -46,7 +46,7 @@ Add-Type -AssemblyName System.Drawing
 
 $RAIZ    = Split-Path -Parent $PSScriptRoot
 $CACHE   = Join-Path $PSScriptRoot 'lanzador\cache'
-$SALIDA  = Join-Path $RAIZ 'dist\emerita-survivors-win64'
+$SALIDA  = Join-Path $RAIZ 'dist\extremadura-survivors-win64'
 $APP     = Join-Path $SALIDA 'package.nw'
 
 # ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ if ($Actualizar) {
     return
 }
 
-$EXE     = 'Emerita Survivors.exe'
+$EXE     = 'Extremadura Survivors.exe'
 
 # Recorte del icono sobre la ilustracion del titulo: el templo con la espada y
 # la corona de laurel, arriba del todo. Medido sobre `Main_menu.jpg` (1672x941),
@@ -107,7 +107,7 @@ if (-not (Test-Path $zipNw)) {
 
 # El juego no puede estar corriendo o no se deja sobrescribir el ejecutable.
 Get-Process nw -ErrorAction SilentlyContinue | Stop-Process -Force
-Get-Process 'Emerita Survivors' -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process 'Extremadura Survivors' -ErrorAction SilentlyContinue | Stop-Process -Force
 
 if (Test-Path $SALIDA) { Remove-Item $SALIDA -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $SALIDA | Out-Null
@@ -278,7 +278,7 @@ $total = (Get-ChildItem $SALIDA -Recurse -File | Measure-Object Length -Sum).Sum
 "Tamano:        {0:N0} MB" -f ($total / 1MB)
 
 if ($Zip) {
-    $rutaZip = Join-Path $RAIZ 'dist\emerita-survivors-win64.zip'
+    $rutaZip = Join-Path $RAIZ 'dist\extremadura-survivors-win64.zip'
     if (Test-Path $rutaZip) { Remove-Item $rutaZip -Force }
     "Comprimiendo..."
     Compress-Archive -Path $SALIDA -DestinationPath $rutaZip -CompressionLevel Optimal

@@ -260,7 +260,7 @@ async function callbackGithub(url, entorno) {
   let perfil = null;
   try {
     const r = await fetch('https://api.github.com/user', {
-      headers: { 'Authorization': `token ${token}`, 'User-Agent': 'emerita-survivors' }
+      headers: { 'Authorization': `token ${token}`, 'User-Agent': 'extremadura-survivors' }
     });
     perfil = await r.json();
   } catch { perfil = null; }

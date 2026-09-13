@@ -31,7 +31,7 @@ $RAIZ = Split-Path -Parent $PSScriptRoot
 # Aplicacion empaquetada
 # ---------------------------------------------------------------------------
 if ($App) {
-    $exe = Join-Path $RAIZ 'dist\emerita-survivors-win64\Emerita Survivors.exe'
+    $exe = Join-Path $RAIZ 'dist\extremadura-survivors-win64\Extremadura Survivors.exe'
     if (-not (Test-Path $exe)) {
         throw "No hay version empaquetada. Generala con: herramientas\empaquetar.ps1"
     }

@@ -540,7 +540,7 @@ function conectarConGithub() {
   if (nubeConectando) return;
   const url = Nube.urlLoginGithub();
   if (!url) return;
-  const popup = window.open(url, 'emerita-github-login', 'width=520,height=680');
+  const popup = window.open(url, 'extremadura-github-login', 'width=520,height=680');
   if (!popup) { location.href = url; return; }
 
   nubeConectando = true;

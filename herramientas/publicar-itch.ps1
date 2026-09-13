@@ -27,7 +27,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $RAIZ = Split-Path -Parent $PSScriptRoot
-$OBJETIVO = 'sergiosanchezcustodio/emerita-survivors:html5'
+$OBJETIVO = 'sergiosanchezcustodio/extremadura-survivors:html5'
 
 # El canal se llama `html5` a proposito: itch.io mira el nombre del canal para
 # decidir que una build se juega EN EL NAVEGADOR. Un canal llamado `web` o

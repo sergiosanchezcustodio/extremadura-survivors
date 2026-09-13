@@ -1,5 +1,10 @@
 # ---------------------------------------------------------------------------
-# instalar-lanzador.ps1 - Deja el comando `emerita` listo en esta maquina.
+# instalar-lanzador.ps1 - Deja el comando `extremadura` listo en esta maquina.
+#
+# SE LLAMABA `emerita` y cambio con el nombre del juego. El .cmd viejo NO se
+# borra solo: si sigue en la carpeta de destino, seguira funcionando y apuntando
+# a la ruta ANTIGUA del repositorio, que ya no existe. Hay que borrarlo a mano
+# una vez (ver el aviso del final).
 #
 # POR QUE ESTA AQUI. El lanzador vive en %USERPROFILE%\.local\bin, fuera del
 # repositorio, asi que no lo respalda GitHub: una reinstalacion de Windows o un
@@ -29,11 +34,11 @@ $repo = Split-Path -Parent $PSScriptRoot
 # tokens que se releian en cada llamada. Ver "Coste de contexto" en CLAUDE.md.
 $cmd = @"
 @echo off
-REM Lanzador de Claude Code para Emerita Survivors.
+REM Lanzador de Claude Code para Extremadura Survivors.
 REM GENERADO por herramientas\instalar-lanzador.ps1 - no editar a mano.
 REM Sin argumentos: abre una sesion NUEVA, con el contexto limpio.
-REM   emerita -c        retoma la ultima sesion (contexto acumulado: caro)
-REM   emerita --resume  elige sesion de una lista
+REM   extremadura -c        retoma la ultima sesion (contexto acumulado: caro)
+REM   extremadura --resume  elige sesion de una lista
 REM Cualquier otro argumento se pasa tal cual a claude.
 cd /d "$repo"
 if "%~1"=="" (claude --permission-mode auto) else (claude --permission-mode auto %*)
@@ -44,7 +49,7 @@ if (-not (Test-Path -LiteralPath $Destino)) {
     Write-Output "Creada la carpeta $Destino"
 }
 
-$ruta = Join-Path $Destino 'emerita.cmd'
+$ruta = Join-Path $Destino 'extremadura.cmd'
 $previo = if (Test-Path -LiteralPath $ruta) { Get-Content -LiteralPath $ruta -Raw } else { $null }
 
 # ASCII y no UTF8: un .cmd con BOM hace que cmd.exe se atragante en la primera
@@ -92,4 +97,12 @@ if ($Ajustes) {
 }
 
 Write-Output ""
-Write-Output "Listo. `emerita` abre sesion nueva; `emerita -c` retoma la anterior."
+Write-Output "Listo. `extremadura` abre sesion nueva; `extremadura -c` retoma la anterior."
+
+# El lanzador viejo, si sigue ahi, apunta a una carpeta que ya no existe.
+$viejo = Join-Path $Destino 'emerita.cmd'
+if (Test-Path -LiteralPath $viejo) {
+    Write-Output ""
+    Write-Output "OJO: sigue existiendo $viejo, del nombre anterior, y apunta a la"
+    Write-Output "     ruta vieja del repositorio. Borralo:  Remove-Item '$viejo'"
+}

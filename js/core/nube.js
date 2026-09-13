@@ -41,14 +41,28 @@ export let URL_NUBE = 'https://emerita-partidas.sergiosanchezcustodio.workers.de
 // El código vive en `localStorage`, que en este proyecto está reservado al
 // progreso META. Esto lo es: identifica al jugador entre partidas y no lo lee
 // nadie durante la simulación.
-const CLAVE_CODIGO = 'emerita-nube-codigo';
+const CLAVE_CODIGO = 'extremadura-nube-codigo';
 
 // EL @USUARIO DE GITHUB, si se ha conectado. Se guarda aparte del código -es
 // solo para enseñarlo en pantalla, no identifica nada- y por la misma razón
 // que el código: para que el popup del login (ver `js/main.js`) pueda
 // escribirlo y la ventana principal, que comparte el mismo origen y el mismo
 // `localStorage`, lo recoja sin que nadie tenga que mandárselo por mensaje.
-const CLAVE_LOGIN = 'emerita-nube-login';
+const CLAVE_LOGIN = 'extremadura-nube-login';
+
+// Las dos cambiaron de prefijo con el nombre del juego, y se arrastra lo que
+// hubiera guardado. Aquí importa más que en el volumen: el código de la nube es
+// lo que IDENTIFICA una copia entre partidas, y perderlo es quedarse fuera de tu
+// propia copia sin saber por qué. Mismo trato que en core/metaProgreso.js —se
+// copia, no se mueve— así que si algo fallara, lo viejo sigue ahí.
+try {
+  for (const [nueva, vieja] of [[CLAVE_CODIGO, 'emerita-nube-codigo'],
+                                [CLAVE_LOGIN, 'emerita-nube-login']]) {
+    if (localStorage.getItem(nueva) !== null) continue;
+    const previo = localStorage.getItem(vieja);
+    if (previo !== null) localStorage.setItem(nueva, previo);
+  }
+} catch { /* sin almacenamiento: se empieza sin copia en la nube */ }
 
 // Cuánto se espera a que conteste el servidor. Corto a propósito: esto es una
 // comodidad, y una comodidad que hace esperar deja de serlo. Si no llega en tres

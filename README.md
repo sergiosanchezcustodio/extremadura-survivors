@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/capturas/main_menu.jpg" alt="Emerita Survivors" width="100%">
+<img src="docs/capturas/main_menu.jpg" alt="Extremadura Survivors" width="100%">
 
-# Emerita Survivors
+# Extremadura Survivors
 
 **Un survivors-like en la Extremadura romana.** Aguanta treinta minutos entre las
 ruinas de Emerita Augusta mientras la horda crece, sube de nivel eligiendo entre
@@ -18,8 +18,8 @@ tres armas cada vez, y acaba con la Loba Capitolina.
 [![Narrado](https://img.shields.io/badge/relatos-narrados-e2c27a?style=flat-square)](#)
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue?style=flat-square)](LICENSE)
 
-[![Jugar en el navegador](https://img.shields.io/badge/▶%20jugar-en%20el%20navegador-2ea043?style=for-the-badge)](https://sergiosanchezcustodio.github.io/emerita-survivors/)
-[![itch.io](https://img.shields.io/badge/tambi%C3%A9n%20en-itch.io-fa5c5c?style=for-the-badge)](https://sergiosanchezcustodio.itch.io/emerita-survivors)
+[![Jugar en el navegador](https://img.shields.io/badge/▶%20jugar-en%20el%20navegador-2ea043?style=for-the-badge)](https://sergiosanchezcustodio.github.io/extremadura-survivors/)
+[![itch.io](https://img.shields.io/badge/tambi%C3%A9n%20en-itch.io-fa5c5c?style=for-the-badge)](https://sergiosanchezcustodio.itch.io/extremadura-survivors)
 
 </div>
 
@@ -29,11 +29,11 @@ tres armas cada vez, y acaba con la Loba Capitolina.
 
 Sin instalar nada, en el navegador:
 
-- **[sergiosanchezcustodio.github.io/emerita-survivors](https://sergiosanchezcustodio.github.io/emerita-survivors/)** — servido desde este mismo repositorio
-- **[sergiosanchezcustodio.itch.io/emerita-survivors](https://sergiosanchezcustodio.itch.io/emerita-survivors)**
+- **[sergiosanchezcustodio.github.io/extremadura-survivors](https://sergiosanchezcustodio.github.io/extremadura-survivors/)** — servido desde este mismo repositorio
+- **[sergiosanchezcustodio.itch.io/extremadura-survivors](https://sergiosanchezcustodio.itch.io/extremadura-survivors)**
 
 Se recomienda mando, pero con teclado se juega igual. Y hay
-**[manual de jugador](https://sergiosanchezcustodio.github.io/emerita-survivors/manual/manual-jugador.html)**:
+**[manual de jugador](https://sergiosanchezcustodio.github.io/extremadura-survivors/manual/manual-jugador.html)**:
 controles, los ocho personajes, el arsenal, el bestiario y los tres jefes.
 
 <details>
@@ -60,7 +60,7 @@ servidor y abre el juego de una vez.
 powershell -ExecutionPolicy Bypass -File herramientas\empaquetar.ps1
 ```
 
-Deja en `dist/emerita-survivors-win64/` una carpeta con `Emerita Survivors.exe`
+Deja en `dist/extremadura-survivors-win64/` una carpeta con `Extremadura Survivors.exe`
 que funciona a doble clic en cualquier PC con Windows: sin navegador, sin
 servidor y sin instalar nada. La primera vez descarga NW.js —Chromium
 empaquetado como aplicación, 200 MB— y lo deja en caché; las siguientes tardan

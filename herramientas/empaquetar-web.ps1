@@ -22,7 +22,7 @@
 $ErrorActionPreference = 'Stop'
 $RAIZ   = Split-Path -Parent $PSScriptRoot
 $SALIDA = Join-Path $RAIZ 'dist\web'
-$ZIP    = Join-Path $RAIZ 'dist\emerita-survivors-web.zip'
+$ZIP    = Join-Path $RAIZ 'dist\extremadura-survivors-web.zip'
 
 if (Test-Path $SALIDA) { Remove-Item $SALIDA -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $SALIDA | Out-Null

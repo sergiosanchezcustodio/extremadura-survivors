@@ -53,23 +53,23 @@ const PESO_PAUSA = 12;
 // hace cualquier rótulo narrado: primero se ve, luego se oye.
 export const RETARDO_VOZ = 3;
 
-// --- SALTARSE UNA NARRACIÓN: UN SEGUNDO Y PICO SOSTENIDO ------------------------
+// --- SALTARSE UNA NARRACIÓN: OCHO DÉCIMAS SOSTENIDAS ------------------------
 //
 // Una pulsación suelta ya no vale para saltarse el relato, y el motivo es que
 // ahora hay VOZ. Un rótulo que se salta con un roce es una molestia; una
 // narración de un minuto que se salta con un roce es el trabajo de la pantalla
 // entero tirado por un botón mal apoyado, y encima sin forma de volver.
 //
-// Un segundo y dos décimas: bastante más de lo que dura cualquier pulsación
+// Ocho décimas: bastante más de lo que dura cualquier pulsación
 // accidental y bastante menos de lo que cansa a quien ha visto esto diez veces
-// y quiere entrar a jugar. Empezó en tres, bajó a dos y seguía haciéndose largo
-// aguantando; Sergio lo dejó en 1,2.
+// y quiere entrar a jugar. Empezó en tres y fue bajando —dos, 1,2— porque
+// aguantando se hacía largo; Sergio lo dejó en 0,8.
 //
 // Y SE VE MIENTRAS SE PULSA. Sin el aro, mantener pulsado no se le ocurre a
 // nadie: pulsas, no pasa nada, y concluyes que la pantalla no se puede saltar.
 // El aro aparece al primer contacto y se cierra según se aguanta, que es el
 // gesto que ya conoce todo el mundo de otros juegos.
-export const AGUANTE_SALTO = 1.2;
+export const AGUANTE_SALTO = 0.8;
 
 // Se VACÍA más rápido de lo que se llena. Soltar un momento sin querer no puede
 // costar el aguante entero otra vez, pero soltar del todo tiene que deshacerlo

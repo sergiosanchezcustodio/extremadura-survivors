@@ -3350,10 +3350,13 @@ $CATALOGO = @(
     # CUENTA ATRAS DEL RELOJ, animada. GIF de Sergio (720x404, 81 fotogramas) para
     # sustituir a los digitos de siete segmentos que hud.js dibuja a mano mientras
     # la horda esta helada. 60 de alto: el mismo que tienen hoy esas cifras
-    # (RELOJ_DIGITO_H) en la capa de interfaz, que va a 960x540. Sin `deCada`:
-    # es un rotulo de interfaz, no un enemigo, y se reproduce a su propio ritmo.
+    # (RELOJ_DIGITO_H) en la capa de interfaz, que va a 960x540. `deCada=2`
+    # porque con los 81 la tira salia de 34.668 px de ancho, mas de los 32.767
+    # que admite una imagen en el navegador. No se pierde nada: hud.js no la
+    # reproduce a un fps fijo, la ESTIRA sobre los segundos que dura el efecto
+    # (ver dibujarCuentaAtrasReloj), asi que 41 fotogramas cuentan igual.
     @{ src='objetos\animaciones\cuenta_atras_reloj.gif'; dst='objetos\cuenta-atras-reloj.png'
-       id='cuentaAtrasReloj'; alto=60; anchoFijo=0; tol=0; gif=$true; plano=$true }
+       id='cuentaAtrasReloj'; alto=60; anchoFijo=0; tol=0; gif=$true; plano=$true; deCada=2 }
     @{ src='objetos\monedas.png';        dst='objetos\obj-monedas.png';    id='objMonedas';    alto=13; anchoFijo=0; tol=0; plano=$true }
 
     # LA MONEDA DEL CONTADOR, la que sale arriba a la derecha en los menus junto

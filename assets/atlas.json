@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260913174947",
+    "version":  "20260913182615",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -813,7 +813,7 @@
                                                "h":  240,
                                                "anclaX":  214,
                                                "anclaY":  240,
-                                               "frames":  81
+                                               "frames":  41
                                            },
                       "objMonedas":  {
                                          "archivo":  "objetos/obj-monedas.png",

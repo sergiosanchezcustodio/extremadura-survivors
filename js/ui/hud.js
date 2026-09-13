@@ -1433,8 +1433,32 @@ function dibujarCifra(ctx, x, y, cifra) {
 // `restante` son los segundos que le quedan a la parálisis (enemigos
 // .paralisisRestante, que es el único reloj de esto y vale para toda la horda).
 // Con cero o menos no se dibuja nada: el objeto no está activo.
-export function dibujarCuentaAtrasReloj(ctx, restante) {
+export function dibujarCuentaAtrasReloj(ctx, restante, duracion) {
   if (!(restante > 0)) return;
+
+  // LA ANIMACIÓN DE SERGIO, si está cargada. El GIF lleva la cuenta dentro,
+  // así que aquí no se pinta ningún número: se elige el fotograma según la
+  // FRACCIÓN consumida del efecto y se estira la tira entera sobre los
+  // segundos que dura, de forma que el último fotograma cae justo cuando la
+  // horda vuelve a moverse. Va contra `paralisisRestante` y no contra un reloj
+  // propio, por lo mismo que las cifras: lo que se ve no puede desajustarse de
+  // lo que pasa. Los dígitos de siete segmentos de abajo siguen ahí por si
+  // esto no convence y se vuelve atrás (o si el atlas no trae la animación).
+  const img = Recursos.imagen('cuentaAtrasReloj');
+  const meta = Recursos.meta('cuentaAtrasReloj');
+  if (img && meta && meta.frames > 1 && duracion > 0) {
+    const frac = Math.min(1, Math.max(0, 1 - restante / duracion));
+    const frame = Math.min(meta.frames - 1, Math.floor(frac * meta.frames));
+    const h = RELOJ_DIGITO_H;
+    const w = h * meta.w / meta.h;
+    const x = Math.round((ANCHO_UI - w) / 2);
+    const y = ALTO_UI - RELOJ_ABAJO - h;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, restante / 0.5);
+    ctx.drawImage(img, frame * meta.w, 0, meta.w, meta.h, x, y, w, h);
+    ctx.restore();
+    return;
+  }
 
   // CEIL y no floor. Con floor, un reloj de diez segundos arranca marcando 09
   // —la cifra que se anunció no llega a verse— y se pasa el último segundo

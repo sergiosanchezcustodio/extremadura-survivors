@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260913171017",
+    "version":  "20260913174947",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -869,10 +869,10 @@
                                             "frames":  1,
                                             "plano":  true,
                                             "solido":  [
-                                                           7,
-                                                           4,
-                                                           27,
-                                                           21
+                                                           5,
+                                                           2,
+                                                           31,
+                                                           25
                                                        ]
                                         },
                       "gema1":  {

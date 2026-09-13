@@ -3369,9 +3369,10 @@ $CATALOGO = @(
     # atlas A MANO con el narrador, sin pasar por aqui, y la siguiente pasada de
     # esta herramienta los borro del atlas.json: lo que no esta en este catalogo
     # no existe. 8 de alto = los 32 fisicos que tenian; `centrado` porque el HUD
-    # los pinta desde su centro, no desde los pies.
+    # los pinta desde su centro, no desde los pies. El de muerte es SOLO EL
+    # PERIMETRO, con el interior vacio: sin `huecos`, Rematar lo rellena.
     @{ src='characters\corazon_vida.png';   dst='interfaz\corazon-vida.png';   id='corazonVida';   alto=8; anchoFijo=0; tol=0; plano=$true; centrado=$true }
-    @{ src='characters\corazon_muerte.png'; dst='interfaz\corazon-muerte.png'; id='corazonMuerte'; alto=8; anchoFijo=0; tol=0; plano=$true; centrado=$true }
+    @{ src='characters\corazon_muerte.png'; dst='interfaz\corazon-muerte.png'; id='corazonMuerte'; alto=8; anchoFijo=0; tol=0; plano=$true; centrado=$true; huecos=$true }
 
     # LAS CUATRO GEMAS DE EXPERIENCIA. Se dibujaban por codigo -un rombo de
     # cuatro puntos con un brillo- porque no habia arte; ya lo hay.

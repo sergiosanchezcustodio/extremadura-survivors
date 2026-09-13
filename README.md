@@ -12,8 +12,10 @@ tres armas cada vez, y acaba con la Loba Capitolina.
 [![ES6](https://img.shields.io/badge/JavaScript-m%C3%B3dulos%20ES6-f7df1e?style=flat-square)](#)
 [![Sin dependencias](https://img.shields.io/badge/dependencias-cero-2ea043?style=flat-square)](#)
 [![Sin build](https://img.shields.io/badge/build-ninguno-2ea043?style=flat-square)](#)
-[![Armas](https://img.shields.io/badge/armas-64-e2c27a?style=flat-square)](#)
+[![Armas](https://img.shields.io/badge/armas-58-e2c27a?style=flat-square)](#)
+[![Objetos](https://img.shields.io/badge/objetos-29-e2c27a?style=flat-square)](#)
 [![Cooperativo](https://img.shields.io/badge/cooperativo-hasta%204-e2c27a?style=flat-square)](#)
+[![Narrado](https://img.shields.io/badge/relatos-narrados-e2c27a?style=flat-square)](#)
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue?style=flat-square)](LICENSE)
 
 [![Jugar en el navegador](https://img.shields.io/badge/▶%20jugar-en%20el%20navegador-2ea043?style=for-the-badge)](https://sergiosanchezcustodio.github.io/emerita-survivors/)
@@ -80,14 +82,35 @@ release. Con `-Zip` sale además el comprimido listo para enviar (200 MB).
 
 Dos pantallas antes del menú. La primera es la ficha del proyecto —con qué está
 hecho, la licencia y el aviso de que se ha usado IA—, y la segunda **presenta el
-juego**: dónde pasa, qué se ha despertado, qué hay y qué se te pide, con el
-texto subiendo por el hueco de una placa de piedra que lleva la bandera de
-Extremadura envolviéndola. La historia de cada sitio no va aquí: se cuenta al
-elegirlo, justo antes de jugarlo.
+juego**, con el texto subiendo por el hueco de una placa de piedra que lleva la
+bandera de Extremadura envolviéndola.
 
-Las dos se pasan sin esperar: `Start`, `Esc` o `Enter` van a la siguiente, y
-**manteniendo `A`** se salta la intro entera de una vez. Los dos atajos salen
-escritos en pantalla — un atajo que no se ve no existe.
+![La intro](docs/capturas/intro_titulo.jpg)
+
+**Y hay narrador.** La intro y la historia de cada nivel las cuenta una voz grave
+en español, y mientras habla la música se aparta. Los MP3 están horneados en
+`assets/voz/`: el juego no habla con ningún servicio ni necesita internet para
+sonar. El de cada nivel se busca por su identificador, así que narrar uno nuevo
+es dejar su fichero ahí con el nombre correcto.
+
+![El relato](docs/capturas/intro_narracion.jpg)
+
+**Manda la voz, no el texto.** El relato no sube a ritmo fijo: reparte el tiempo
+entre renglones según lo que cuesta *decir* cada uno, de forma que la frase que
+se está narrando sea la que está en mitad de la placa. Con un ritmo constante
+—que fue la primera versión— texto y voz coinciden al empezar y al acabar y se
+separan por el medio: diez renglones de cada guion llegaban a narrarse cuando ya
+no estaban a la vista. La voz entra además tres segundos tarde, porque un renglón
+tiene que poder leerse *cuando* se dice, y para eso ha tenido que entrar antes.
+
+Para pasar de pantalla valen `Espacio`, `Enter` y `Esc`, o `A`, `B`, `X`, `Y` y
+`Start` en el mando; **no vale cualquier tecla**, que es como se perdía la intro
+entera con un roce o con un mando boca abajo en el sofá. Y los relatos se saltan
+**aguantando dos segundos**, con un aro que se cierra en la esquina: un minuto de
+narración no puede irse por un botón mal apoyado.
+
+La historia de cada sitio no va en la intro: se cuenta al elegirlo, justo antes
+de jugarlo.
 
 El menú principal que viene después está **quieto a propósito**: lo único que se
 mueve son las dos antorchas. Llegó a tener estrellas titilando, nubes, un
@@ -106,6 +129,38 @@ para de crecer: al minuto 16 hay cientos de cuerpos en pantalla a la vez.
 ![Partida](docs/capturas/gameplay_un_jugador.jpg)
 
 Treinta minutos, tres jefes por el camino y un contador que no perdona.
+
+En el panel de cada jugador, bajo el retrato, hay **cinco corazones**: las vidas
+que te quedan. Salen siempre los cinco —el hueco dice cuánto te falta por comprar
+y el apagado cuánto has perdido— y al perder una, el corazón revienta en
+esquirlas. Perder una vida ya no pasa desapercibido: el personaje **se encoge
+hasta desaparecer y vuelve**, con un anillo, chispas y el mando vibrando. La
+Moneda de Caronte te devuelve al sitio en el mismo fotograma en que te matan, y
+eso, que es lo que la hace buena, era también lo que la hacía invisible.
+
+Y cuando cae un jefe de los minutos 10, 20 o 30, **la horda sale por patas**: los
+comunes corren a triple velocidad y se esfuman, y mientras el jefe siga en pie no
+aparece nadie más. La pelea es contra él, no contra él y doscientos más. Los dos
+de en medio dejan al morir un **cofre dorado** garantizado; la Loba, mil denarios
+que te llevas a la partida siguiente.
+
+### Lo que hay por el suelo
+
+Por el escenario se rompen antorchas y se abren cofres, y de ahí salen cinco
+cosas: comida, monedas, un imán que atrae todas las gemas del mapa, un
+lanzallamas prestado y **el Reloj de Emerita**.
+
+El Reloj para a la horda entera durante diez segundos — a toda, esté donde esté,
+incluida la que aparezca mientras dura. Y mientras corre, **el mundo se queda en
+blanco y negro** y una cuenta atrás de siete segmentos, en rojo, baja en la parte
+de abajo de la pantalla. El gris lo hace todo el lienzo del juego de una vez, así
+que el panel y la cuenta siguen en color sin que nadie tenga que hacer nada: son
+lienzos distintos.
+
+Un enemigo congelado además **no es un obstáculo**: se le atraviesa andando y no
+hace daño al tocarlo. Es lo que convierte el objeto en la salida de verdad del
+peor momento de una partida — quedar rodeado y que los cuerpos siguieran siendo
+pared dejaba el pánico intacto, solo que en silencio.
 
 ---
 
@@ -227,8 +282,8 @@ que nadie rehaga una imagen.
 ![Elegir nivel](docs/capturas/menu_seleccion_nivel.jpg)
 
 Y elegido el sitio, **su historia** sube por la misma placa de piedra antes del
-primer fotograma. Cada nivel cuenta la suya y vive en su propio archivo de
-datos; se salta con cualquier tecla, como la intro.
+primer fotograma, narrada por la misma voz. Cada nivel cuenta la suya y vive en
+su propio archivo de datos; se salta aguantando dos segundos, como la intro.
 
 ![Historia del nivel](docs/capturas/historia_nivel.jpg)
 
@@ -260,8 +315,15 @@ que huyen en vez de perseguir.
 
 ## El arsenal
 
-**64 armas**, tres opciones cada vez que subes de nivel, y evoluciones que piden
-un arma al 8 más su pasivo y un cofre de élite.
+**58 armas en juego** —53 por sorteo y 5 evoluciones—, tres opciones cada vez que
+subes de nivel. Una evolución pide el arma al 8, su pasivo, y un cofre de élite.
+
+Hay **siete más en el catálogo que no salen**: Pistola, Escopeta, Lanzas gemelas,
+Lanzagranadas, Honda balear, Lluvia de agujas y Artillería. No están borradas,
+llevan una marca que las saca del sorteo, así que devolver una al juego es quitar
+esa línea. Se hizo así porque un arma arrancada hay que reescribirla, y con ella
+se van los números que costaron tardes de ajuste. En la lámina de abajo salen
+todas, apartadas incluidas: es el arte del catálogo, no la lista del sorteo.
 
 ![Arsenal](docs/arsenal.png)
 
@@ -279,6 +341,24 @@ En las dos, subir de nivel se ve antes de leer nada.
 La ambientación va mezclada a propósito: honda balear junto a subfusil. Es una
 decisión tomada, no un descuido — Mérida es una ciudad romana en la que vive
 gente hoy.
+
+### Los objetos
+
+Además de las armas hay **29 objetos** que salen en las mismas cartas de subida
+de nivel y que no disparan: cambian cómo funciona todo lo demás. Desde las
+sandalias aladas o la lorica hasta la Pira funeraria, la Capa del erizo o el
+Grial de Alconétar.
+
+Dos cambian el juego más de lo que parece. La **Bandolera** y el **Zurrón** suben
+a cinco las ranuras de armas y de objetos, y el panel de la esquina crece con
+ellas en vez de encoger los huecos. Y **El Libro de las Sombras** pasa a un
+enemigo a tu bando cada pocos segundos: se envuelve en un aura roja, **no se le
+puede matar** mientras dura —ni tú, ni tus compañeros, ni la explosión de otro
+poseído—, le pega a los suyos con su propio daño de contacto y a los cinco
+segundos revienta.
+
+Qué hace cada uno y las decisiones que se tomaron por el camino están en
+**[docs/armas-y-objetos.md](docs/armas-y-objetos.md)**.
 
 ---
 
@@ -449,8 +529,9 @@ limitado, los tres jefes y presentación completa.
 
 Y por encima del plan, lo pedido después: cooperativo local con reanimación,
 mascotas con niveles, tienda de tres secciones, ruleta en los cofres, resumen
-final por jugador, música compuesta, aplicación de escritorio y las dos
-pantallas de presentación del arranque.
+final por jugador, música compuesta, aplicación de escritorio, las dos pantallas
+de presentación del arranque y **los relatos narrados**, con el texto acompasado
+a la voz.
 
 Cómo se publica una versión —Pages va solo, itch.io va a mano, y el sello del
 atlas es lo que evita que el navegador sirva imágenes viejas— está en

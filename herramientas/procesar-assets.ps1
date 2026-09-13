@@ -3347,6 +3347,13 @@ $CATALOGO = @(
     @{ src='objetos\cupcake.png';        dst='objetos\obj-comida.png';     id='objComida';     alto=14; anchoFijo=0; tol=0; plano=$true }
     @{ src='objetos\iman.png';           dst='objetos\obj-iman.png';       id='objIman';       alto=14; anchoFijo=0; tol=0; plano=$true }
     @{ src='objetos\reloj.png';          dst='objetos\obj-reloj.png';      id='objReloj';      alto=15; anchoFijo=0; tol=0; plano=$true }
+    # CUENTA ATRAS DEL RELOJ, animada. GIF de Sergio (720x404, 81 fotogramas) para
+    # sustituir a los digitos de siete segmentos que hud.js dibuja a mano mientras
+    # la horda esta helada. 60 de alto: el mismo que tienen hoy esas cifras
+    # (RELOJ_DIGITO_H) en la capa de interfaz, que va a 960x540. Sin `deCada`:
+    # es un rotulo de interfaz, no un enemigo, y se reproduce a su propio ritmo.
+    @{ src='objetos\animaciones\cuenta_atras_reloj.gif'; dst='objetos\cuenta-atras-reloj.png'
+       id='cuentaAtrasReloj'; alto=60; anchoFijo=0; tol=0; gif=$true; plano=$true }
     @{ src='objetos\monedas.png';        dst='objetos\obj-monedas.png';    id='objMonedas';    alto=13; anchoFijo=0; tol=0; plano=$true }
 
     # LA MONEDA DEL CONTADOR, la que sale arriba a la derecha en los menus junto
@@ -3357,6 +3364,14 @@ $CATALOGO = @(
     # dibuja a la resolucion real del monitor, no a la del arte, asi que un icono
     # de 13 tendria que ampliarse para acompanar a un numero de 18 pixeles.
     @{ src='objetos\moneda.png';         dst='objetos\moneda-hud.png';     id='monedaHud';     alto=20; anchoFijo=0; tol=0; plano=$true }
+
+    # LOS CORAZONES DE LAS VIDAS (ver dibujarVidas en ui/hud.js). Entraron en el
+    # atlas A MANO con el narrador, sin pasar por aqui, y la siguiente pasada de
+    # esta herramienta los borro del atlas.json: lo que no esta en este catalogo
+    # no existe. 8 de alto = los 32 fisicos que tenian; `centrado` porque el HUD
+    # los pinta desde su centro, no desde los pies.
+    @{ src='characters\corazon_vida.png';   dst='interfaz\corazon-vida.png';   id='corazonVida';   alto=8; anchoFijo=0; tol=0; plano=$true; centrado=$true }
+    @{ src='characters\corazon_muerte.png'; dst='interfaz\corazon-muerte.png'; id='corazonMuerte'; alto=8; anchoFijo=0; tol=0; plano=$true; centrado=$true }
 
     # LAS CUATRO GEMAS DE EXPERIENCIA. Se dibujaban por codigo -un rombo de
     # cuatro puntos con un brillo- porque no habia arte; ya lo hay.

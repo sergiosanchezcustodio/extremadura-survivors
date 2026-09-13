@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260910133411",
+    "version":  "20260913171017",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -450,33 +450,6 @@
                                                   83
                                               ]
                                },
-                      "corazonVida":  {
-                                        "archivo":  "interfaz/corazon-vida.png",
-                                        "w":  34,
-                                        "h":  32,
-                                        "anclaX":  17,
-                                        "anclaY":  16,
-                                        "frames":  1,
-                                        "plano":  true
-                                    },
-                      "corazonMuerte":  {
-                                        "archivo":  "interfaz/corazon-muerte.png",
-                                        "w":  38,
-                                        "h":  32,
-                                        "anclaX":  19,
-                                        "anclaY":  16,
-                                        "frames":  1,
-                                        "plano":  true
-                                    },
-                      "ataudGenerico":  {
-                                        "archivo":  "personajes/generico-ataud.png",
-                                        "w":  65,
-                                        "h":  136,
-                                        "anclaX":  32,
-                                        "anclaY":  136,
-                                        "frames":  1,
-                                        "plano":  true
-                                    },
                       "ericAtaud":  {
                                         "archivo":  "personajes/eric-ataud.png",
                                         "w":  96,
@@ -537,6 +510,21 @@
                                                         99
                                                     ]
                                      },
+                      "ataudGenerico":  {
+                                            "archivo":  "personajes/generico-ataud.png",
+                                            "w":  280,
+                                            "h":  136,
+                                            "anclaX":  140,
+                                            "anclaY":  136,
+                                            "frames":  1,
+                                            "plano":  true,
+                                            "solido":  [
+                                                           29,
+                                                           17,
+                                                           221,
+                                                           105
+                                                       ]
+                                        },
                       "proyOsito":  {
                                         "archivo":  "efectos/osito-dinamito.png",
                                         "w":  33,
@@ -819,6 +807,14 @@
                                                       41
                                                   ]
                                    },
+                      "cuentaAtrasReloj":  {
+                                               "archivo":  "objetos/cuenta-atras-reloj.png",
+                                               "w":  428,
+                                               "h":  240,
+                                               "anclaX":  214,
+                                               "anclaY":  240,
+                                               "frames":  81
+                                           },
                       "objMonedas":  {
                                          "archivo":  "objetos/obj-monedas.png",
                                          "w":  64,
@@ -849,6 +845,36 @@
                                                        56
                                                    ]
                                     },
+                      "corazonVida":  {
+                                          "archivo":  "interfaz/corazon-vida.png",
+                                          "w":  32,
+                                          "h":  32,
+                                          "anclaX":  16,
+                                          "anclaY":  16,
+                                          "frames":  1,
+                                          "plano":  true,
+                                          "solido":  [
+                                                         5,
+                                                         4,
+                                                         22,
+                                                         20
+                                                     ]
+                                      },
+                      "corazonMuerte":  {
+                                            "archivo":  "interfaz/corazon-muerte.png",
+                                            "w":  40,
+                                            "h":  32,
+                                            "anclaX":  20,
+                                            "anclaY":  16,
+                                            "frames":  1,
+                                            "plano":  true,
+                                            "solido":  [
+                                                           7,
+                                                           4,
+                                                           27,
+                                                           21
+                                                       ]
+                                        },
                       "gema1":  {
                                     "archivo":  "objetos/gema1.png",
                                     "w":  20,

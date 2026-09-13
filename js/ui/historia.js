@@ -1,7 +1,9 @@
 import { Recursos } from '../core/recursos.js';
+import { GestorAudio } from '../sistemas/audio.js';
 import { Intro } from './intro.js';
 import {
-  FUNDIDO, prepararRelato, dibujarRelato, hornearPantalla, fondoPantalla, velo
+  FUNDIDO, prepararRelato, dibujarRelato, hornearPantalla, fondoPantalla, velo,
+  acompasarAVoz, RETARDO_VOZ, avanzarAguante, dibujarAguante
 } from './relato.js';
 
 // LA HISTORIA DEL NIVEL: la misma placa de piedra de la intro, con el relato
@@ -24,6 +26,7 @@ import {
 
 const estado = {
   reloj: 0,
+  aguante: 0,          // lo que lleva pulsado el salto, de 0 a 1
   relato: null,
   placa: null,
   // Los relatos ya trazados, por id de nivel. Trazar el lienzo cuesta una
@@ -62,24 +65,47 @@ export const Historia = {
 
   iniciar(nivel) {
     estado.reloj = 0;
+    estado.aguante = 0;
     if (!estado.cache.has(nivel.id)) {
       estado.cache.set(nivel.id, prepararRelato(nivel.historia));
     }
     estado.relato = estado.cache.get(nivel.id);
     const propia = nivel.historiaImagen ? estado.placas.get(nivel.historiaImagen) : null;
     estado.placa = propia || Intro.placa;
+
+    // LA VOZ DEL NIVEL, si la tiene. El nombre del fichero sale del id del
+    // nivel, así que añadir la narración de uno nuevo es dejar el MP3 en
+    // assets/voz/ con su nombre y ya está: ni una línea de código ni un campo
+    // más en los datos.
+    //
+    // El relato se REAJUSTA cada vez que se abre esta pantalla aunque venga de
+    // la caché, porque la caché guarda el texto trazado —que no cambia— y la
+    // velocidad sí puede: la voz podría no haber podido sonar la primera vez y
+    // sí la segunda, cuando el navegador ya ha desbloqueado el audio.
+    GestorAudio.narrar(`assets/voz/${nivel.id}.mp3`, RETARDO_VOZ)
+      .then((d) => acompasarAVoz(estado.relato, d));
   },
 
   // Devuelve true cuando se ha acabado y toca empezar la partida.
   actualizar(dt, entrada) {
     estado.reloj += dt;
-    if (entrada.algunFlanco()) return true;
-    return estado.reloj >= estado.relato.duracion;
+    // Se salta AGUANTANDO la tecla, igual que la intro y por lo mismo: hay
+    // una narración entera detrás. Ver AGUANTE_SALTO en ui/relato.js.
+    estado.aguante = avanzarAguante(estado.aguante, entrada.avanceMantenido(), dt);
+    // Se salta, o se acaba: en los dos casos el narrador se calla. Si no, la voz
+    // seguiría contando la historia de Mérida por encima de la partida ya
+    // empezada.
+    if (estado.aguante >= 1 || estado.reloj >= estado.relato.duracion) {
+      GestorAudio.callarNarrador();
+      return true;
+    }
+    return false;
   },
 
   dibujar(ctxMundo, ctxUi) {
     fondoPantalla(ctxMundo, estado.placa);
     dibujarRelato(ctxUi, estado.relato, estado.reloj);
+    dibujarAguante(ctxUi, estado.aguante);
     velo(ctxMundo, estado.reloj, estado.relato.duracion - estado.reloj, FUNDIDO);
   }
 };

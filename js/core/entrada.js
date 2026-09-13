@@ -72,6 +72,12 @@ export class Control {
   }
 }
 
+// Lo que sirve para AVANZAR de pantalla, y nada más. Ver `flancoAvance`.
+const TECLAS_AVANCE = ['Space', 'Enter', 'NumpadEnter', 'Escape'];
+// A, B, X, Y y Start/Menu del mapeo estándar, como máscara de bits.
+const BOTONES_AVANCE = [0, 1, 2, 3, 9];
+const MASCARA_AVANCE = BOTONES_AVANCE.reduce((m, b) => m | (1 << b), 0);
+
 export class Entrada {
   constructor(lienzo, maxJugadores) {
     this.controles = new Array(maxJugadores);
@@ -269,6 +275,45 @@ export class Entrada {
     return false;
   }
 
+  // --- AVANZAR DE PANTALLA -------------------------------------------------
+  //
+  // Las teclas y los botones que sirven para pasar de una pantalla a la
+  // siguiente. NO vale cualquiera, y esa es la diferencia con `algunFlanco`.
+  //
+  // Antes valía todo, y el problema no es teórico: entre el arranque y el menú
+  // hay cuatro pantallas que se pasan solas o con una pulsación, así que
+  // cualquier roce del teclado —o dejar un mando boca abajo en el sofá, que
+  // mantiene un gatillo apretado— se llevaba por delante la intro entera sin
+  // que nadie hubiera decidido nada. Con tres teclas y cinco botones concretos
+  // hay que querer pasar.
+  //
+  // Los botones son los del mapeo estándar del Gamepad API: 0=A, 1=B, 2=X, 3=Y
+  // y 9=Start/Menu. Son los que cualquiera busca para "seguir", y dejan fuera
+  // gatillos, sticks y crucetas, que son los que se pulsan sin querer.
+  flancoAvance() {
+    for (let i = 0; i < TECLAS_AVANCE.length; i++) {
+      if (this._flanco.has(TECLAS_AVANCE[i])) return true;
+    }
+    for (let i = 0; i < this.controles.length; i++) {
+      if (this.controles[i]._flancoBotones & MASCARA_AVANCE) return true;
+    }
+    return false;
+  }
+
+  // ¿Hay ahora mismo alguna de esas teclas o botones SOSTENIDA? Es el estado, no
+  // el flanco: lo usa la cuenta atrás para saltarse una narración
+  // (ver el aro de la esquina en ui/relato.js), que necesita saber si se sigue
+  // pulsando, no si se acaba de pulsar.
+  avanceMantenido() {
+    for (let i = 0; i < TECLAS_AVANCE.length; i++) {
+      if (this._teclas.has(TECLAS_AVANCE[i])) return true;
+    }
+    for (let i = 0; i < this.controles.length; i++) {
+      if (this.controles[i]._botonesPrev & MASCARA_AVANCE) return true;
+    }
+    return false;
+  }
+
   _algunaTecla(lista) {
     for (let i = 0; i < lista.length; i++) {
       if (this._teclas.has(lista[i])) return true;
@@ -283,6 +328,38 @@ export class Entrada {
     // si hay mando, así que ni se pregunta hasta entonces.
     if (!this.hayGamepad || !navigator.getGamepads) return null;
     return navigator.getGamepads();
+  }
+
+  // VIBRAR EL MANDO DE UN JUGADOR. Lo llama main.js cuando ese jugador pierde
+  // una vida.
+  //
+  // La API es `vibrationActuator.playEffect`, y NO la soportan todos los
+  // navegadores ni todos los mandos: Chrome y Edge sí con un mando XInput,
+  // Firefox y Safari no, y un mando genérico puede estar conectado y no tener
+  // motores. Por eso todo el cuerpo va detrás de comprobaciones y dentro de un
+  // try: una vibración que no se puede dar es una cosa que no pasa, no un error
+  // —el aviso de verdad es el visual, y ese lo ve todo el mundo—.
+  //
+  // `playEffect` devuelve una promesa que RECHAZA si el mando desaparece a media
+  // vibración (se apaga, se queda sin pila, lo desenchufan). Sin el `.catch` eso
+  // sale por consola como un rechazo no gestionado en el peor momento posible.
+  //
+  // Dos motores: el `strong` es el pesado y el `weak` el agudo. Perder una vida
+  // pide el pesado, que es el que se siente como un golpe.
+  vibrar(indice, duracion = 260, fuerte = 0.85, suave = 0.4) {
+    if (!this.hayGamepad || !navigator.getGamepads) return;
+    const lista = navigator.getGamepads();
+    const gp = lista && lista[indice];
+    if (!gp || !gp.connected || !gp.vibrationActuator) return;
+    try {
+      const r = gp.vibrationActuator.playEffect('dual-rumble', {
+        startDelay: 0,
+        duration: duracion,
+        strongMagnitude: fuerte,
+        weakMagnitude: suave
+      });
+      if (r && r.catch) r.catch(() => {});
+    } catch (e) { /* mando sin motores: no pasa nada */ }
   }
 
   _contarMandos() {

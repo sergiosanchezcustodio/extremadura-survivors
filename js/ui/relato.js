@@ -1,4 +1,4 @@
-import { ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
+import { ANCHO_FISICO, ALTO_FISICO, ANCHO_UI, ALTO_UI } from '../core/constantes.js';
 import { FUENTE_TITULO, FUENTE_RELATO, textoEspaciado } from './capa.js';
 import { fondoTitulo } from './pantallas.js';
 
@@ -32,6 +32,109 @@ import { fondoTitulo } from './pantallas.js';
 // aparecer detrás del anterior, pero se pasa DOCE SEGUNDOS cruzando el hueco de
 // la placa antes de salir por arriba. Tiempo para leerlo sobra.
 const SEGUNDOS_POR_LINEA = 1.4;
+
+// Lo que "pesa" un renglón EN BLANCO a la hora de repartir el tiempo de la voz.
+//
+// Una línea vacía separa párrafos, y el narrador hace ahí una pausa — pero una
+// pausa corta, no el tiempo de leer diez caracteres. Doce es lo que dura ese
+// respiro medido contra el ritmo de las dos narraciones que hay: a los doce
+// caracteres por segundo a los que habla, algo menos de un segundo.
+const PESO_PAUSA = 12;
+
+// LA VOZ ENTRA TARDE A PROPÓSITO, tres segundos después que el texto.
+//
+// Un renglón tiene que estar LEGIBLE cuando se narra, y para eso ha tenido que
+// entrar antes: si los dos arrancan a la vez, el narrador dice la primera frase
+// mientras esa frase todavía está asomando por abajo, y para ponerla a tiempo el
+// texto tendría que pegar un acelerón al principio que se ve como un tirón.
+//
+// Con tres segundos de ventaja el texto entra a su ritmo, y cuando el primer
+// renglón está en mitad de la placa es cuando empieza a sonar. Es lo mismo que
+// hace cualquier rótulo narrado: primero se ve, luego se oye.
+export const RETARDO_VOZ = 3;
+
+// --- SALTARSE UNA NARRACIÓN: TRES SEGUNDOS SOSTENIDOS ------------------------
+//
+// Una pulsación suelta ya no vale para saltarse el relato, y el motivo es que
+// ahora hay VOZ. Un rótulo que se salta con un roce es una molestia; una
+// narración de un minuto que se salta con un roce es el trabajo de la pantalla
+// entero tirado por un botón mal apoyado, y encima sin forma de volver.
+//
+// Dos segundos: bastante más de lo que dura cualquier pulsación accidental y
+// bastante menos de lo que cansa a quien ha visto esto diez veces y quiere
+// entrar a jugar. Empezó en tres y se quedó corto por el otro lado — aguantando,
+// tres segundos se hacen largos.
+//
+// Y SE VE MIENTRAS SE PULSA. Sin el aro, mantener pulsado no se le ocurre a
+// nadie: pulsas, no pasa nada, y concluyes que la pantalla no se puede saltar.
+// El aro aparece al primer contacto y se cierra según se aguanta, que es el
+// gesto que ya conoce todo el mundo de otros juegos.
+export const AGUANTE_SALTO = 2;
+
+// Se VACÍA más rápido de lo que se llena. Soltar un momento sin querer no puede
+// costar los tres segundos otra vez, pero soltar del todo tiene que deshacerlo
+// en un instante o el aro se quedaría ahí medio lleno sin que nadie lo esté
+// pulsando.
+const VACIADO = 2.5;
+
+// El aro, en la esquina INFERIOR DERECHA. Es donde menos estorba: el relato sube
+// por el centro de la placa y el ojo va ahí, así que un aro en esa esquina se ve
+// por el rabillo y no tapa ni una letra.
+const ARO_MARGEN = 26;
+const ARO_RADIO = 13;
+const ARO_GROSOR = 3;
+
+// Cuánto lleva aguantado, de 0 a 1. Lo llevan las pantallas que narran y se lo
+// pasan a `dibujarAguante`; vive fuera de aquí porque cada pantalla tiene su
+// propio reloj y su propia forma de terminar.
+export function avanzarAguante(actual, mantenido, dt) {
+  const v = mantenido ? 1 / AGUANTE_SALTO : -VACIADO;
+  return Math.max(0, Math.min(1, actual + v * dt));
+}
+
+// EL ARO. Un carril oscuro y encima el arco de lo que llevas, desde arriba y en
+// el sentido del reloj.
+export function dibujarAguante(ctx, fraccion) {
+  if (fraccion <= 0.001) return;
+  // ANCHO_UI y no ANCHO_FISICO: el aro va en la CAPA DE INTERFAZ, igual que el
+  // texto del relato. Hoy los dos pares de constantes valen lo mismo (960x540) y
+  // por eso da igual, pero se separaron a propósito para que la interfaz deje de
+  // depender de la escala del arte — usar aquí las del mundo sería atarlas otra
+  // vez por accidente.
+  const cx = ANCHO_UI - ARO_MARGEN - ARO_RADIO;
+  const cy = ALTO_UI - ARO_MARGEN - ARO_RADIO;
+
+  ctx.save();
+  // Entra desvaneciéndose: al primer roce el aro asoma en vez de aparecer de
+  // golpe, que a esa escala se lee como un parpadeo.
+  ctx.globalAlpha = Math.min(1, fraccion * 6);
+
+  ctx.lineWidth = ARO_GROSOR;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(10,8,6,.55)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, ARO_RADIO, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = ORO_CLARO;
+  ctx.beginPath();
+  ctx.arc(cx, cy, ARO_RADIO, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fraccion);
+  ctx.stroke();
+
+  // Y el aviso de qué se está haciendo, una vez. Solo cuando ya se lleva un
+  // poco: puesto desde el primer fotograma, parpadearía con cada roce.
+  if (fraccion > 0.12) {
+    ctx.globalAlpha = Math.min(1, (fraccion - 0.12) * 4);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.font = `600 13px ${FUENTE_RELATO}`;
+    ctx.fillStyle = 'rgba(10,8,6,.75)';
+    ctx.fillText('saltar', cx - ARO_RADIO - 7, cy + 1);
+    ctx.fillStyle = ORO;
+    ctx.fillText('saltar', cx - ARO_RADIO - 8, cy);
+  }
+  ctx.restore();
+}
 
 // EL FINAL, en dos tiempos. Cuando el último renglón sale por arriba la placa
 // se queda un rato vacía —ESPERA— y solo después empieza el fundido. Sin esa
@@ -165,10 +268,25 @@ export function prepararRelato(guion) {
   const escAnte = escalaQueEntra(ctx, guion, cabe, '@');
   const escCuerpo = escalaQueEntra(ctx, guion, cabe, '');
 
+  // Lo que hace falta para acompasar el texto a una narración: dónde cae cada
+  // renglón y cuánto tarda la voz en decirlo. Ver `acompasarAVoz`.
+  const renglones = [];
+
   let y = 0;
   for (let i = 0; i < guion.length; i++) {
     const linea = guion[i];
     const salto = altoLinea(linea);
+    renglones.push({
+      centro: y + salto / 2,
+      // EL PESO ES EN CARACTERES, que es lo que tarda en decirse. No en
+      // renglones: "Hoy vuelven a ser verdad." y "Nadie sabe por qué. Quizá
+      // porque" ocupan lo mismo en la placa y no se tarda lo mismo en leerlos en
+      // voz alta, y repartir el tiempo por igual entre los dos es exactamente lo
+      // que hacía que el texto y la voz se separaran según avanzaba la pantalla.
+      //
+      // La marca inicial no cuenta: '@' y '#' son de maquetación, no se dicen.
+      peso: linea.length ? linea.replace(/^[@#]/, '').length : PESO_PAUSA
+    });
     if (linea.length > 0) {
       // La base del renglón, no su borde de arriba: por eso el 0,78.
       const base = (y + salto * 0.78) * RES;
@@ -195,6 +313,9 @@ export function prepararRelato(guion) {
 
   // Velocidad: la que hace que asome un renglón cada SEGUNDOS_POR_LINEA.
   const velocidad = SALTO / SEGUNDOS_POR_LINEA;
+  // Y se guarda lo que mide el hueco, que hace falta fuera para recalcular la
+  // velocidad cuando manda la voz. Ver `acompasarAVoz`.
+
   // Y la duración: lo que tarda el guion entero en cruzar el hueco de punta a
   // punta —su propio alto MÁS el alto del hueco, porque el primer renglón
   // todavía tiene que subirlo entero—, la espera con la placa ya vacía y el
@@ -202,7 +323,105 @@ export function prepararRelato(guion) {
   const util = (PANEL.y1 - MARGEN) - (PANEL.y0 + MARGEN);
   const duracion = (y + util) / velocidad + ESPERA + FUNDIDO;
 
-  return { texto: c, altoTexto: y, velocidad, duracion };
+  return { texto: c, altoTexto: y, velocidad, duracion, renglones, curva: null };
+}
+
+// ACOMPASAR EL RELATO A LA NARRACIÓN.
+//
+// Cuando hay voz, MANDA LA VOZ: el texto deja de subir a ritmo fijo y pasa a
+// seguir al narrador renglón por renglón.
+//
+// LA PRIMERA VERSIÓN SOLO CUADRABA EL TOTAL —misma duración, velocidad
+// constante— y no bastaba. El texto y la voz coincidían al empezar y al acabar,
+// y entre medias se separaban y se volvían a juntar: en la intro el texto se
+// adelantaba y en la de Mérida se quedaba atrás, hasta el punto de que el último
+// renglón se iba de la placa mientras el narrador todavía lo estaba diciendo.
+//
+// El motivo es que un renglón ocupa lo mismo en la placa se diga en un segundo o
+// en tres. Repartir el recorrido a partes iguales entre renglones es suponer que
+// todos se tardan lo mismo en decir, y eso es falso en cuanto una línea lleva
+// cuatro palabras y la siguiente ocho.
+//
+// AHORA SE REPARTE POR CARACTERES. A cada renglón le toca el trozo de narración
+// que le corresponde por lo que cuesta decirlo, y el scroll va de un renglón al
+// siguiente a la velocidad que haga falta —variable, no constante—, de forma que
+// CADA UNO ESTÉ EN MITAD DE LA PLACA CUANDO SE ESTÁ NARRANDO. El punto de
+// lectura es el centro del hueco y no otro sitio porque es donde el ojo va solo.
+//
+// Es una estimación, no una transcripción: sin marcas de tiempo reales del
+// audio, lo que hay es el número de letras. Pero corrige la deriva, que era el
+// problema — un error de medio renglón no se nota; uno de seis, sí.
+//
+// Con `duracionVoz` a cero —no hay MP3, o el navegador todavía no lo deja
+// sonar— se devuelve el relato tal cual y todo sigue como siempre.
+export function acompasarAVoz(relato, duracionVoz) {
+  if (!relato || !relato.renglones) return relato;
+  if (!(duracionVoz > 0)) { relato.curva = null; return relato; }
+
+  const util = (PANEL.y1 - MARGEN) - (PANEL.y0 + MARGEN);
+  let total = 0;
+  for (const r of relato.renglones) total += r.peso;
+  if (total <= 0) return relato;
+
+  // La curva es una lista de (instante, cuánto ha subido el texto). El primer
+  // punto es el arranque: texto abajo del todo y nada subido todavía.
+  const curva = [{ t: 0, d: 0 }];
+  let acum = 0;
+  for (const r of relato.renglones) {
+    // El instante en que la voz va por la MITAD de este renglón.
+    const t = RETARDO_VOZ + duracionVoz * (acum + r.peso / 2) / total;
+    // Y lo que tiene que haber subido el texto para que ese renglón caiga
+    // justo en el centro del hueco en ese instante.
+    const d = util / 2 + r.centro;
+    const ultimo = curva[curva.length - 1];
+    // Solo si avanza en los dos ejes: dos renglones con el mismo peso podrían
+    // dar el mismo instante, y un tramo de duración cero haría una división
+    // por cero al interpolar.
+    if (t > ultimo.t + 0.001 && d > ultimo.d) curva.push({ t, d });
+    acum += r.peso;
+  }
+  if (curva.length < 2) { relato.curva = null; return relato; }
+
+  // LA COLA: cuando el narrador se calla, el último renglón está en mitad de la
+  // placa y todavía tiene que salir por arriba. Se termina de sacar a la
+  // velocidad del último tramo, para que no se note el cambio.
+  const fin = curva[curva.length - 1];
+  const previo = curva[curva.length - 2];
+  const vFinal = (fin.d - previo.d) / (fin.t - previo.t);
+  const dSalida = relato.altoTexto + util;     // todo el texto por encima del hueco
+  if (dSalida > fin.d && vFinal > 0) {
+    curva.push({ t: fin.t + (dSalida - fin.d) / vFinal, d: dSalida });
+  }
+
+  relato.curva = curva;
+  // Y la pantalla dura lo que tarde el texto en irse del todo, MÁS el silencio
+  // con la placa vacía y el fundido. Antes se cortaba al acabar la voz, y por
+  // eso el final se comía el último renglón.
+  relato.duracion = curva[curva.length - 1].t + ESPERA + FUNDIDO;
+  return relato;
+}
+
+// Cuánto ha subido el texto en el instante `t`. Con curva, interpolando entre
+// sus puntos; sin ella, la recta de siempre.
+//
+// La búsqueda es lineal y no binaria a propósito: son treinta y tantos puntos y
+// esto se llama una vez por fotograma, no por renglón.
+function subidoEn(relato, t) {
+  const c = relato.curva;
+  if (!c) return t * relato.velocidad;
+  if (t <= 0) return 0;
+  for (let i = 1; i < c.length; i++) {
+    if (t < c[i].t) {
+      const a = c[i - 1], b = c[i];
+      return a.d + (b.d - a.d) * (t - a.t) / (b.t - a.t);
+    }
+  }
+  // Pasado el último punto ya no queda texto, pero se sigue subiendo por si
+  // alguien dibuja durante la espera: parar en seco dejaría el renglón final
+  // clavado en el borde de arriba.
+  const fin = c[c.length - 1], previo = c[c.length - 2];
+  const v = (fin.d - previo.d) / (fin.t - previo.t);
+  return fin.d + (t - fin.t) * v;
 }
 
 // El texto sube a TAMAÑO CONSTANTE. Se dibuja en tiras horizontales, pero al
@@ -216,7 +435,7 @@ export function dibujarRelato(ctx, relato, reloj) {
 
   // Dónde cae la primera fila del texto: pegada al borde de abajo al empezar, y
   // subiendo a partir de ahí.
-  const origen = abajo - reloj * relato.velocidad;
+  const origen = abajo - subidoEn(relato, reloj);
   const x = PANEL_CX - ANCHO_TEXTO / 2;
 
   ctx.save();

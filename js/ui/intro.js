@@ -1,6 +1,8 @@
 import { Recursos } from '../core/recursos.js';
+import { GestorAudio } from '../sistemas/audio.js';
 import {
-  ESPERA, FUNDIDO, prepararRelato, dibujarRelato,
+  ESPERA, FUNDIDO, prepararRelato, dibujarRelato, acompasarAVoz, RETARDO_VOZ,
+  avanzarAguante, dibujarAguante,
   hornearPantalla, fondoPantalla, velo
 } from './relato.js';
 
@@ -64,6 +66,11 @@ const RUTA_SPLASH = 'assets/menus/splash.jpg';
 const RUTA_HISTORIA = 'assets/menus/intro-historia.jpg';
 const RUTA_PORTADA = 'assets/menus/titulo-pre.jpg';
 
+// LA VOZ DEL NARRADOR de esta pantalla. Es un MP3 horneado (ver
+// herramientas/generar-voz.js) y es opcional de verdad: si falta, el relato sube
+// como siempre y no se entera nadie.
+const RUTA_VOZ = 'assets/voz/intro.mp3';
+
 // EL GUION DE LA INTRO: de qué va ESTO, en un minuto.
 //
 // No cuenta una historia entera, presenta la premisa: dónde pasa, qué ha
@@ -75,51 +82,43 @@ const RUTA_PORTADA = 'assets/menus/titulo-pre.jpg';
 // La historia de cada sitio NO va aquí: va en su archivo de datos.
 const GUION = [
   '@EXTREMADURA',
-  '#LA HORDA',
+  '#SURVIVORS',
   '',
   '',
-  'Hace veinte siglos Roma levantó',
-  'sus ciudades entre el Tajo y el',
-  'Guadiana, y se marchó dejándolas',
-  'en pie.',
+  'Extremadura, tierra de historias',
+  'y leyendas casi olvidadas.',
   '',
-  'Veinte siglos después algo se ha',
-  'despertado debajo de ellas.',
+  'Hoy vuelven a ser verdad.',
   '',
-  'Sale de los foros y de las cloacas',
-  'cuando cae la noche. Cruza las',
-  'murallas, las dehesas y los',
-  'puentes. Y no deja de crecer.',
+  'Lo que se contaba al calor de la',
+  'lumbre ha resurgido de sus',
+  'cenizas, y asola los pueblos y',
+  'los campos de nuestra gente.',
   '',
-  'Nadie va a venir a ayudar.',
+  'Nadie sabe por qué. Quizá porque',
+  'el amor, la bondad y la compasión',
+  'fueron cayendo en el olvido, y en',
+  'su sitio crecieron el miedo, el',
+  'odio y la ira.',
   '',
+  'El mal le está ganando la partida',
+  'al bien.',
   '',
-  '@LO QUE HAY',
+  'Y aun así queda esperanza.',
   '',
-  'Ocho héroes, cada uno con su arma',
-  'y su manera de morir.',
-  '',
-  'Cincuenta armas y una decena de',
-  'reliquias que las cambian por',
-  'dentro. Bestias que guardan cada',
-  'ciudad y esperan al final.',
-  '',
-  'Se juega solo o hasta cuatro,',
-  'en el mismo sofá o en la distancia.',
-  '',
-  'Lo que se gane no se pierde: los',
-  'denarios de una partida compran',
-  'la siguiente.',
+  'Mientras haya hombres y mujeres',
+  'de valor, sin miedo a lo',
+  'desconocido, con el corazón y el',
+  'coraje suficientes para plantar',
+  'cara a lo que acecha…',
   '',
   '',
-  '@LO QUE SE PIDE',
-  '',
-  'Aguantar hasta el amanecer.',
-  '',
-  'Una ciudad cada vez.'
+  'Extremadura te necesita.'
 ];
 
 const estado = {
+  // Cuánto lleva aguantada la tecla de saltar, de 0 a 1. Ver AGUANTE_SALTO.
+  aguante: 0,
   fase: FASE_SPLASH,
   reloj: 0,
   relato: null,       // el guion ya trazado (ver ui/relato.js)
@@ -147,6 +146,7 @@ export const Intro = {
   iniciar() {
     estado.fase = FASE_SPLASH;
     estado.reloj = 0;
+    estado.aguante = 0;
     if (!estado.relato) estado.relato = prepararRelato(GUION);
   },
 
@@ -154,12 +154,20 @@ export const Intro = {
   actualizar(dt, entrada) {
     estado.reloj += dt;
 
-    // Cualquier tecla, cualquier botón, en las dos pantallas.
-    if (entrada.algunFlanco()) return siguiente();
+    // EL RELATO SE SALTA AGUANTANDO, no de un toque: hay un minuto de narración
+    // detrás y perderla por un roce no tiene arreglo (ver AGUANTE_SALTO). Las
+    // otras dos fases —el logo y la portada— siguen pasando con una pulsación:
+    // ahí no hay nada que perderse.
+    if (estado.fase === FASE_RELATO) {
+      estado.aguante = avanzarAguante(estado.aguante, entrada.avanceMantenido(), dt);
+      if (estado.aguante >= 1) { estado.aguante = 0; return siguiente(); }
+    } else if (entrada.flancoAvance()) {
+      return siguiente();
+    }
 
     if (estado.fase === FASE_SPLASH && estado.reloj >= SPLASH_DURA) return siguiente();
     if (estado.fase === FASE_RELATO && estado.reloj >= estado.relato.duracion) return siguiente();
-    // La portada no tiene reloj: se sale de ella por el `algunFlanco` de arriba
+    // La portada no tiene reloj: se sale de ella por el `flancoAvance` de arriba
     // y por ningún otro sitio.
     return false;
   },
@@ -171,6 +179,7 @@ export const Intro = {
     } else if (estado.fase === FASE_RELATO) {
       fondoPantalla(ctxMundo, estado.historia);
       dibujarRelato(ctxUi, estado.relato, estado.reloj);
+      dibujarAguante(ctxUi, estado.aguante);
       velo(ctxMundo, estado.reloj, estado.relato.duracion - estado.reloj, FUNDIDO);
     } else {
       fondoPantalla(ctxMundo, estado.portada);
@@ -191,9 +200,18 @@ function siguiente() {
   if (estado.fase === FASE_SPLASH) {
     estado.fase = FASE_RELATO;
     estado.reloj = 0;
+    // Y empieza a hablar. La duración llega DESPUÉS —hay que leer la cabecera
+    // del MP3— así que el relato arranca a su ritmo de siempre y se reajusta en
+    // cuanto se sabe cuánto dura la voz. Es cosa de milisegundos: el salto no se
+    // ve porque el texto todavía está entrando por abajo.
+    GestorAudio.narrar(RUTA_VOZ, RETARDO_VOZ)
+      .then((d) => acompasarAVoz(estado.relato, d));
     return false;
   }
   if (estado.fase === FASE_RELATO) {
+    // Se salta el relato: el narrador se calla. Sin esto sigue contando la
+    // historia por encima del menú.
+    GestorAudio.callarNarrador();
     // SIN PORTADA NO HAY PARADA. Si la ilustración no ha cargado, esta pantalla
     // sería un negro esperando una tecla que nadie sabe que hay que pulsar: se
     // salta y se va a elegir partida, igual que antes de que existiera.

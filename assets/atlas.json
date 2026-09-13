@@ -450,6 +450,24 @@
                                                   83
                                               ]
                                },
+                      "corazonVida":  {
+                                        "archivo":  "interfaz/corazon-vida.png",
+                                        "w":  34,
+                                        "h":  32,
+                                        "anclaX":  17,
+                                        "anclaY":  16,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "corazonMuerte":  {
+                                        "archivo":  "interfaz/corazon-muerte.png",
+                                        "w":  38,
+                                        "h":  32,
+                                        "anclaX":  19,
+                                        "anclaY":  16,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
                       "ataudGenerico":  {
                                         "archivo":  "personajes/generico-ataud.png",
                                         "w":  65,

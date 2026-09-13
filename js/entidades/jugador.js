@@ -53,6 +53,22 @@ const BASE = {
 // Invulnerabilidad tras golpe. Es lo que convierte el daño de contacto en tics:
 // estar metido en un enjambre son 2 impactos por segundo, no 60.
 const INVULNERABILIDAD = 0.5;
+
+// EL RENACER: cuánto dura la desaparición y la vuelta al gastar una vida.
+//
+// Nueve décimas, partidas por la mitad: en la primera el personaje se encoge
+// hasta desaparecer del todo, en la segunda vuelve a crecer desde nada. Y detrás
+// siguen los i-frames de siempre hasta los dos segundos.
+//
+// Existe porque perder una vida PASABA DESAPERCIBIDO, que es lo peor que puede
+// hacer el suceso más importante de una partida. Lo único que se veía era el
+// parpadeo normal de invulnerabilidad —el mismo de cualquier roce— y un número
+// que bajaba en una esquina de cuarenta píxeles. Te habías muerto y podías no
+// enterarte.
+//
+// Desaparecer DEL TODO y no solo parpadear es la diferencia: un hueco donde
+// estaba tu personaje obliga a mirar, porque de pronto no sabes dónde estás.
+const RENACER = 0.9;
 const PARPADEO = 0.07;     // periodo del destello mientras dura
 
 // DESTELLO ROJO al recibir. Va ANTES del parpadeo de i-frames y no a la vez:
@@ -226,6 +242,9 @@ export class Jugador {
     // marcha para que un jugador nazca siempre con los mismos campos, que es de
     // lo que depende el determinismo (ver core/determinismo.js).
     this._ataquesLimpiados = false;
+    // Segundos que le quedan al RENACER: la desaparición y la vuelta al gastar
+    // una vida. Solo dibujo — ver `dibujar` y RENACER en este mismo archivo.
+    this.renacer = 0;
     this.inmortal = false;         // depuración: permite medir sin morir
     this.golpesRecibidos = 0;
 
@@ -553,6 +572,10 @@ export class Jugador {
       if (this.resurreccionesUsadas < this.resurreccionesMax) {
         this.resurreccionesUsadas++;
         this.levantar();
+        // Y la puesta en escena: desaparece y vuelve. `levantar` ya deja los dos
+        // segundos de invulnerabilidad (INVULNERABILIDAD * 4), así que el
+        // personaje está a salvo durante toda la animación y un rato más.
+        this.renacer = RENACER;
         // Levantarse apaga el destello —quien sale del ataúd sale entero— y
         // aquí no se ha salido de ningún ataúd: el golpe ha existido y tiene
         // que verse.
@@ -668,6 +691,7 @@ export class Jugador {
     this.recalcularStats();
     this.vida = this.vidaMaxima;
     this.invulnerable = 0;
+    this.renacer = 0;
     this.destello = 0;
     this.abatido = false;
     this.reanimacion = 0;
@@ -689,6 +713,10 @@ export class Jugador {
     this.xPrev = this.x;
     this.yPrev = this.y;
 
+    if (this.renacer > 0) {
+      this.renacer -= dt;
+      if (this.renacer < 0) this.renacer = 0;
+    }
     if (this.invulnerable > 0) {
       this.invulnerable -= dt;
       if (this.invulnerable < 0) this.invulnerable = 0;
@@ -1054,10 +1082,37 @@ export class Jugador {
     const cxF = Math.round(this.xVista * ESCALA_ARTE);
     const cyF = Math.round(this.yVista * ESCALA_ARTE);
 
+    const anchoLog = meta.w / ESCALA_ARTE;
+    const altoLog = meta.h / ESCALA_ARTE;
+
+    // --- EL RENACER: se va y vuelve ----------------------------------------
+    //
+    // La mitad de la animación se encoge hasta nada y la otra mitad crece desde
+    // nada. Se escala desde LOS PIES, no desde el centro: un personaje que
+    // encoge hacia su ombligo flota; encogiendo hacia el suelo se lee como que
+    // se hunde y vuelve a salir, que es lo que cuenta lo que ha pasado.
+    //
+    // En el fondo del valle no se dibuja NADA durante unos fotogramas, y ese
+    // hueco es justo el aviso: el ojo va a buscar dónde estás.
+    if (this.renacer > 0) {
+      const u = 1 - this.renacer / RENACER;       // 0 al empezar, 1 al acabar
+      // Triángulo: 1 -> 0 -> 1, con el valle en la mitad.
+      const k = Math.abs(u - 0.5) * 2;
+      if (k < 0.06) return;                       // el instante en que no está
+      ctx.save();
+      ctx.globalAlpha = k;
+      const w = anchoLog * k, h = altoLog * k;
+      ctx.drawImage(img,
+        indice * meta.w, 0, meta.w, meta.h,
+        cxF / ESCALA_ARTE - w / 2, cyF / ESCALA_ARTE - h, w, h);
+      ctx.restore();
+      return;
+    }
+
     ctx.drawImage(img,
       indice * meta.w, 0, meta.w, meta.h,
       (cxF - (meta.w >> 1)) / ESCALA_ARTE, (cyF - meta.h) / ESCALA_ARTE,
-      meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
+      anchoLog, altoLog);
   }
 
 

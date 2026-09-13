@@ -271,7 +271,10 @@ const Y_NOMBRE = Y_NIVEL - 9;
 // retrato creciera cuando no hay Moneda de Caronte y encogiera al comprarla, la
 // ficha cambiaría de cara a mitad de partida por un objeto que no tiene nada que
 // ver con el retrato.
-const ALTO_RESU = 14;
+// La banda de los corazones: su alto (9) más un poco de aire arriba y abajo.
+// Se reserva SIEMPRE, se tengan vidas de más o no, porque los cinco corazones
+// salen siempre; y así el retrato mide lo mismo en todas las fichas.
+const ALTO_RESU = 13;
 const ALTO_RETRATO = (Y_NOMBRE - 7.5) - RELLENO_V - ALTO_RESU;
 const Y_RETRATO = RELLENO_V;
 // Centro de la banda de resurrecciones, justo debajo del retrato.
@@ -715,76 +718,201 @@ export function dibujarIconoPasivo(ctx, x, y, r, idPasivo, color, escala = 1) {
 // `personaje` dice de qué DIBUJO sale, que es `def.sprite`. Mientras un héroe
 // lleve arte prestada (ver `provisional` en datos/personajes.js) los dos no
 // coinciden, y preguntando por el id el retrato salía vacío.
-// --- Resurrecciones (Moneda de Caronte) --------------------------------------
+// --- Vidas: cinco corazones ---------------------------------------------------
 //
-// Un círculo con las que QUEDAN y, a su lado, un punto por cada una que ya se ha
-// gastado. Lo pidió Sergio, y hacía falta: la Moneda de Caronte es el único
-// objeto del juego cuyo efecto ocurre en el instante en que no estás mirando la
-// esquina —te acaban de matar— y hasta ahora no dejaba rastro en ninguna parte.
-// Quien la llevaba no sabía si le quedaba alguna, ni siquiera si se había usado.
+// Debajo del retrato, SIEMPRE CINCO, lleno el que tienes y hueco el que no. Los
+// dibujos son de Sergio (resources/characters/corazon_vida.png y
+// corazon_muerte.png), redimensionados a 32 de alto para el atlas.
 //
-// DOS SEÑALES Y NO UNA, porque son dos preguntas distintas:
+// SIEMPRE CINCO, y ese es el punto entero. Un contador que solo enseña lo que
+// tienes no dice nada: ves tres corazones y no sabes si te sobran o si te
+// faltan. Con las cinco casillas puestas desde el principio, el hueco vacío dice
+// cuánto te queda por comprar y el corazón apagado dice cuánto has perdido, que
+// son las dos cosas que se preguntan. Es la misma regla que las ranuras vacías
+// de armas y objetos de esta misma ficha.
 //
-//   - el NÚMERO dentro del círculo responde "¿cuántas me quedan?", que es lo que
-//     se consulta antes de meterse en un sitio del que igual no se sale;
-//   - los PUNTOS responden "¿he gastado alguna?", que es lo que se mira justo
-//     después de volver a la vida sin entender muy bien qué ha pasado.
+// QUÉ CUENTA COMO VIDA: la que estás viviendo más las resurrecciones que te
+// queden. O sea que sin Moneda de Caronte se ve UN corazón lleno y cuatro
+// huecos, no cinco huecos: estás vivo, y un jugador en pie con cero corazones
+// diría lo contrario de lo que pasa. Al caer abatido se apagan todos.
 //
-// Con el número solo, gastar la última se vería igual que no haber tenido nunca
-// ninguna: el círculo pasaría de 1 a 0 y ahí se acabaría la historia.
-//
-// SIN MONEDA NO SE DIBUJA NADA. Un indicador a cero pidiendo la vista sobre algo
-// que no tienes es ruido, y esta ficha está en la esquina de un juego donde lo
-// que mata es no ver lo que se te viene encima. El hueco sigue reservado (ver
-// ALTO_RESU), así que el retrato no cambia de tamaño al comprar la Moneda.
-const COLOR_RESU = '#e8c368';                 // el bronce de la Moneda de Caronte
-const COLOR_RESU_GASTADA = 'rgba(236,226,206,.25)';
-const R_RESU = 6;
-const R_PUNTO = 1.7;
-const HUECO_PUNTO = 4.5;
+// Sustituyen al círculo con un número que hubo aquí antes. El número era exacto
+// y se leía peor: hay que pararse a leerlo, y esto se mira de reojo sin dejar de
+// esquivar. Cinco siluetas se cuentan de un vistazo.
+const VIDAS_MAX = 5;
+// 7 y no 9: cinco corazones de 9 con su aire suman 51 y la tarjeta mide 42, así
+// que se salían por los dos lados. A 7 con un punto de hueco son 39 y entran con
+// margen. Es pequeño, pero lo que hay que contar de un vistazo son CINCO
+// siluetas, no el detalle de cada una.
+const CORAZON_ALTO = 7;
+const CORAZON_HUECO = 1;
 
-function dibujarResurrecciones(ctx, cx, cy, jugador) {
-  const max = jugador.resurreccionesMax || 0;
-  if (max <= 0) return;
-  const usadas = Math.min(max, jugador.resurreccionesUsadas || 0);
-  const quedan = max - usadas;
-  const agotado = quedan <= 0;
+// LA MINI EXPLOSIÓN AL PERDER UNA. Medio segundo: el corazón se hincha, se parte
+// en ocho esquirlas que salen en estrella y detrás queda el hueco.
+//
+// No es adorno. Perder una vida es el suceso más importante que le puede pasar a
+// un jugador y hasta ahora pasaba en silencio en una esquina de 42 píxeles: el
+// número bajaba y ya. Lo que hace falta no es informar —el corazón apagado ya
+// informa— sino que el ojo VAYA ahí, y para eso tiene que moverse algo.
+//
+// El estado vive en el propio HUD y no en el jugador, con una entrada por
+// jugador: es puramente visual, no entra en la simulación y por tanto no puede
+// desincronizar el cooperativo online.
+const EXPLOSION_VIDA = 0.5;
+const ESQUIRLAS = 8;
+const COLOR_CORAZON = '#e0443c';
+const COLOR_ESQUIRLA = '#ff8a7a';
 
-  // El conjunto va CENTRADO como un bloque: el círculo más sus puntos. Si se
-  // centrara solo el círculo, la fila se descolgaría hacia la derecha según
-  // cuántas resurrecciones tenga el jugador, y con cuatro fichas en pantalla eso
-  // se lee como que una está torcida.
-  const anchoPuntos = usadas > 0 ? usadas * HUECO_PUNTO : 0;
-  const x0 = cx - (R_RESU * 2 + anchoPuntos) / 2;
-  const xCirculo = x0 + R_RESU;
+// EL CORAZÓN APAGADO, ACLARADO Y HORNEADO UNA VEZ.
+//
+// El dibujo de Sergio es un contorno rojo muy oscuro, que es lo correcto para un
+// corazón vacío pero desaparece sobre el relleno translúcido del panel: en
+// pantalla se veían los llenos y un hueco negro donde deberían estar los otros,
+// o sea justo la mitad de la información que estos corazones existen para dar.
+//
+// Se aclara con un `source-atop` de blanco a media opacidad: pinta solo donde ya
+// hay dibujo, así que respeta la silueta y no la ensucia por fuera. El arte no
+// se toca; lo que cambia es cómo se presenta sobre este fondo.
+//
+// UNA SOLA VEZ y en un lienzo aparte, no por frame. Un `ctx.filter` por dibujo
+// serían veinte filtros por fotograma con cuatro jugadores, y este es el archivo
+// que se pinta sesenta veces por segundo.
+let _corazonApagado = null;
+function corazonApagado(img, meta) {
+  if (_corazonApagado) return _corazonApagado;
+  const c = document.createElement('canvas');
+  c.width = meta.w; c.height = meta.h;
+  const cc = c.getContext('2d');
+  cc.drawImage(img, 0, 0);
+  cc.globalCompositeOperation = 'source-atop';
+  cc.fillStyle = 'rgba(226,216,200,.55)';
+  cc.fillRect(0, 0, meta.w, meta.h);
+  _corazonApagado = c;
+  return c;
+}
+
+// Cuántas vidas se le vieron por última vez a cada jugador, para detectar el
+// FLANCO de perder una. Comparar con el frame anterior es lo único que hace
+// falta: nadie tiene que avisar al HUD de nada.
+const VIDAS_VISTAS = [0, 0, 0, 0];
+// Cuándo empezó la explosión de cada jugador, en milisegundos de RELOJ DE PARED.
+//
+// De pared y no del paso de simulación, igual que el pulso de furia de la barra
+// de jefe de más abajo y por el mismo motivo: esto es adorno puro, no altera
+// nada de lo que se simula, y así el HUD no necesita que nadie le pase un `dt`
+// —el bucle solo le da el alpha de interpolación—. Un cero significa que no hay
+// animación en marcha.
+const EXPLOSION_DESDE = [0, 0, 0, 0];
+const EXPLOSION_INDICE = [-1, -1, -1, -1];  // qué corazón reventó
+
+// Vidas que le quedan a un jugador, contando la que está viviendo.
+function vidasDe(j) {
+  if (j.abatido) return 0;
+  const extra = Math.max(0, (j.resurreccionesMax || 0) - (j.resurreccionesUsadas || 0));
+  return Math.min(VIDAS_MAX, 1 + extra);
+}
+
+// OLVIDAR LO QUE SE VIO LA PARTIDA PASADA. Lo llama main.js al empezar una.
+//
+// Sin esto, `VIDAS_VISTAS` cruzaba de una partida a la siguiente y el flanco
+// saltaba solo: quien terminara una partida con cuatro vidas y empezara la
+// siguiente sin Moneda de Caronte veía tres corazones reventar en el primer
+// fotograma, con sus esquirlas y todo. Es el mismo fallo de estado con memoria
+// que ya se cazó en los obstáculos y en los pools.
+export function reiniciarVidasHud() {
+  for (let i = 0; i < VIDAS_VISTAS.length; i++) {
+    VIDAS_VISTAS[i] = 0;
+    EXPLOSION_DESDE[i] = 0;
+    EXPLOSION_INDICE[i] = -1;
+  }
+}
+
+function dibujarVidas(ctx, cx, cy, jugador, indice) {
+  const vidas = vidasDe(jugador);
+  const ahora = performance.now();
+
+  // --- Flanco: ¿acaba de perder una? -------------------------------------
+  // Se detecta comparando con lo que se vio el frame anterior. No hace falta que
+  // nadie avise al HUD: el número ya está en el jugador y mirarlo cuesta una
+  // resta.
+  // El cero significa "todavía no se ha visto a este jugador", así que la
+  // primera vuelta solo apunta y no compara: sin esto, la ficha del primer
+  // fotograma de la partida ya vendría de un 0 y todo sería una pérdida.
+  const antes = VIDAS_VISTAS[indice];
+  if (antes > 0 && vidas < antes) {
+    // Revienta el que se acaba de apagar, que es el último que estaba lleno.
+    EXPLOSION_INDICE[indice] = vidas;
+    EXPLOSION_DESDE[indice] = ahora;
+  }
+  VIDAS_VISTAS[indice] = vidas;
+
+  // Cuánto le queda a la animación, en segundos. Cero o menos: no hay.
+  const restante = EXPLOSION_DESDE[indice] > 0
+    ? EXPLOSION_VIDA - (ahora - EXPLOSION_DESDE[indice]) / 1000
+    : 0;
+
+  const imgVida = Recursos.imagen('corazonVida');
+  const imgMuerte = Recursos.imagen('corazonMuerte');
+  const metaVida = Recursos.meta('corazonVida');
+  const metaMuerte = Recursos.meta('corazonMuerte');
+  if (!imgVida || !imgMuerte || !metaVida || !metaMuerte) return;
+
+  // CELDAS FIJAS, dibujo centrado dentro. Los dos corazones no tienen la misma
+  // proporción —el hueco es más ancho y más bajo— así que dibujarlos a su aire
+  // haría bailar la fila cada vez que uno cambia de estado. Con la celda fija,
+  // cada uno conserva su forma y la fila no se mueve.
+  const celda = CORAZON_ALTO + CORAZON_HUECO;
+  const x0 = cx - (VIDAS_MAX * celda - CORAZON_HUECO) / 2;
 
   ctx.save();
+  for (let i = 0; i < VIDAS_MAX; i++) {
+    const vivo = i < vidas;
+    const meta = vivo ? metaVida : metaMuerte;
+    const img = vivo ? imgVida : corazonApagado(imgMuerte, metaMuerte);
+    const w = CORAZON_ALTO * meta.w / meta.h;
+    let x = x0 + i * celda + (CORAZON_ALTO - w) / 2;
+    let y = cy - CORAZON_ALTO / 2;
+    let lado = CORAZON_ALTO;
 
-  ctx.beginPath();
-  ctx.arc(xCirculo, cy, R_RESU, 0, Math.PI * 2);
-  ctx.fillStyle = HUECO_FONDO;
-  ctx.fill();
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = agotado ? COLOR_RESU_GASTADA : COLOR_RESU;
-  ctx.stroke();
+    // El que está reventando se HINCHA antes de quedarse hueco: crece de golpe
+    // y vuelve. Es lo que hace que el ojo lo pille aunque estuviera mirando al
+    // centro de la pantalla.
+    if (restante > 0 && i === EXPLOSION_INDICE[indice]) {
+      const u = restante / EXPLOSION_VIDA;      // 1 al empezar, 0 al acabar
+      const crece = 1 + 0.9 * u * u;
+      lado = CORAZON_ALTO * crece;
+      x = x0 + i * celda + (CORAZON_ALTO - w * crece) / 2;
+      y = cy - lado / 2;
+      ctx.globalAlpha = 0.35 + 0.65 * u;
+    }
 
-  ctx.font = `700 8px ${FUENTE}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  // +0.5 en la vertical: el centro geométrico de un texto y el centro óptico de
-  // una cifra no coinciden, y dentro de un círculo de 12 se nota.
-  textoBorde(ctx, String(quedan), xCirculo, cy + 0.5,
-             agotado ? '#a09888' : '#f4e6c4', 2.4);
-
-  // Un punto APAGADO por cada una gastada. Apagados y no encendidos: lo que
-  // cuentan es lo que ya no está.
-  ctx.fillStyle = COLOR_RESU_GASTADA;
-  for (let i = 0; i < usadas; i++) {
-    ctx.beginPath();
-    ctx.arc(x0 + R_RESU * 2 + HUECO_PUNTO * (i + 0.5), cy, R_PUNTO, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.drawImage(img, x, y, lado * meta.w / meta.h, lado);
+    ctx.globalAlpha = 1;
   }
 
+  // --- Las esquirlas -----------------------------------------------------
+  // Salen en estrella desde el corazón que ha reventado, frenando y apagándose.
+  // Van POR CÓDIGO y no por partículas del juego: el sistema de partículas vive
+  // en coordenadas del mundo y esto pasa en la capa de interfaz, que tiene sus
+  // propias unidades y su propia resolución.
+  if (restante > 0 && EXPLOSION_INDICE[indice] >= 0) {
+    const u = 1 - restante / EXPLOSION_VIDA;    // 0 al empezar, 1 al acabar
+    const ccx = x0 + EXPLOSION_INDICE[indice] * celda + CORAZON_ALTO / 2;
+    // Raíz cuadrada: salen disparadas y frenan, en vez de ir a velocidad
+    // constante como una rueda de feria.
+    const dist = 11 * Math.sqrt(u);
+    const r = 1.6 * (1 - u);
+    ctx.globalAlpha = 1 - u;
+    ctx.fillStyle = u < 0.4 ? COLOR_ESQUIRLA : COLOR_CORAZON;
+    for (let k = 0; k < ESQUIRLAS; k++) {
+      const ang = (k / ESQUIRLAS) * Math.PI * 2 + 0.4;
+      ctx.beginPath();
+      ctx.arc(ccx + Math.cos(ang) * dist, cy + Math.sin(ang) * dist * 0.85,
+              r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
   ctx.restore();
 }
 
@@ -1075,7 +1203,7 @@ export function dibujarPaneles(ctx, jugadores) {
          HUECO_FONDO, null);
     dibujarCabeza(ctx, xTarjeta + RETRATO_INSET, y + Y_RETRATO,
                   RETRATO_ANCHO, ALTO_RETRATO, j);
-    dibujarResurrecciones(ctx, xTarjeta + TARJETA_ANCHO / 2, y + Y_RESU, j);
+    dibujarVidas(ctx, xTarjeta + TARJETA_ANCHO / 2, y + Y_RESU, j, indice);
 
     const cxTarjeta = xTarjeta + TARJETA_ANCHO / 2;
     ctx.textAlign = 'center';

@@ -42,7 +42,7 @@ import { dibujarMapa } from './ui/mapa.js';
 import { dibujarTienda } from './ui/tienda.js';
 import { dibujarFinal, dibujarCartelFinal } from './ui/final.js';
 import { dibujarPaneles, dibujarReloj, dibujarBarraJefe,
-         dibujarCuentaAtrasReloj } from './ui/hud.js';
+         dibujarCuentaAtrasReloj, reiniciarVidasHud } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje, dibujarDespedida } from './ui/pantallas.js';
 import { dibujarConfig, dibujarConfirmacion } from './ui/configuracion.js';
 import { Capa, FUENTE } from './ui/capa.js';
@@ -2536,6 +2536,10 @@ function volverAlMenu() {
   Progresion.iniciar(rng);
   Director.reiniciar();
   Obstaculos.reiniciar();
+  // Los corazones olvidan la partida pasada: si no, el primer fotograma de la
+  // siguiente enseña reventando las vidas que ya no se tienen.
+  reiniciarVidasHud();
+  for (let i = 0; i < VIDAS_GASTADAS.length; i++) VIDAS_GASTADAS[i] = 0;
   // Y el mundo vuelve al color. Sin esto, salir al menú con el Reloj todavía
   // corriendo deja el gris puesto: el interruptor solo se toca mientras se
   // dibuja la partida, así que al dejar de dibujarla nadie lo apagaría.
@@ -2573,6 +2577,53 @@ function volverAlMenu() {
 const RADIO_REANIMAR = 60;     // unidades lógicas: hay que ir de verdad, no basta con estar en pantalla
 const REANIMAR_CERCA = 10;     // segundos con alguien dentro del radio
 const REANIMAR_LEJOS = 30;     // segundos sin nadie
+
+// PERDER UNA VIDA TIENE QUE NOTARSE, y hasta ahora no se notaba.
+//
+// La Moneda de Caronte te devuelve al sitio en el mismo frame en que te matan, y
+// eso, que es lo que la hace buena, era también lo que la hacía invisible: seguías
+// jugando sin enterarte de que acababas de morir. Lo único que cambiaba era un
+// número en una esquina de cuarenta píxeles.
+//
+// Aquí va el aviso que se ve y se siente. La parte que se ve EN EL PERSONAJE
+// —desaparecer y volver— vive en entidades/jugador.js (ver RENACER), porque es
+// dibujo suyo; esto es lo que pasa alrededor:
+//
+//   - un ANILLO ROJO ancho en el sitio, del tamaño de lo que ha pasado;
+//   - un chorro de chispas hacia arriba, el idioma de lo que te entra;
+//   - el PARÓN y el borde rojo, que ya estaban en jugador.js al gastar la moneda;
+//   - y el MANDO VIBRANDO, que es lo único que llega aunque estuvieras mirando
+//     la otra punta de la pantalla.
+//
+// POR FLANCO sobre `resurreccionesUsadas`, igual que el barrido de los caídos:
+// el número ya está en el jugador y compararlo con el del paso anterior cuesta
+// una resta. Nadie tiene que avisar a nadie.
+//
+// Lo visual y la vibración NO entran en la simulación —ni tocan el RNG ni el
+// estado— así que no pueden desincronizar el cooperativo online. Y la vibración
+// va al mando de ESE jugador, no a todos: en cooperativo local, que vibre el
+// mando de quien no ha perdido nada sería una mentira.
+const VIDAS_GASTADAS = [0, 0, 0, 0];
+const COLOR_VIDA_PERDIDA = '#ff5a4a';
+
+function avisarVidasPerdidas() {
+  for (let i = 0; i < jugadores.length; i++) {
+    const j = jugadores[i];
+    const usadas = j.resurreccionesUsadas || 0;
+    if (usadas <= VIDAS_GASTADAS[i]) { VIDAS_GASTADAS[i] = usadas; continue; }
+    VIDAS_GASTADAS[i] = usadas;
+
+    // Anillo ANCHO: el tamaño dice la importancia, y esto es lo más gordo que
+    // le pasa a un jugador en toda la partida.
+    VFX.anillo(j.x, j.y - 10, 64, COLOR_VIDA_PERDIDA, 3, 0.6);
+    VFX.anillo(j.x, j.y - 10, 34, '#ffd9c0', 2, 0.45);
+    if (!Particulas.saturado()) {
+      Particulas.chorro(j.x, j.y - 10, 0, -1, 14, 70, 1.4, 0.5, 2,
+                        COLOR_VIDA_PERDIDA, 0.2, rng);
+    }
+    entrada.vibrar(i);
+  }
+}
 
 // AL CAER, SUS ARMAS DEJAN DE ESTAR EN PANTALLA.
 //
@@ -2947,6 +2998,7 @@ function actualizar(dt) {
     jugadores[i].actualizar(dt, Lockstep.marcoDe(i));
   }
   limpiarAtaquesDeCaidos();
+  avisarVidasPerdidas();
   Lockstep.avanzar();
   if (Sincro.activo) Sincro.despuesDelPaso();
   reanimar(dt);
@@ -3086,10 +3138,16 @@ function actualizar(dt) {
   // La victoria se salta el cartel y entra por la segunda rama desde el primer
   // frame: allí no hay ataúd que mirar.
   if (finalMostrado === 'derrota' && !resumenFinal) {
-    if (entrada.algunFlanco()) { resumenFinal = true; relojResumen = 0; refrescarChuleta(); }
+    // `flancoAvance` y no cualquier tecla: estas dos son pantallas de PASO, y
+    // pasar de la derrota al resumen —y del resumen al menú— con un roce
+    // cualquiera se lleva por delante los números de la partida antes de que
+    // nadie los haya leído. El cofre sigue admitiendo cualquier cosa a
+    // propósito: aquel no es una pantalla de paso, es un "vale" en mitad del
+    // juego con el mando ya en la mano (ver `algunFlanco`).
+    if (entrada.flancoAvance()) { resumenFinal = true; relojResumen = 0; refrescarChuleta(); }
   } else if (finalMostrado) {
     relojResumen += dt;
-    if (relojResumen >= ESPERA_RESUMEN && entrada.algunFlanco()) {
+    if (relojResumen >= ESPERA_RESUMEN && entrada.flancoAvance()) {
       entrada.limpiarFlanco();
       volverAlMenu();
       return;

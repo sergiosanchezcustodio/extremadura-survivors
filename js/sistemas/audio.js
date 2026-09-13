@@ -204,6 +204,34 @@ const VOLUMEN_EFECTOS = 0.6;
 // Ajustes de VOLUMEN, guardados aparte del progreso META. Son de esta máquina,
 // no algo que se haya ganado jugando, así que "empezar de cero" no los toca.
 const CLAVE_VOL = 'emerita-volumen-v1';
+// El <audio> del narrador, si hay uno hablando ahora mismo. Solo puede haber
+// uno: dos voces a la vez no se entienden, y cuando se pide una nueva la
+// anterior sobra siempre.
+let _narrador = null;
+let _esperaNarrador = 0;      // temporizador de la entrada retrasada de la voz
+let _apartada = false;
+
+// Baja la música mientras habla el narrador y la devuelve al acabar. Va por el
+// nodo de ganancia y con una rampa, no de golpe: un salto de volumen se oye
+// como un fallo del juego.
+function apartarMusica(si) {
+  if (!ctx || !gMusica || si === _apartada) return;
+  _apartada = si;
+  // AL 10%, no al 30 que tuvo. A un tercio la música seguía peleando con la voz
+  // —son 48 segundos de narración sobre una pista compuesta, no un pitido— y lo
+  // que se perdía era el texto, que es lo único que hay que entender en esa
+  // pantalla. A una décima parte la banda sonora se queda de fondo de verdad:
+  // se nota que está, y no se lee por encima de ella.
+  const destino = si ? _volMusica * 0.10 : _volMusica;
+  try {
+    gMusica.gain.cancelScheduledValues(ctx.currentTime);
+    gMusica.gain.setValueAtTime(gMusica.gain.value, ctx.currentTime);
+    gMusica.gain.linearRampToValueAtTime(destino, ctx.currentTime + 0.4);
+  } catch {
+    gMusica.gain.value = destino;
+  }
+}
+
 let _volMusica = VOLUMEN_MUSICA;
 let _volEfectos = VOLUMEN_EFECTOS;
 
@@ -453,6 +481,101 @@ export const GestorAudio = {
     _enMenu = false;
     pararPistas();
     pararMenu();
+  },
+
+  // --- NARRACIÓN -------------------------------------------------------------
+  //
+  // La voz del narrador en la intro y en la historia de cada nivel. Son MP3
+  // horneados con ElevenLabs (ver herramientas/generar-voz.js) y viven en
+  // assets/voz/, al lado de la música y por el mismo camino: un <audio>
+  // enchufado al grafo.
+  //
+  // VA POR EL CANAL DE EFECTOS Y NO POR EL DE MÚSICA, aunque sea un fichero
+  // largo como una pista. La razón es del jugador: quien baja la música quiere
+  // dejar de oír la banda sonora, no quedarse sin entender el relato. Y quien
+  // sube los efectos quiere oír mejor lo que pasa, que aquí es exactamente esto.
+  //
+  // LA MÚSICA SE APARTA MIENTRAS HABLA. No se para —el silencio detrás de una
+  // voz sola suena a fallo— sino que baja a un tercio y vuelve al acabar. Es lo
+  // que hace cualquier locución sobre música y lo que permite entender las dos
+  // cosas a la vez.
+  //
+  // DEVUELVE LA DURACIÓN, en segundos, a quien la pida. El relato la usa para
+  // acompasar la subida del texto a lo que tarda la voz (ver ui/relato.js): sin
+  // eso, el texto va por un lado y el narrador por otro. Es una promesa porque
+  // la duración no se sabe hasta que el navegador lee la cabecera del MP3.
+  // `retardo` son los segundos que espera antes de empezar a hablar. Lo pide el
+  // relato: el texto entra primero y la voz entra cuando el primer renglón ya se
+  // puede leer (ver RETARDO_VOZ en ui/relato.js). La duración se devuelve en
+  // cuanto se conoce, sin esperar a que empiece a sonar, porque quien la pide la
+  // necesita para calcular el ritmo del texto desde el primer fotograma.
+  narrar(ruta, retardo = 0) {
+    this.callarNarrador();
+
+    // SIN AudioContext TAMBIÉN SUENA, y esto no es una precaución de adorno: es
+    // el caso NORMAL la primera vez.
+    //
+    // La intro arranca sola al abrir el juego, antes de que nadie haya tocado
+    // nada, y hasta el primer gesto los navegadores no dejan crear el contexto.
+    // La primera versión de esto se rendía ahí —`if (!ctx) return`— y el
+    // resultado era que la narración de la intro no se oía JUSTO la única vez
+    // que la intro se ve. Lo cazó la prueba en el navegador, no el ojo.
+    //
+    // Un <audio> suelto no necesita el grafo para sonar: el grafo solo sirve
+    // para que el volumen lo mande el mismo mando que todo lo demás. Así que se
+    // crea siempre y se enchufa si se puede; si no, se le pone el volumen a
+    // mano y se reproduce igual.
+    const a = new Audio();
+    a.src = ruta;
+    a.preload = 'auto';
+    // Al canal de EFECTOS. `enchufar` manda al de música, así que aquí se hace
+    // a mano: es la única fuente de fichero que no es música.
+    try {
+      ctx.createMediaElementSource(a).connect(gEfectos);
+    } catch {
+      a.volume = _volEfectos;
+    }
+    a.hidden = true;
+    document.body.appendChild(a);
+    _narrador = a;
+
+    apartarMusica(true);
+    a.addEventListener('ended', () => apartarMusica(false));
+
+    const arrancar = () => {
+      _esperaNarrador = 0;
+      const p = a.play();
+      if (p && p.catch) p.catch(() => {});
+    };
+    if (retardo > 0) _esperaNarrador = setTimeout(arrancar, retardo * 1000);
+    else arrancar();
+
+    // Si el fichero no está o el navegador no lo deja sonar, se devuelve cero y
+    // el relato sigue con su ritmo de siempre. Una narración que falta es una
+    // pantalla sin voz, no una pantalla rota.
+    return new Promise((listo) => {
+      if (a.readyState >= 1) return listo(a.duration || 0);
+      a.addEventListener('loadedmetadata', () => listo(a.duration || 0), { once: true });
+      a.addEventListener('error', () => listo(0), { once: true });
+    });
+  },
+
+  // Cortar al narrador. Lo llama quien se salta el relato —cualquier tecla— y
+  // hace falta de verdad: sin esto, la voz sigue contando la caída de Roma
+  // mientras el jugador elige personaje en el menú.
+  callarNarrador() {
+    // El temporizador se cancela SIEMPRE, aunque no haya nadie hablando: si se
+    // salta el relato durante esos primeros segundos de ventaja, la voz todavía
+    // no ha empezado y sin esto arrancaría después, ya en el menú.
+    if (_esperaNarrador) { clearTimeout(_esperaNarrador); _esperaNarrador = 0; }
+    if (!_narrador) return;
+    try {
+      _narrador.pause();
+      _narrador.src = '';
+      _narrador.remove();
+    } catch { /* ya no estaba */ }
+    _narrador = null;
+    apartarMusica(false);
   },
 
   // --- Volumen, para la pantalla de configuración ---------------------------

@@ -58,41 +58,20 @@ el estado `poseido` ya está en el enemigo y el bucle que lo mueve ya es suyo.
 
 ---
 
-## Arte provisional que sustituir
+## Arte pendiente
 
-Tres iconos de arma **no los ha dibujado Sergio** y están marcados como
-provisionales en `herramientas/procesar-assets.ps1`. Se sustituyen dejando el
-dibujo de verdad con el mismo nombre en `resources/armas/` y volviendo a hornear:
+**Solo los ataúdes de Helen, Julie, Say y Sofi.** No existen; el juego aguanta
+sin ellos (`dibujar` en `entidades/jugador.js` sigue pintando el reloj de la
+reanimación), pero en cooperativo el ataúd es lo que dice a quién hay que ir a
+levantar. Cuando estén, son cuatro filas más en la tabla de ATAUDES de
+`herramientas/procesar-assets.ps1`, con el nombre `<Nombre>_ataud.png` en
+`resources/characters/`.
 
-- `Petanca.png` — la bola que genera `herramientas/generar-efectos.ps1`
-- `Cayado.png` y `Campana.png` — salidas de Replicate (`generar-imagen.js`)
-
-Los Aros usan el primer aro de la lámina recortado, y funciona.
-
-Los **veintiún objetos pasivos nuevos** llevan iconos generados con Replicate,
-uno por archivo en `resources/objetos/pasivos/<id>.png`. Los ocho originales
-siguen saliendo de la lámina 4x2 de Sergio.
-
-La hoja de objetos pasó de `rejilla` a `sueltos` justamente por esto: con
-veintinueve iconos, ampliar la rejilla obligaría a rehacer la lámina entera cada
-vez que entra un objeto. Ahora **añadir el número treinta es dejar un PNG en esa
-carpeta con el nombre del id**, y nadie tiene que redibujar nada.
-
-Uno de los veintiuno, la **Corona de espinas**, viene del generador con alfa
-propia. El resto llega sobre fondo blanco y el horneado lo recorta inundando
-desde el borde, pero un aro deja un hueco blanco en el centro al que esa
-inundacion no llega: el icono salia como un disco solido. Se le vacio el blanco
-a mano en el PNG de `resources/`, que es la otra entrada que el horneado ya
-sabia leer -"trae alfa propia? pues nada que recortar"-, asi que sigue siendo
-reproducible sin tocar la tuberia.
-
-Y los **cinco potenciadores de tienda nuevos** también tienen ya dibujo propio,
-en `resources/objetos/potenciadores_tienda/`. Salieron prestando el icono del
-potenciador más parecido —el Manto con el ánfora de la Vitalidad, la Bandolera
-con la onda expansiva—, así que en la tienda se veían dos casillas distintas con
-la misma ilustración: justo lo que se había arreglado cuando los diez originales
-dejaron de usar el icono de su pasivo gemelo. También son de Replicate, también
-provisionales.
+Todo lo demás que fue provisional —los tres iconos de arma (Petanca, Cayado,
+Campana), los veintiún iconos de pasivos y los cinco potenciadores de tienda
+nuevos— **ya lo dibujó Sergio y está horneado** (septiembre de 2026). Los
+pasivos entran uno por archivo en `resources/objetos/pasivos/<id>.png`, así que
+añadir el número treinta sigue siendo dejar un PNG ahí con el nombre del id.
 
 ---
 

@@ -3435,8 +3435,8 @@ $CATALOGO = @(
     # Y LOS CINCO DE LA ULTIMA TANDA. Salieron reutilizando el dibujo del
     # potenciador mas parecido -el Manto con el anfora de la Vitalidad, la
     # Bandolera con la onda- porque no habia arte, y en la tienda se veian dos
-    # casillas distintas con la misma ilustracion. Estos son provisionales
-    # generados con Replicate hasta que Sergio los dibuje.
+    # casillas distintas con la misma ilustracion. Fueron provisionales de
+    # Replicate una temporada; desde septiembre de 2026 son dibujos de Sergio.
     @{ src='objetos\potenciadores_tienda\manto_peregrino.png'; dst='objetos\pot-manto.png'; id='potManto'; alto=28; anchoFijo=0; tol=0; plano=$true }
     @{ src='objetos\potenciadores_tienda\bellota_de_oro.png'; dst='objetos\pot-bellota.png'; id='potBellota'; alto=28; anchoFijo=0; tol=0; plano=$true }
     @{ src='objetos\potenciadores_tienda\ultimo_aliento.png'; dst='objetos\pot-aliento.png'; id='potAliento'; alto=28; anchoFijo=0; tol=0; plano=$true }
@@ -3862,13 +3862,9 @@ $ICONOS_ARMAS = @(
 # no tiene BOM y PowerShell 5.1 lo lee como ANSI —los acentos sobreviven en los
 # comentarios, pero una eñe dentro de una CADENA no abriría el archivo—.
 $ARCHIVO_ICONO_ARMA = @{
-    # LOS TRES PRIMEROS SON PROVISIONALES, y conviene que se sepa: no los ha
-    # dibujado Sergio. `Petanca.png` es la propia bola que fabrica
-    # herramientas/generar-efectos.ps1; `Cayado.png` y `Campana.png` salieron de
-    # herramientas/generar-imagen.js, o sea de Replicate. Estan para que las
-    # armas no salgan con el hueco del icono vacio en la tienda y en la carta de
-    # subida de nivel, no porque sean el arte bueno: se sustituyen dejando el
-    # dibujo de verdad con el mismo nombre y volviendo a hornear.
+    # Los tres primeros FUERON provisionales (la bola de generar-efectos.ps1 y
+    # dos salidas de Replicate) hasta septiembre de 2026; ya son de Sergio, con
+    # el mismo nombre de archivo.
     petanca         = 'Petanca.png';             cayadoSanIsidro = 'Cayado.png'
     campanaSilencio = 'Campana.png'
     pilum           = 'pilum.png';               gladius         = 'Gladius.png'

@@ -3427,13 +3427,13 @@ function dibujar(alpha) {
     // sola en cuanto lo hace sin que ninguna pantalla tenga que saberlo (ver
     // musicaMenu).
     //
-    // De la intro solo la PORTADA la quiere, y la quiere porque el tema del menú
-    // es el del título: tiene que sonar ya en el primer cartel del juego, el que
-    // se queda esperando pulsación antes de elegir partida. Las otras dos fases
-    // de la intro no —el splash es un logo de ocho segundos, y sobre el relato
-    // manda la voz del narrador, que dejaría el tema agachado al 10% por
-    // apartarMusica y lo estrenaría a media canción—.
-    if (pantalla !== PANTALLA_INTRO || Intro.enPortada) GestorAudio.musicaMenu();
+    // Lo de antes de jugar tiene DOS canciones, y el corte es la PORTADA de la
+    // intro: el primer cartel del juego y el último paso antes de elegir
+    // partida. Hasta ahí suena la de siempre —el logo y el relato, por debajo
+    // del narrador, que la agacha al 10% con apartarMusica—; de ahí en adelante
+    // el tema del título, que estrena en la portada y se queda hasta la partida.
+    if (pantalla === PANTALLA_INTRO && !Intro.enPortada) GestorAudio.musicaIntro();
+    else GestorAudio.musicaMenu();
     Capa.limpiar();
     if (despedida) { Pantallas.titulo(ctx, Capa.ctx, null, 0); dibujarDespedida(Capa.ctx); return; }
     if (pantalla === PANTALLA_INTRO) { Intro.dibujar(ctx, Capa.ctx); return; }

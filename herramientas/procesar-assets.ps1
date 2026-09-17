@@ -4742,19 +4742,30 @@ if (Test-Path $rutaRuleta) {
 # El ORDEN de esta lista es el orden en que suenan, y de ahi vuelven a empezar.
 # Lo lee sistemas/audio.js por las rutas de assets/musica/.
 #
-# La del MENU va aparte de esas dos: suena en el titulo, la seleccion, la
-# tienda y la configuracion, y en bucle sobre si misma. Es `Music_main_title`
-# desde que Sergio la entrego: antes lo era `Ruinas de Menu.mp3`, que sigue en
-# `resources/musica/` sin usar a la espera de sitio, y por eso esta busqueda ya
-# no va por comodin -aquel nombre llevaba tilde y este .ps1, guardado en UTF-8
-# sin BOM, lo lee PowerShell 5.1 como ANSI; un literal con tilde no sobrevivia
-# a la comparacion-.
 $MUSICA = @(
     @{ src='musica\Musica_emerita_1.mp3'; dst='musica\emerita-1.mp3' }
     @{ src='musica\Musica_emerita_2.mp3'; dst='musica\emerita-2.mp3' }
 )
 
-$rutaMenu = Get-Item -Path (Join-Path $ORIGEN 'musica\Music_main_title.mp3') -ErrorAction SilentlyContinue
+# Y aparte de esas dos van las SUELTAS: las de antes de jugar, que no se
+# encadenan entre si porque cada una se repite sobre si misma hasta que el juego
+# cambia de pantalla. Son dos y el corte entre ellas es la PORTADA de la intro,
+# que es donde se ve por primera vez el titulo del juego:
+#
+#   intro.mp3  Ruinas de Menu, la de siempre. Suena desde que arranca el juego
+#              -el logo y el relato del narrador, por debajo del cual se agacha
+#              al 10%- y se acaba cuando aparece la portada.
+#   menu.mp3   Music_main_title, el tema del titulo. Entra EN la portada y se
+#              queda para elegir partida, el menu, la tienda y lo demas.
+#
+# La de Ruinas se busca por comodin y no por su nombre entero porque el fichero
+# lleva tilde ("Ruinas de Menu.mp3") y este .ps1 se guarda en UTF-8 sin BOM:
+# PowerShell 5.1 lo lee como ANSI y la tilde de un literal no sobreviviria a la
+# comparacion.
+$SUELTAS = @(
+    @{ src='musica\Ruinas*.mp3';          dst='musica\intro.mp3' }
+    @{ src='musica\Music_main_title.mp3'; dst='musica\menu.mp3'  }
+)
 
 $ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
 
@@ -4788,16 +4799,21 @@ foreach ($m in $MUSICA) {
         Estado = $estado
     }
 }
-if ($rutaMenu) {
-    $rutaDst = Join-Path $DESTINO 'musica\menu.mp3'
-    $estado = Resolver-Pista $rutaMenu.FullName $rutaDst
+foreach ($m in $SUELTAS) {
+    # -Path admite comodin; para un nombre entero devuelve ese fichero y ya.
+    $rutaSrc = Get-ChildItem -Path (Join-Path $ORIGEN $m.src) -ErrorAction SilentlyContinue |
+               Select-Object -First 1
+    if (-not $rutaSrc) {
+        $informeMusica += [PSCustomObject]@{ Pista=$m.dst; Tamano='-'; Estado='NO EXISTE' }
+        continue
+    }
+    $rutaDst = Join-Path $DESTINO $m.dst
+    $estado = Resolver-Pista $rutaSrc.FullName $rutaDst
     $informeMusica += [PSCustomObject]@{
-        Pista  = 'musica/menu.mp3'
+        Pista  = $m.dst
         Tamano = "{0:N1} MB" -f ((Get-Item $rutaDst).Length / 1MB)
         Estado = $estado
     }
-} else {
-    $informeMusica += [PSCustomObject]@{ Pista='musica/menu.mp3'; Tamano='-'; Estado='NO EXISTE' }
 }
 $informeMusica | Format-Table -AutoSize
 

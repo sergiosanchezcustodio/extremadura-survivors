@@ -185,19 +185,26 @@ let _dronOsc = null, _dronGain = null;
 // permite pasar de una a la otra y volver a empezar.
 const PISTAS = ['assets/musica/emerita-1.mp3', 'assets/musica/emerita-2.mp3'];
 
-// La del MENÚ va aparte y suena en el título, la selección, la tienda y la
-// configuración. No entra en la lista de arriba porque no se encadena con las
-// otras: se repite sobre sí misma hasta que empieza la partida, que es cuando
-// el juego cambia de sitio y toca cambiar de música.
+// Las de ANTES DE JUGAR van aparte y sueltas: no entran en la lista de arriba
+// porque no se encadenan con las otras ni entre sí, sino que cada una se repite
+// sobre sí misma hasta que el juego cambia de pantalla.
 //
-// Es el tema del TÍTULO, y por eso la intro es la única pantalla previa que no
-// la pide (ver dibujar() en main.js): tiene que ABRIR el menú, no llegar a él
-// ya empezada y agachada bajo la voz del narrador.
+// Son dos, y el corte entre ellas es la PORTADA de la intro, que es donde se
+// ve por primera vez el título del juego:
 //
-// Existe porque hasta ahora el menú estaba en silencio y la música solo
+//   'intro'  suena desde que arranca el juego —el logo y el relato del
+//            narrador, por debajo del cual se agacha al 10%— y se acaba cuando
+//            aparece la portada.
+//   'menu'   es el tema del título. Entra EN la portada y se queda para elegir
+//            partida, el menú, la tienda y todo lo demás hasta la partida.
+//
+// Existen porque hasta hace poco todo esto estaba en silencio y la música solo
 // arrancaba al empezar a jugar: quien se quedaba mirando la tienda tenía la
 // impresión de que el juego se había colgado.
-const PISTA_MENU = 'assets/musica/menu.mp3';
+const SUELTAS = {
+  intro: 'assets/musica/intro.mp3',
+  menu: 'assets/musica/menu.mp3'
+};
 
 // El volumen de la música compuesta va por debajo del que tenía la procedural:
 // aquella eran cuatro notas sueltas y esto es una mezcla completa, así que al
@@ -269,9 +276,9 @@ function guardarVolumenes() {
 let _pistas = null;          // HTMLAudioElement por pista, creados una vez
 let _pistaActual = -1;
 let _musicaFichero = false;  // ¿hay ficheros y han cargado?
-let _menu = null;            // la del menú, su propio elemento
-let _enMenu = false;         // qué música toca ahora mismo
-let _reintentoMenu = 0;      // ver musicaMenu(): reintento espaciado del play()
+const _sueltas = {};         // HTMLAudioElement por nombre de SUELTAS, uno por uso
+let _suelta = '';            // cuál de ellas toca ahora mismo, '' si ninguna
+let _reintentoSuelta = 0;    // ver musicaSuelta(): reintento espaciado del play()
 
 function siguientePista() {
   if (!_pistas) return;
@@ -330,27 +337,60 @@ function prepararMusica() {
   return true;
 }
 
-// La del menú, aparte. `loop = true` y no el encadenado del `ended` de las
-// otras: aquí solo hay una canción y repetirla es exactamente lo que se quiere.
-function prepararMenu() {
-  if (!ctx || _menu) return !!_menu;
+// Las sueltas, aparte. `loop = true` y no el encadenado del `ended` de las
+// otras: cada una es una sola canción y repetirla es exactamente lo que se
+// quiere. Se crean la primera vez que se piden, no todas al arrancar: la del
+// menú no hace falta hasta la portada, y adelantar su descarga compite con la
+// voz del narrador, que sí suena ya.
+function prepararSuelta(nombre) {
+  if (!ctx) return false;
+  if (_sueltas[nombre]) return true;
+  const ruta = SUELTAS[nombre];
+  if (!ruta) return false;
   const a = new Audio();
-  a.src = PISTA_MENU;
+  a.src = ruta;
   a.preload = 'auto';
   a.loop = true;
-  a.addEventListener('error', () => { _menu = null; });
+  a.addEventListener('error', () => { delete _sueltas[nombre]; });
   enchufar(a);
   a.hidden = true;
-  a.dataset.pista = 'menu';
+  a.dataset.pista = nombre;
   document.body.appendChild(a);
-  _menu = a;
+  _sueltas[nombre] = a;
   return true;
 }
 
-function pararMenu() {
-  if (!_menu) return;
-  _menu.pause();
-  _menu.currentTime = 0;
+// Para TODAS menos la que se pide dejar sonando. Se llama al cambiar de suelta
+// y al empezar la partida, y por eso admite un nombre: pararlas todas para
+// arrancar acto seguido la que ya sonaba la devolvería al segundo cero.
+function pararSueltas(salvo) {
+  for (const nombre in _sueltas) {
+    if (nombre === salvo) continue;
+    const a = _sueltas[nombre];
+    a.pause();
+    a.currentTime = 0;
+  }
+}
+
+// El motor de las dos de arriba. Cambiar de suelta PARA la anterior y arranca
+// la nueva desde el principio: son dos canciones distintas, no dos trozos de la
+// misma, y el corte cae justo en el fundido con el que entra la portada.
+function musicaSuelta(nombre) {
+  if (!ctx) return;
+  const a = _sueltas[nombre];
+  if (_suelta === nombre && a && !a.paused) return;     // ya suena
+  const ahora = performance.now();
+  if (ahora - _reintentoSuelta < 700) return;
+  _reintentoSuelta = ahora;
+
+  _suelta = nombre;
+  _musicaActiva = false;      // el repliegue procedural es para la partida
+  pararPistas();
+  pararSueltas(nombre);
+  if (prepararSuelta(nombre)) {
+    const p = _sueltas[nombre].play();
+    if (p && p.catch) p.catch(() => {});
+  }
 }
 
 function pararPistas() {
@@ -453,49 +493,38 @@ export const GestorAudio = {
   iniciarMusica() {
     if (!ctx) return;
     _musicaActiva = true;
-    _enMenu = false;
+    _suelta = '';
     _horizonte = ctx.currentTime;
-    pararMenu();
+    pararSueltas();
     if (prepararMusica()) {
       _pistaActual = -1;
       siguientePista();      // arranca por la primera y de ahí encadena
     }
   },
 
-  // MÚSICA DE MENÚ. La piden el título, la selección, la tienda y la
-  // configuración, y la piden CADA VEZ que se entra: es idempotente a
-  // propósito, así no hay que llevar la cuenta de qué pantalla venía antes
-  // —basta con decir "aquí suena la del menú" en cada una—.
-  // Se llama en CADA FOTOGRAMA de menú, y por eso comprueba si ya está sonando
-  // en vez de fiarse de un interruptor. Los navegadores bloquean el audio hasta
-  // el primer gesto del usuario, así que el primer `play()` —el del arranque,
+  // MÚSICA DE ANTES DE JUGAR. `musicaIntro` la piden el logo y el relato;
+  // `musicaMenu`, la portada y de ahí en adelante —elegir partida, el título,
+  // la tienda, la configuración—. Y la piden CADA VEZ que se entra: es
+  // idempotente a propósito, así ninguna pantalla tiene que llevar la cuenta de
+  // cuál venía antes, le basta con decir qué suena aquí.
+  //
+  // Se llama en CADA FOTOGRAMA, y por eso comprueba si ya está sonando en vez
+  // de fiarse de un interruptor. Los navegadores bloquean el audio hasta el
+  // primer gesto del usuario, así que el primer `play()` —el del arranque,
   // antes de que nadie haya tocado nada— se rechaza siempre; llamando en bucle,
-  // la música entra sola en cuanto se pulsa la primera tecla, sin que el menú
-  // tenga que enterarse de nada de esto.
+  // la música entra sola en cuanto se pulsa la primera tecla, sin que la
+  // pantalla tenga que enterarse de nada de esto.
   //
   // El reintento va ESPACIADO: insistir sesenta veces por segundo mientras el
   // fichero carga llena la consola de "play() interrupted" sin adelantar nada.
-  musicaMenu() {
-    if (!ctx) return;
-    if (_enMenu && _menu && !_menu.paused) return;      // ya suena
-    const ahora = performance.now();
-    if (ahora - _reintentoMenu < 700) return;
-    _reintentoMenu = ahora;
-
-    _enMenu = true;
-    _musicaActiva = false;      // el repliegue procedural es para la partida
-    pararPistas();
-    if (prepararMenu()) {
-      const p = _menu.play();
-      if (p && p.catch) p.catch(() => {});
-    }
-  },
+  musicaIntro() { musicaSuelta('intro'); },
+  musicaMenu() { musicaSuelta('menu'); },
 
   pararMusica() {
     _musicaActiva = false;
-    _enMenu = false;
+    _suelta = '';
     pararPistas();
-    pararMenu();
+    pararSueltas();
   },
 
   // --- NARRACIÓN -------------------------------------------------------------
@@ -629,7 +658,7 @@ export const GestorAudio = {
                ? Math.round(_pistas[_pistaActual].currentTime) : 0,
       duracion: _pistas && _pistaActual >= 0
                 ? Math.round(_pistas[_pistaActual].duration) || 0 : 0,
-      menu: _enMenu,
+      suelta: _suelta,
       contexto: ctx ? ctx.state : 'sin AudioContext'
     };
   },

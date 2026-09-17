@@ -4506,8 +4506,11 @@ $informeSuelo | Format-Table -AutoSize
 # OJO AL REPINTARLA: si cambia de TAMANO, todo lo medido sobre ella deja de
 # valer -las cinco opciones del menu y las antorchas en js/ui/, y el recorte del
 # icono en empaquetar.ps1- y no salta ningun error, simplemente el recuadro de
-# luz cae donde no hay palabra. Paso al pasar de 1376x768 a 1672x941. Se vuelve
-# a medir con herramientas\medir-lapida.ps1.
+# luz cae donde no hay palabra. Ha pasado dos veces: al ir de 1376x768 a
+# 1672x941, y al volver a 1360x768, que es lo que mide ahora. Se vuelve a medir
+# con herramientas\medir-lapida.ps1, con la ventana pisando los dos rieles de la
+# placa (-X0 522 -X1 882 -Y0 505 -Y1 745): por dentro de ellos los cuenta como
+# texto y los cinco renglones salen del ancho de la ventana.
 #
 # Sustituyo a `Nueva_Pantalla_Start.jpg`, que sustituyo a `Pantalla_Start.png`.
 # Las dos siguen en resources/ y ninguna se copia ya a assets/: el juego lee la
@@ -4535,9 +4538,14 @@ $informeSuelo | Format-Table -AutoSize
 # quedan porque el siguiente menu con fondo blanco los va a querer.
 $MENUS = @(
     @{ src='menus\Main_menu.jpg'; dst='menus\titulo.jpg' }
-    # La PORTADA: la misma escena sin la lapida, con el logo y un "pulse una
-    # tecla" pintados. Cierra la intro y espera antes de elegir partida.
-    # Ver ui/intro.js. Nada medido sobre ella: no lleva nada encima.
+    # La PORTADA: la misma escena sin la lapida, con el logo pintado. El aviso
+    # de pulsar YA NO VIENE EN EL DIBUJO -lo quito Sergio- y lo escribe el juego
+    # encima, latiendo (ver dibujarPulsa en ui/intro.js). Cierra la intro y
+    # espera antes de elegir partida.
+    #
+    # Lo unico medido sobre ella es donde cae ese texto, y va en unidades de
+    # interfaz y no en pixeles de la imagen, asi que un repintado del mismo
+    # encuadre no lo mueve.
     @{ src='menus\Main_menu_pre.jpg'; dst='menus\titulo-pre.jpg' }
     @{ src='menus\seleccion_jugador.png'; dst='menus\seleccion.jpg' }
     @{ src='menus\splash_screen.png'; dst='menus\splash.jpg' }

@@ -1,9 +1,11 @@
 import { Recursos } from '../core/recursos.js';
 import { GestorAudio } from '../sistemas/audio.js';
+import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
+import { FUENTE_TITULO, textoEspaciado } from './capa.js';
 import {
   ESPERA, FUNDIDO, prepararRelato, dibujarRelato, acompasarAVoz, RETARDO_VOZ,
   avanzarAguante, dibujarAguante,
-  hornearPantalla, fondoPantalla, velo
+  hornearPantalla, fondoPantalla, velo, ENTRADA, ORO, ORO_CLARO
 } from './relato.js';
 
 // LA INTRO: tres pantallas antes de elegir partida.
@@ -44,7 +46,7 @@ import {
 
 const FASE_SPLASH = 0;
 const FASE_RELATO = 1;
-// LA TERCERA: la portada con el logo y "PULSE UNA TECLA PARA CONTINUAR".
+// LA TERCERA: la portada con el logo, y el aviso de pulsar YA NO VIENE PINTADO.
 //
 // Va DESPUÉS del relato y antes de elegir partida, que es donde la quiso
 // Sergio: el juego se presenta solo —la ficha técnica y la historia corren sin
@@ -187,6 +189,10 @@ export const Intro = {
       // porque no se sabe cuándo va a ser. `Infinity` deja el fundido de salida
       // sin disparar nunca — ver `velo`, que compara lo que sobra contra él.
       velo(ctxMundo, estado.reloj, Infinity, 0);
+      // Y el aviso encima, en la CAPA DE INTERFAZ. Va detrás del velo a
+      // propósito: el velo tiñe el lienzo del mundo, así que el texto entra
+      // desde el negro con la ilustración y no flotando sobre ella.
+      dibujarPulsa(ctxUi, estado.reloj);
     }
   },
 
@@ -202,6 +208,69 @@ export const Intro = {
   // misma imagen a 1920x1080 sería pagar dos veces por el mismo dibujo.
   get placa() { return estado.historia; }
 };
+
+// --- EL AVISO DE LA PORTADA --------------------------------------------------
+//
+// Antes venía PINTADO en la ilustración —"Pulse cualquier tecla para
+// continuar"— y Sergio lo quitó del dibujo para que lo ponga el juego. Que lo
+// escriba el código y no la lámina tiene dos ventajas que la lámina no puede
+// dar: sale nítido a la resolución del monitor, como el resto de la interfaz
+// (ver ui/capa.js), y puede MOVERSE.
+//
+// Y se mueve LATIENDO: sube y baja de intensidad sin llegar a apagarse. Es la
+// única cosa viva de una pantalla que no tiene reloj y espera lo que haga
+// falta, así que es también lo que dice que el juego no se ha colgado.
+//
+// "PULSA" y no "PULSE": el juego tutea en todas partes (ui/final.js, ui/red.js)
+// y era la lámina la que iba por libre.
+const PULSA = 'PULSA CUALQUIER TECLA';
+
+// Dónde cae, en unidades de interfaz (960x540). El camino empedrado del primer
+// plano es la única franja ancha y oscura de la ilustración, y ahí no hay nada
+// dibujado que tapar: ni jabalíes, ni ruinas, ni la placa del título.
+const PULSA_Y = ALTO_UI - 48;
+
+// EL LATIDO. Coseno alzado, que es la forma de ir y volver sin picos: la
+// intensidad pasa de PULSA_MIN a 1 y vuelve, y en los extremos se queda un
+// instante en vez de rebotar. Un seno pelado —o peor, un triángulo— se lee como
+// un parpadeo.
+//
+// No baja hasta apagarse: un texto que desaparece del todo se lee como un fallo
+// de dibujo, no como una animación.
+const PULSA_CICLO = 2.6;
+const PULSA_MIN = 0.45;
+
+function dibujarPulsa(ctxUi, reloj) {
+  // La entrada desde el negro la hace `velo` sobre el lienzo del MUNDO, y esta
+  // capa va por encima y no se entera: sin esto, el texto aparecería de golpe
+  // sobre una ilustración que todavía está subiendo del negro.
+  const entrada = Math.min(1, reloj / ENTRADA);
+  const latido = 0.5 - 0.5 * Math.cos((reloj / PULSA_CICLO) * Math.PI * 2);
+  const alfa = entrada * (PULSA_MIN + (1 - PULSA_MIN) * latido);
+
+  ctxUi.save();
+  ctxUi.globalAlpha = alfa;
+  ctxUi.textAlign = 'center';
+  ctxUi.textBaseline = 'alphabetic';
+  ctxUi.font = '600 19px ' + FUENTE_TITULO;
+
+  // Oro DEGRADADO, de claro arriba a oscuro abajo, que es como está pintado el
+  // rótulo del título: un dorado plano al lado de uno modelado canta.
+  const grad = ctxUi.createLinearGradient(0, PULSA_Y - 19, 0, PULSA_Y + 4);
+  grad.addColorStop(0, ORO_CLARO);
+  grad.addColorStop(1, ORO);
+  ctxUi.fillStyle = grad;
+
+  // El resplandor crece con el latido. Es lo que hace que parezca luz de las
+  // antorchas sobre letra dorada y no una capa de opacidad subiendo y bajando.
+  ctxUi.shadowColor = 'rgba(255,186,84,.85)';
+  ctxUi.shadowBlur = 6 + 12 * latido;
+
+  // Espaciado ancho y reborde oscuro: lapidario, como el rótulo, y legible
+  // sobre las losas del camino, que no son negras del todo.
+  textoEspaciado(ctxUi, PULSA, ANCHO_UI / 2, PULSA_Y, 3.4, 3);
+  ctxUi.restore();
+}
 
 function siguiente() {
   if (estado.fase === FASE_SPLASH) {

@@ -35,13 +35,13 @@ import { crearRng } from '../core/rng.js';
 //
 // CÓMO SE ENCAJA, que depende de lo que mida la ilustración.
 //
-// La de ahora es 1672x941 —proporción 1,7768 contra el 1,7778 de la pantalla—
-// así que LLENA de sobra: es 16:9 con una milésima de diferencia, y `cubrir` se
-// come menos de un píxel por arriba y por abajo. Sin deformar y sin bandas.
+// La de ahora es 1360x768 —proporción 1,7708 contra el 1,7778 de la pantalla—
+// así que sobra por lo alto: `cubrir` se come un par de filas arriba y abajo.
+// Sin deformar y sin bandas.
 //
-// La anterior era 1376x768 (1,792) y sobraba por el otro lado: quince píxeles de
-// ancho, siete y medio a cada lado. Da igual cuál de los dos: `cubrir` resuelve
-// los dos casos y en ninguno se pierde nada que importe.
+// Las anteriores fueron 1376x768 (1,792) y 1672x941 (1,7768), que sobraban por
+// el otro lado. Da igual cuál de las tres: `cubrir` resuelve todos los casos y
+// en ninguno se pierde nada que importe.
 //
 // Pero eso no siempre fue verdad. Una ilustración anterior era 3:2, y cubrir
 // con ella se comía 130 filas: las cuatro opciones van pintadas abajo, y el
@@ -63,21 +63,23 @@ const K = ANCHO_FISICO / ANCHO_UI;
 const TOLERANCIA_ENCAJE = 0.05;
 
 // CENTRO DE LA LLAMA DE CADA ANTORCHA, en píxeles de la ilustración original
-// (1672x941), como el resto de medidas de pantallas.js.
+// (1360x768), como el resto de medidas de pantallas.js.
 //
 // No van a ojo: salen de barrer la imagen buscando naranja muy claro (r>215,
 // b<110) por debajo del logo y agrupar por celdas de 50 píxeles. Los dos grupos
-// salieron limpios, cada uno repartido entre dos celdas contiguas a lo alto —una
-// llama mide más de cincuenta píxeles—, así que se promedian por su peso.
+// salieron limpios, cada uno repartido entre dos o tres celdas contiguas a lo
+// alto —una llama mide más de cincuenta píxeles—, así que se promedian por su
+// peso.
 //
 // SE VUELVEN A MEDIR CADA VEZ QUE CAMBIE LA LÁMINA, igual que las opciones del
-// menú: son píxeles de la imagen. Con la de 1376x768 caían en (358,550) y
-// (970,554), que escalado por 1,215 da (435,668) y (1179,673) — a un pelo de lo
-// medido aquí, o sea que la escena es la misma redibujada más grande. Si algún
-// día no coincidieran, es que además se ha movido algo.
+// menú: son píxeles de la imagen. Y sirven además de comprobación de que la
+// lámina nueva es la misma escena y no otra composición: con la de 1376x768
+// caían en (358,550) y (970,554), y con esta de 1360x768 caen en (355,550) y
+// (975,554) — tres píxeles. Por el camino, la de 1672x941 las puso en (442,667)
+// y (1193,675), que son esos mismos escalados por 1,215.
 const ANTORCHAS = [
-  { x: 442, y: 667 },
-  { x: 1193, y: 675 }
+  { x: 355, y: 550 },
+  { x: 975, y: 554 }
 ];
 
 // Son ANTORCHAS, no los pebeteros de la ilustración anterior: la llama es

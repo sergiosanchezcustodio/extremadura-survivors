@@ -148,8 +148,10 @@ export const FUNDIDO = 1.5;
 // se nota más que si no hubiera fundido ninguno.
 export const ENTRADA = 0.6;
 
-const ORO = '#e8b73a';
-const ORO_CLARO = '#f7dc9a';
+// El oro del juego. Lo estrena el relato y lo comparte la portada (ui/intro.js):
+// dos dorados distintos a un palmo el uno del otro se leen como un descuido.
+export const ORO = '#e8b73a';
+export const ORO_CLARO = '#f7dc9a';
 
 // --- El hueco de la placa ----------------------------------------------------
 //

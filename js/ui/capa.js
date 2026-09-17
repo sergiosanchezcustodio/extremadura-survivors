@@ -171,7 +171,11 @@ export function envolverTexto(ctx, txt, anchoMax) {
 // Respeta el ctx.textAlign que haya puesto quien llama, porque trazar letra a
 // letra obliga a alinear a mano: si no, un texto pedido "a la derecha" se dibuja
 // hacia la derecha DESDE el punto dado y se sale por el borde.
-export function textoEspaciado(ctx, txt, x, y, extra) {
+// `borde`, si se pasa, es el grosor del reborde oscuro que lleva cada letra:
+// mismo criterio que `textoBorde` —trazo antes que relleno, y por letra, que es
+// como se traza aquí todo—. Sin él se rellena y ya, que es lo que hacía siempre
+// y lo que quieren los titulares sobre fondo oscuro.
+export function textoEspaciado(ctx, txt, x, y, extra, borde = 0) {
   const letras = [...txt];
   const anchos = new Array(letras.length);
   let total = 0;
@@ -187,7 +191,13 @@ export function textoEspaciado(ctx, txt, x, y, extra) {
   else if (alineacion === 'right' || alineacion === 'end') cx = x - total;
 
   ctx.textAlign = 'left';
+  if (borde > 0) {
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = borde;
+    ctx.strokeStyle = 'rgba(6,5,10,.92)';
+  }
   for (let i = 0; i < letras.length; i++) {
+    if (borde > 0) ctx.strokeText(letras[i], cx, y);
     ctx.fillText(letras[i], cx, y);
     cx += anchos[i] + extra;
   }

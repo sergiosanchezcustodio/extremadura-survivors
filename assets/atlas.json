@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260917192609",
+    "version":  "20260917203726",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",

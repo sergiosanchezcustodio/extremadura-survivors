@@ -84,8 +84,10 @@ const ARCO_ANCHO = 209;
 const ARCO_Y = 305;
 const ARCO_ALTO = 395;
 
-// LAS CINCO OPCIONES DEL MENÚ, medidas sobre la ilustración (Main_menu.jpg,
-// 1360x768). Vienen pintadas en su marco —JUGAR, JUGAR EN RED, TIENDA,
+// LAS CINCO OPCIONES DEL MENÚ, medidas sobre la ilustración cuando medía
+// 1360x768 — y siguen valiendo mida lo que mida ahora: van en unidades de
+// ANCHO_MEDIDO (ver tituloVivo.js), que las escala solas con la lámina de
+// verdad. Vienen pintadas en su marco —JUGAR, JUGAR EN RED, TIENDA,
 // CONFIGURACIÓN y SALIR—, así que aquí NO se vuelven a escribir: lo único que
 // falta es decir cuál está señalada, y eso se hace ILUMINANDO SU RECUADRO. Es
 // el criterio de toda esta pantalla: no competir con el arte.
@@ -108,17 +110,15 @@ const ARCO_ALTO = 395;
 //
 // Las cinco miden lo mismo de alto —22— y van separadas 35.
 //
-// LA LÁMINA CAMBIA DE TAMAÑO CADA VEZ, y ese es el peligro de esta pantalla:
-// 1376x768 primero, 1672x941 después y 1360x768 ahora. La escena es la misma,
-// pero todos los números de aquí son píxeles de la imagen, así que todos se
-// mueven aunque no se haya movido nada del dibujo. Comprobación de que sigue
-// siendo la misma escena y no una recomposición: las antorchas de tituloVivo.js
-// han vuelto a caer donde caían en la de 1376x768, a tres píxeles.
+// LA LÁMINA CAMBIÓ DE TAMAÑO CUATRO VECES —1376x768, 1672x941, 1360x768 y hoy
+// 1920x1084— y las tres primeras invalidaron todos estos números SIN QUE
+// APARECIERA NINGÚN ERROR: el recuadro de luz caía donde no hay palabra. Eso ya
+// no pasa; lo cuenta ANCHO_MEDIDO en tituloVivo.js.
 //
-// Repintarla al mismo tamaño no obliga a tocar nada; reexportarla más grande o
-// más pequeña lo invalida todo SIN QUE APAREZCA NINGÚN ERROR: el recuadro de
-// luz simplemente cae donde no hay palabra. Se vuelve a sacar con
-// `herramientas\medir-lapida.ps1`.
+// Lo que sigue obligando a medir de nuevo es que cambie el ENCUADRE: que la
+// placa o las palabras se muevan DENTRO del dibujo. Eso se saca con
+// `herramientas\medir-lapida.ps1`, y los números de aquí se reescriben en
+// unidades de la lámina que se haya medido, ajustando ANCHO_MEDIDO.
 //
 // Y LA VENTANA DE ESA HERRAMIENTA TIENE QUE PISAR LOS DOS RIELES, no quedarse
 // por dentro: los reconoce sola y los descarta, pero si no los ve los cuenta

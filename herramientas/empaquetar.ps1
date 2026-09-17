@@ -78,11 +78,18 @@ if ($Actualizar) {
 $EXE     = 'Extremadura Survivors.exe'
 
 # Recorte del icono sobre la ilustracion del titulo: el escudo de Extremadura
-# con su corona y su laurel, arriba del todo. Medido sobre `Main_menu.jpg`
-# (1360x768), igual que las posiciones del menu en js/ui/pantallas.js.
+# con su corona y su laurel, arriba del todo.
 #
-# El emblema ocupa x 546..840 e y 68..244 -medido buscando el bronce sobre el
-# cielo nocturno-, asi que el cuadrado va centrado en el (693, 156).
+# ESTE SI VA EN PIXELES DE `resources\menus\Main_menu.jpg`, y no en las unidades
+# escaladas de js/ui/ (ver ANCHO_MEDIDO en tituloVivo.js): aqui no hay lamina
+# horneada que consultar, se abre el fichero y se recorta. Esa fuente mide hoy
+# 2720x1536, asi que son los numeros medidos sobre la de 1360 multiplicados por
+# dos: el emblema ocupaba x 546..840 e y 68..244 alli, o sea x 1092..1680 e
+# y 136..488 aqui, y el cuadrado va centrado en el.
+#
+# Si Sergio reexporta la fuente a otro tamano, ESTOS TRES NUMEROS SI HAY QUE
+# reescalarlos a mano. Es el ultimo sitio donde sigue pasando, y se nota poco
+# porque el icono solo se ve al empaquetar.
 #
 # APUNTA A LA LAMINA QUE USA EL JUEGO, y esto ya se rompio una vez: sacaba el
 # icono de `Nueva_Pantalla_Start.jpg`, una ilustracion que dejo de usarse hace
@@ -92,7 +99,7 @@ $EXE     = 'Extremadura Survivors.exe'
 # Al repintar el titulo hay que volver a mirar este recorte: son pixeles de la
 # imagen, como todo lo demas que se mide sobre ella.
 $ICONO_SRC = Join-Path $RAIZ 'resources\menus\Main_menu.jpg'
-$ICONO_X = 545; $ICONO_Y = 8; $ICONO_LADO = 296
+$ICONO_X = 1090; $ICONO_Y = 16; $ICONO_LADO = 592
 
 # ---------------------------------------------------------------------------
 # 1. Runtime de NW.js

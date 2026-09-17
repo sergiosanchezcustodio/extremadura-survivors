@@ -62,8 +62,28 @@ const K = ANCHO_FISICO / ANCHO_UI;
 // justo el caso que hay que tratar de otra manera.
 const TOLERANCIA_ENCAJE = 0.05;
 
-// CENTRO DE LA LLAMA DE CADA ANTORCHA, en píxeles de la ilustración original
-// (1360x768), como el resto de medidas de pantallas.js.
+// EL ANCHO SOBRE EL QUE SE TOMARON TODAS LAS MEDIDAS de esta lámina: las
+// antorchas de aquí abajo y las cinco opciones del menú de ui/pantallas.js.
+//
+// Existe porque esto se rompió tres veces. Cada vez que Sergio reexportaba la
+// lámina a otro tamaño —1376x768, 1672x941, 1360x768— todos esos números, que
+// son píxeles de la imagen, dejaban de valer a la vez. Y no saltaba ningún
+// error: el recuadro de luz del menú caía donde no hay palabra, y el fuego
+// ardía a un palmo de la antorcha. Había que acordarse de volver a medirlo
+// todo, y acordarse no es un mecanismo.
+//
+// Ahora los números se declaran una vez sobre ESTE ancho y se escalan solos con
+// lo que mida la lámina que llegue: es `hornear` quien lo aplica, plegándolo en
+// la escala del encaje, así que ni estas constantes ni las de pantallas.js se
+// enteran. La lámina de hoy mide 1920 —se hornea reducida desde los 2720 de
+// resources/— y estos números se midieron sobre la de 1360.
+//
+// LO QUE SÍ SIGUE OBLIGANDO A MEDIR es que cambie el ENCUADRE: si la placa o
+// las antorchas se mueven dentro del dibujo, ningún factor lo arregla.
+const ANCHO_MEDIDO = 1360;
+
+// CENTRO DE LA LLAMA DE CADA ANTORCHA, en píxeles de la ilustración de
+// referencia (ver ANCHO_MEDIDO), como el resto de medidas de pantallas.js.
 //
 // No van a ojo: salen de barrer la imagen buscando naranja muy claro (r>215,
 // b<110) por debajo del logo y agrupar por celdas de 50 píxeles. Los dos grupos
@@ -152,7 +172,14 @@ export const TituloVivo = {
       c.drawImage(img, ox, oy, img.width * esc, img.height * esc);
     }
 
-    laminas[nombre] = { lienzo, esc, ox, oy };
+    // `esc` sale en píxeles de lienzo por píxel DE LA IMAGEN QUE HA LLEGADO, y
+    // las medidas están en píxeles de la lámina de referencia. Multiplicando
+    // aquí por la proporción entre las dos, `esc` pasa a ser "píxeles de lienzo
+    // por unidad medida" y todo lo demás —mx/my, el encaje que consume
+    // pantallas.js— sigue igual sin saber que esto existe.
+    const k = img.width / ANCHO_MEDIDO;
+
+    laminas[nombre] = { lienzo, esc: esc * k, ox, oy };
 
     prepararBrasas();
   },

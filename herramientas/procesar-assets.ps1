@@ -4505,14 +4505,26 @@ $informeSuelo | Format-Table -AutoSize
 # las dos antorchas encendidas. Se copia como .jpg y no se convierte: un fondo
 # de pantalla completa no necesita canal alfa.
 #
-# OJO AL REPINTARLA: si cambia de TAMANO, todo lo medido sobre ella deja de
-# valer -las cinco opciones del menu y las antorchas en js/ui/, y el recorte del
-# icono en empaquetar.ps1- y no salta ningun error, simplemente el recuadro de
-# luz cae donde no hay palabra. Ha pasado dos veces: al ir de 1376x768 a
-# 1672x941, y al volver a 1360x768, que es lo que mide ahora. Se vuelve a medir
-# con herramientas\medir-lapida.ps1, con la ventana pisando los dos rieles de la
-# placa (-X0 522 -X1 882 -Y0 505 -Y1 745): por dentro de ellos los cuenta como
-# texto y los cinco renglones salen del ancho de la ventana.
+# `ancho=1920` NO ES UN DETALLE: es el ancho del lienzo del mundo, y por tanto
+# el tamano al que TituloVivo hornea la lamina una sola vez. Las fuentes de
+# resources/ miden 2720 -reducidas de un reescalado 4x que hizo Sergio- y desde
+# ahi la lamina se REDUCE al hornear, que es la operacion que sale nitida.
+# Hasta el 17/09/2026 la fuente media 1360 y se AMPLIABA x1,41: de ahi venia el
+# punto blando que tenia la pantalla del titulo.
+#
+# Cualquier fuente de 1920 o mas da exactamente el mismo resultado final, asi
+# que subir de 2720 no mejoraria nada hoy. Los 2720 estan por si algun dia se
+# hornea a la resolucion real del monitor en pantallas 4K.
+#
+# LO MEDIDO SOBRE LA LAMINA YA NO SE ROMPE AL CAMBIARLA DE TAMANO. Paso tres
+# veces -1376x768, 1672x941, 1360x768- y nunca salto ningun error: el recuadro
+# de luz del menu simplemente caia donde no hay palabra. Ahora los numeros de
+# js/ui/ estan declarados sobre un ancho de referencia (ANCHO_MEDIDO en
+# tituloVivo.js) y se escalan solos con lo que mida la lamina de verdad. Lo que
+# NO puede cambiar es el ENCUADRE: si se repinta la escena moviendo la placa o
+# las antorchas, hay que volver a medir con herramientas\medir-lapida.ps1, con
+# la ventana pisando los dos rieles -por dentro de ellos los cuenta como texto y
+# los cinco renglones salen del ancho de la ventana-.
 #
 # Sustituyo a `Nueva_Pantalla_Start.jpg`, que sustituyo a `Pantalla_Start.png`.
 # Las dos siguen en resources/ y ninguna se copia ya a assets/: el juego lee la
@@ -4538,7 +4550,7 @@ $informeSuelo | Format-Table -AutoSize
 # hacer falta cuando Sergio dibujo esta placa con la tricolor ya integrada. Se
 # quedan porque el siguiente menu con fondo blanco los va a querer.
 $MENUS = @(
-    @{ src='menus\Main_menu.jpg'; dst='menus\titulo.jpg' }
+    @{ src='menus\Main_menu.jpg'; dst='menus\titulo.jpg'; ancho=1920 }
     # La PORTADA: la misma escena sin la lapida, con el logo pintado. El aviso
     # de pulsar YA NO VIENE EN EL DIBUJO -lo quito Sergio- y lo escribe el juego
     # encima, latiendo (ver dibujarPulsa en ui/intro.js). Cierra la intro y
@@ -4547,7 +4559,7 @@ $MENUS = @(
     # Lo unico medido sobre ella es donde cae ese texto, y va en unidades de
     # interfaz y no en pixeles de la imagen, asi que un repintado del mismo
     # encuadre no lo mueve.
-    @{ src='menus\Main_menu_pre.jpg'; dst='menus\titulo-pre.jpg' }
+    @{ src='menus\Main_menu_pre.jpg'; dst='menus\titulo-pre.jpg'; ancho=1920 }
     @{ src='menus\seleccion_jugador.png'; dst='menus\seleccion.jpg' }
     @{ src='menus\splash_screen.png'; dst='menus\splash.jpg' }
     @{ src='menus\intro_historia.jpg'; dst='menus\intro-historia.jpg' }

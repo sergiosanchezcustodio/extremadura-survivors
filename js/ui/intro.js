@@ -161,7 +161,7 @@ export const Intro = {
     // mismo código: si se hiciera por los dos lados, el fuego de una acabaría
     // un día dos píxeles más allá que el de la otra.
     if (portada) {
-      TituloVivo.hornear('portada', portada, { calavera: true, banderas: true });
+      TituloVivo.hornear('portada', portada, { calavera: true, escena: true });
       estado.portada = true;
     }
   },

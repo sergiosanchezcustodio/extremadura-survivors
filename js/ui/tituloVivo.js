@@ -132,7 +132,8 @@ export const TituloVivo = {
   //   anchoMedido  el ancho sobre el que están tomadas las medidas de quien
   //                consuma `encaje()`. Por defecto, el de la lámina del título.
   //   calavera     si esta lámina lleva la calavera del rótulo.
-  //   banderas     si lleva las dos banderas de la ciudad.
+  //   escena       si es LA ESCENA DEL MENÚ, con sus banderas, sus buitres y
+  //                sus jabalíes.
   //
   // Esas dos son lo único que sigue yendo a mano, porque son sitios concretos
   // de UNA ilustración —la del título, y la portada, que es la misma escena— y
@@ -208,7 +209,7 @@ export const TituloVivo = {
       antorchas: buscarAntorchas(pix),
       luna: buscarLuna(pix),
       calavera: !!o.calavera,
-      banderas: !!o.banderas
+      escena: !!o.escena
     };
 
     prepararBrasas();
@@ -258,7 +259,11 @@ export const TituloVivo = {
     // luz; esto mueve píxeles de sitio, así que no puede ir dentro del
     // 'lighter' —sumada, la tela se pondría blanca— ni después de los
     // resplandores, que se llevaría por delante el trozo que le toque.
-    if (l.banderas) banderas(ctxMundo, estado.t, l);
+    if (l.escena) {
+      banderas(ctxMundo, estado.t, l);
+      buitres(ctxMundo, estado.t, l);
+      jabalies(ctxMundo, estado.t, l);
+    }
 
     ctxMundo.save();
     ctxMundo.globalCompositeOperation = 'lighter';
@@ -807,6 +812,7 @@ function velo(ctx, t, l) {
 // revés que la calavera—: se leen del horneado, que ya está a tamaño de
 // pantalla. Solo las tienen la lámina del título y la portada, que son la misma
 // escena, y por eso llegan como opción de `hornear` en vez de valer para todas.
+// Lo mismo vale para los buitres y los jabalíes de más abajo.
 // LA CAJA ES LA TELA Y NADA MÁS, y esto es lo que hay que afinar si algún día
 // se repinta la ciudad. La primera versión iba holgada —trece píxeles de más
 // por encima de la de Extremadura y veintidós por encima de la de la cruz— y se
@@ -841,6 +847,91 @@ function banderas(ctx, t, l) {
       const w = Math.min(BANDERA_PASO, b.x + b.w - x);
       ctx.drawImage(l.lienzo, x, b.y, w, b.h, x, b.y + dy, w, b.h);
     }
+  }
+}
+
+// --- Los buitres y los jabalíes -----------------------------------------------
+//
+// La escena tiene fauna, y estaba toda congelada. Se mueve con el mismo truco
+// que las banderas —mover píxeles de la lámina, no sumar luz— pero cada uno con
+// la maña que le deja su fondo.
+//
+// LOS DOS VAN CON LA MISMA ONDA, y la onda es lo que costó. Los dos primeros
+// intentos dejaban COSTURA:
+//
+//   - Mover la caja entera deja un escalón en su borde, porque lo de dentro se
+//     ha movido y lo de fuera no. Con el buitre se veía: encima del ala
+//     aparecía un pedazo de nube corrido.
+//   - Estirar la caja anclándola abajo deja el escalón arriba, y con el jabalí
+//     salía una raya recta cruzándole el lomo.
+//
+// Lo que no deja costura es que EL DESPLAZAMIENTO SE ANULE EN LOS DOS BORDES de
+// la caja y sea máximo en su centro. Así el marco no se mueve —no hay nada que
+// case mal con lo de fuera— y lo que se abulta es el medio: en el jabalí, la
+// panza; en el buitre, las alas. Que es, además, lo que hacen de verdad.
+//
+// Y cada uno con su ritmo: seis bichos resollando a la vez no son seis bichos,
+// son un motor.
+const BUITRES = [
+  { x: 362, y: 145, w: 82, h: 112, ciclo: 5200, fase: 0.0 },
+  { x: 448, y: 236, w: 100, h: 70, ciclo: 6400, fase: 0.4 }
+];
+
+// Cuánto se arquea un buitre, en píxeles de lienzo.
+const BUITRE_ALTO = 3;
+
+// La caja va de unos píxeles por encima del lomo a la línea de las pezuñas. Esos
+// dos bordes son justo lo que no se mueve.
+const JABALIES = [
+  { x: 552, y: 750, w: 168, h: 98, ciclo: 3600, fase: 0.00 },   // el grande de la izquierda
+  { x: 1253, y: 757, w: 90, h: 70, ciclo: 3100, fase: 0.35 },   // el que pasta
+  { x: 1463, y: 748, w: 160, h: 94, ciclo: 4200, fase: 0.62 },  // el grande de la derecha
+  { x: 1628, y: 748, w: 95, h: 64, ciclo: 3400, fase: 0.85 }    // el del borde
+];
+
+// Lo que se abulta la panza. Dos píxeles sobre un bicho de setenta son un 3%: se
+// ve que respira y no se ve que se deforme. Con cuatro parecía un fuelle.
+const JABALI_RESPIRO = 2;
+
+// Alto de cada franja. Dos píxeles: con una se paga el doble de llamadas para
+// ganar medio píxel de precisión en algo que se mueve dos.
+const ONDA_PASO = 2;
+
+// LA ONDA. Recorre la caja de arriba abajo por franjas, y cada franja se trae su
+// contenido de `off` píxeles más abajo. `off` sale de un seno sobre la ALTURA de
+// la caja, así que vale cero en el borde de arriba y en el de abajo.
+//
+// Se recorre el DESTINO y no el origen, y esa es la diferencia entre que salga
+// bien o con agujeros: yendo por el destino, cada franja de la caja se pinta una
+// vez y solo una. Yendo por el origen, dos franjas con `off` distinto se pisan
+// por un lado y dejan una fila sin pintar por el otro.
+function onda(ctx, l, c, d) {
+  if (d === 0) return;
+  for (let dy = 0; dy < c.h; dy += ONDA_PASO) {
+    const alto = Math.min(ONDA_PASO, c.h - dy);
+    const off = Math.round(d * Math.sin(((dy + alto / 2) / c.h) * Math.PI));
+    if (off === 0) continue;
+    ctx.drawImage(l.lienzo, c.x, c.y + dy + off, c.w, alto,
+                            c.x, c.y + dy,       c.w, alto);
+  }
+}
+
+function buitres(ctx, t, l) {
+  for (let i = 0; i < BUITRES.length; i++) {
+    const a = BUITRES[i];
+    // Seno a secas: el ala sube y baja por igual a los dos lados del reposo.
+    onda(ctx, l, a, Math.round(
+      BUITRE_ALTO * Math.sin((t / a.ciclo + a.fase) * Math.PI * 2)));
+  }
+}
+
+function jabalies(ctx, t, l) {
+  for (let i = 0; i < JABALIES.length; i++) {
+    const j = JABALIES[i];
+    // Coseno alzado: va de cero a uno y vuelve, que es como se respira. Un seno
+    // a secas metería la panza hacia dentro media vuelta de cada dos.
+    const u = 0.5 - 0.5 * Math.cos((t / j.ciclo + j.fase) * Math.PI * 2);
+    onda(ctx, l, j, Math.round(JABALI_RESPIRO * u));
   }
 }
 

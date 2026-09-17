@@ -807,11 +807,20 @@ function velo(ctx, t, l) {
 // revés que la calavera—: se leen del horneado, que ya está a tamaño de
 // pantalla. Solo las tienen la lámina del título y la portada, que son la misma
 // escena, y por eso llegan como opción de `hornear` en vez de valer para todas.
+// LA CAJA ES LA TELA Y NADA MÁS, y esto es lo que hay que afinar si algún día
+// se repinta la ciudad. La primera versión iba holgada —trece píxeles de más
+// por encima de la de Extremadura y veintidós por encima de la de la cruz— y se
+// notaba enseguida: lo que ondeaba no era solo el paño, era también el trozo de
+// ladera y de cielo que la caja llevaba de propina. Lo vio Sergio.
+//
+// Medidas sobre el horneado: la tela de Extremadura ocupa y 381..428 y la de la
+// cruz y 374..414, y las dos empiezan UN PÍXEL a la derecha de su mástil —1523
+// y 1824— para que el asta se quede quieta, que es lo que sujeta la ilusión.
 const BANDERAS = [
   // La de Extremadura, sobre la torre de la izquierda.
-  { x: 1521, y: 368, w: 64, h: 70 },
+  { x: 1524, y: 381, w: 59, h: 47 },
   // La de la cruz, sobre la torre de la derecha.
-  { x: 1830, y: 352, w: 55, h: 68 }
+  { x: 1831, y: 374, w: 46, h: 40 }
 ];
 
 const BANDERA_PASO = 2;        // ancho de cada franja, en píxeles de lienzo

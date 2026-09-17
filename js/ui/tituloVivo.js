@@ -179,7 +179,7 @@ export const TituloVivo = {
     // pantallas.js— sigue igual sin saber que esto existe.
     const k = img.width / ANCHO_MEDIDO;
 
-    laminas[nombre] = { lienzo, esc: esc * k, ox, oy };
+    laminas[nombre] = { lienzo, esc: esc * k, ox, oy, estrellas: buscarEstrellas(c, W, H) };
 
     prepararBrasas();
   },
@@ -218,6 +218,7 @@ export const TituloVivo = {
     ctxMundo.setTransform(1, 0, 0, 1, 0, 0);
     ctxMundo.save();
     ctxMundo.globalCompositeOperation = 'lighter';
+    estrellas(ctxMundo, estado.t, l);
     antorchas(ctxMundo, estado.t, l);
     ctxMundo.restore();
   }
@@ -226,6 +227,153 @@ export const TituloVivo = {
 // Imagen -> lienzo del mundo, con el encaje de la lámina que se esté pintando.
 function mx(l, ix) { return l.ox + ix * l.esc; }
 function my(l, iy) { return l.oy + iy * l.esc; }
+
+// --- Estrellas ---------------------------------------------------------------
+//
+// El cielo estaba QUIETO, y en una pantalla que además espera pulsación sin
+// reloj —la portada— eso hacía que la ilustración pareciese una foto. Ahora
+// titila, y es lo único que se mueve arriba: no se mueve ni una nube ni se
+// desplaza nada, solo se SUMA luz sobre las estrellas que ya pintó Sergio, que
+// es lo mismo que hacen las antorchas y por el mismo motivo —sumar luz no
+// obliga a tener el objeto separado del fondo—.
+//
+// NO VAN MEDIDAS A MANO, como sí lo están las antorchas. Se buscan solas en la
+// lámina ya horneada, y eso es deliberado: son doscientas y pico, y una tabla
+// de doscientas coordenadas sería justo la clase de cosa que se queda vieja el
+// día que Sergio repinte el cielo, sin que salte ningún error. Repintando, las
+// nuevas se encuentran solas.
+//
+// QUÉ CUENTA COMO ESTRELLA: un punto CLARO, FRÍO y AISLADO sobre fondo oscuro.
+//
+//   - Claro y frío (azul >= rojo) deja fuera las antorchas, el oro del rótulo y
+//     las ventanas encendidas de la ciudad.
+//   - Aislado —máximo local— deja fuera la luna, que es clara pero ancha: sus
+//     píxeles del centro tienen vecinos igual de claros. Es lo que se quiere:
+//     una luna que parpadea no es una luna.
+//   - Y con el vecindario oscuro, que es lo que hace que no haya que decirle
+//     dónde está el cielo ni dónde la piedra.
+const ESTRELLA_BRILLO = 150;      // lo clara que tiene que ser
+const ESTRELLA_FONDO = 62;        // lo oscuro que tiene que estar alrededor
+const ESTRELLA_RADIO = 5;         // medio lado del vecindario que se mira
+
+// Solo la franja de ARRIBA. Por debajo empiezan las ruinas, la ciudad y el
+// rótulo, y ahí hay reflejos que cumplen las tres condiciones sin ser estrellas
+// —chispas en la hierba, un brillo en el filo de la espada—. Medido sobre la
+// lámina de hoy: de las 224 que encuentra en toda la imagen, 205 están aquí
+// arriba y las 19 de abajo son suelo.
+const ESTRELLA_CIELO = 0.40;
+
+// Tope de seguridad. Con la lámina de hoy salen 205, pero un repintado con más
+// grano podría disparar el número, y esto se dibuja en cada fotograma: si
+// aparecen más, se quedan las más claras.
+const ESTRELLA_MAX = 400;
+
+// Lo que tarda una en ir y volver. Cada una coge el suyo dentro de este margen
+// y además arranca por un punto distinto del ciclo, que es lo que impide que el
+// cielo entero lata a la vez —eso no parece un cielo, parece un fallo—.
+const ESTRELLA_CICLO_MIN = 1400;
+const ESTRELLA_CICLO_MAX = 4200;
+
+// Busca las estrellas en el lienzo YA HORNEADO, una sola vez por lámina.
+//
+// Sobre el horneado y no sobre la imagen original a propósito: así las
+// coordenadas ya son píxeles del lienzo del mundo y no hay que convertir nada
+// al dibujarlas, y el resultado se adapta solo a cualquier tamaño de lámina.
+//
+// EN DOS PASADAS, porque la ingenua no vale: mirar el vecindario de cada píxel
+// del cielo son cien millones de comparaciones y se notarían en la carga. La
+// primera pasada es una criba tonta y rapidísima —claro y frío— que deja unos
+// pocos miles; solo a esos se les mira alrededor.
+//
+// Si no se puede leer el lienzo, se devuelve una lista vacía y no pasa nada más
+// que un cielo quieto. Pasa cuando el navegador da el lienzo por contaminado
+// por haberse dibujado en él una imagen de otro origen. Hoy no ocurre en
+// ninguna de las dos formas de jugar —servido por http, mismo origen; y
+// empaquetado, porque el manifiesto de NW.js ya arranca con
+// `--allow-file-access-from-files`— pero el guarda se queda: es una línea, y
+// sin ella lo que se pierde no es el cielo, es la pantalla entera con una
+// excepción.
+function buscarEstrellas(ctx, W, H) {
+  const alto = Math.floor(H * ESTRELLA_CIELO);
+  let datos;
+  try {
+    datos = ctx.getImageData(0, 0, W, alto).data;
+  } catch {
+    return [];                  // lienzo no legible: cielo quieto y a otra cosa
+  }
+
+  const lum = new Uint8Array(W * alto);
+  const candidatos = [];
+  for (let y = 0; y < alto; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const o = i * 4;
+      const r = datos[o], g = datos[o + 1], b = datos[o + 2];
+      const l = (r * 299 + g * 587 + b * 114) / 1000;
+      lum[i] = l;
+      if (l >= ESTRELLA_BRILLO && b >= r) candidatos.push(i);
+    }
+  }
+
+  const hallazgos = [];
+  for (let c = 0; c < candidatos.length; c++) {
+    const i = candidatos[c];
+    const x = i % W, y = (i / W) | 0;
+    if (x < ESTRELLA_RADIO || y < ESTRELLA_RADIO ||
+        x >= W - ESTRELLA_RADIO || y >= alto - ESTRELLA_RADIO) continue;
+    const mio = lum[i];
+    let suma = 0, n = 0, esMaximo = true;
+    for (let dy = -ESTRELLA_RADIO; dy <= ESTRELLA_RADIO && esMaximo; dy++) {
+      for (let dx = -ESTRELLA_RADIO; dx <= ESTRELLA_RADIO; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const v = lum[(y + dy) * W + (x + dx)];
+        if (v > mio) { esMaximo = false; break; }
+        suma += v; n++;
+      }
+    }
+    if (!esMaximo || suma / n > ESTRELLA_FONDO) continue;
+    hallazgos.push({ x, y, brillo: mio });
+  }
+
+  // Las más claras primero, por si hay que recortar por el tope.
+  hallazgos.sort((a, b) => b.brillo - a.brillo);
+  hallazgos.length = Math.min(hallazgos.length, ESTRELLA_MAX);
+
+  // Y a cada una su ritmo. Con el RNG de decorado, que tiene semilla fija: el
+  // cielo titila igual en dos partidas, como el resto de esta pantalla.
+  for (let i = 0; i < hallazgos.length; i++) {
+    const e = hallazgos[i];
+    e.fase = rng();
+    e.periodo = ESTRELLA_CICLO_MIN + rng() * (ESTRELLA_CICLO_MAX - ESTRELLA_CICLO_MIN);
+    // Las más claras destellan más, que es lo que da profundidad al cielo: si
+    // todas suben lo mismo, se ve una rejilla de puntos y no un firmamento.
+    e.fuerza = 0.25 + 0.55 * Math.min(1, (e.brillo - ESTRELLA_BRILLO) / 90);
+    // Y las muy claras ocupan un píxel más al destellar.
+    e.lado = e.brillo > 215 ? 2 : 1;
+  }
+  return hallazgos;
+}
+
+function estrellas(ctx, t, l) {
+  const es = l.estrellas;
+  if (!es || es.length === 0) return;
+  // `fillRect` y no un degradado por estrella: son doscientas y pico en cada
+  // fotograma, y un radial por cada una es crear doscientos objetos por frame
+  // para pintar dos píxeles. El resplandor ya lo trae pintado la lámina; esto
+  // solo lo sube y lo baja.
+  ctx.fillStyle = '#c8e1ff';
+  for (let i = 0; i < es.length; i++) {
+    const e = es[i];
+    // Coseno alzado, igual que el aviso de la portada: va y vuelve sin picos.
+    const ciclo = 0.5 - 0.5 * Math.cos((t / e.periodo + e.fase) * Math.PI * 2);
+    const a = e.fuerza * ciclo;
+    if (a <= 0.02) continue;
+    ctx.globalAlpha = a;
+    const lado = e.lado + (ciclo > 0.75 ? 1 : 0);
+    ctx.fillRect(e.x - (lado >> 1), e.y - (lado >> 1), lado, lado);
+  }
+  ctx.globalAlpha = 1;
+}
 
 // --- Antorchas ---------------------------------------------------------------
 

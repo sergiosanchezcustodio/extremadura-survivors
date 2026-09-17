@@ -143,14 +143,35 @@ const OPCION_X = 694;
 // como cinco recuadros distintos.
 const OPCION_ANCHO = 284;
 
-// Alto: 22 de texto más 10 de aire. Con 35 de separación entre renglones, deja
-// tres píxeles de hueco entre un recuadro y el siguiente.
+// Alto 42, y los cinco centros DOS PÍXELES MÁS ABAJO que la banda de la letra.
+// Las dos cosas salen del mismo sitio: los 554..575 de arriba son la CAJA DE
+// MAYÚSCULAS, y una palabra ocupa más que eso por los dos lados.
+//
+// Por abajo, porque la letra grabada en la piedra arrastra su sombra y su
+// antialiasing: midiendo con umbral flojo, JUGAR EN RED llega a 618 cuando su
+// caja de mayúsculas acaba en 610. Con los 32 de antes el recuadro cortaba por
+// ahí, que es lo que se veía.
+//
+// Y por arriba, porque CONFIGURACIÓN lleva TILDE. La Ó sube hasta 654 cuando su
+// caja empieza en 660, así que es ella la que manda cuánto aire hace falta
+// encima —seis píxeles más que las otras cuatro— y la que impide bajar el
+// recuadro más de estos dos.
+//
+// 42 es también el TOPE: con 35 de separación entre renglones, un recuadro más
+// alto empezaría a morder la palabra de al lado, y entonces el cursor dejaría de
+// señalar una sola opción.
+//
+// Estos números y los de arriba se sacan de la misma lámina pero con umbrales
+// distintos: los 22 de la caja de mayúsculas con el de medir-lapida.ps1 (55),
+// que es el que separa limpiamente los cinco renglones, y la extensión real de
+// la tinta bajando a 44, que ya recoge tildes y bordes. Con uno solo no salen
+// las dos cosas: flojo, los renglones se funden en un borrón.
 const OPCIONES_TITULO = [
-  { y: 564, alto: 32 },     // JUGAR
-  { y: 600, alto: 32 },     // JUGAR EN RED
-  { y: 634, alto: 32 },     // TIENDA
-  { y: 670, alto: 32 },     // CONFIGURACIÓN
-  { y: 704, alto: 32 }      // SALIR
+  { y: 566, alto: 42 },     // JUGAR
+  { y: 602, alto: 42 },     // JUGAR EN RED
+  { y: 636, alto: 42 },     // TIENDA
+  { y: 672, alto: 42 },     // CONFIGURACIÓN
+  { y: 706, alto: 42 }      // SALIR
 ];
 
 const Imagenes = { titulo: null, seleccion: null };

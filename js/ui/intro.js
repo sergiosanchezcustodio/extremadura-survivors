@@ -2,6 +2,7 @@ import { Recursos } from '../core/recursos.js';
 import { GestorAudio } from '../sistemas/audio.js';
 import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
 import { FUENTE_TITULO, textoEspaciado } from './capa.js';
+import { TituloVivo } from './tituloVivo.js';
 import {
   ESPERA, FUNDIDO, prepararRelato, dibujarRelato, acompasarAVoz, RETARDO_VOZ,
   avanzarAguante, dibujarAguante,
@@ -126,7 +127,7 @@ const estado = {
   relato: null,       // el guion ya trazado (ver ui/relato.js)
   splash: null,       // el splash, horneado al tamaño de la pantalla
   historia: null,     // la placa de la historia, horneada igual
-  portada: null       // y la portada del "pulse una tecla"
+  portada: null       // ¿hay portada? La lámina la guarda TituloVivo
 };
 
 export const Intro = {
@@ -141,8 +142,20 @@ export const Intro = {
     ]);
     if (splash) estado.splash = hornearPantalla(splash, true);
     if (historia) estado.historia = hornearPantalla(historia, false);
-    // La portada se encaja como el splash: es 16:9 como la pantalla y la llena.
-    if (portada) estado.portada = hornearPantalla(portada, true);
+    // LA PORTADA NO SE HORNEA AQUÍ: la hornea TituloVivo, igual que el título.
+    // Son la misma escena —la portada es el título sin la lápida del menú— y
+    // eso hace que las antorchas de la ilustración sean las mismas, así que la
+    // portada se lleva también su fuego: el resplandor que late y las pavesas
+    // que suben. Sin eso, la única pantalla del juego que espera quieta era
+    // también la única con la escena congelada.
+    //
+    // Y horneándola ALLÍ y no aquí, el encaje de las dos láminas lo calcula el
+    // mismo código: si se hiciera por los dos lados, el fuego de una acabaría
+    // un día dos píxeles más allá que el de la otra.
+    if (portada) {
+      TituloVivo.hornear('portada', portada);
+      estado.portada = true;
+    }
   },
 
   iniciar() {
@@ -184,14 +197,16 @@ export const Intro = {
       dibujarAguante(ctxUi, estado.aguante);
       velo(ctxMundo, estado.reloj, estado.relato.duracion - estado.reloj, FUNDIDO);
     } else {
-      fondoPantalla(ctxMundo, estado.portada);
+      TituloVivo.avanzar();
+      TituloVivo.fondo(ctxMundo, 'portada');
+      TituloVivo.efectos(ctxMundo, 'portada');
       // Solo la entrada desde el negro del relato: no hay salida que fundir,
       // porque no se sabe cuándo va a ser. `Infinity` deja el fundido de salida
       // sin disparar nunca — ver `velo`, que compara lo que sobra contra él.
       velo(ctxMundo, estado.reloj, Infinity, 0);
-      // Y el aviso encima, en la CAPA DE INTERFAZ. Va detrás del velo a
-      // propósito: el velo tiñe el lienzo del mundo, así que el texto entra
-      // desde el negro con la ilustración y no flotando sobre ella.
+      // Y el aviso encima, en la CAPA DE INTERFAZ. Esa capa va por su cuenta y
+      // el velo no la alcanza —tiñe el lienzo del MUNDO—, así que la entrada
+      // desde el negro se la hace `dibujarPulsa` por su lado.
       dibujarPulsa(ctxUi, estado.reloj);
     }
   },

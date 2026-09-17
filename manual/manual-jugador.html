@@ -82,7 +82,14 @@
   /* ---------- Portada ------------------------------------------------- */
   .portada{
     padding:0; display:flex; align-items:flex-end;
-    background:#000 url('../resources/menus/Pantalla_Start.png') center 30%/cover no-repeat;
+    /* La portada del juego, la misma que cierra la intro. Sustituye a
+       Pantalla_Start.png, que era la ilustración de arranque de hace tres
+       relevos y que ya no existe en resources/.
+       Encuadrada por ABAJO (center 78%) y no por arriba: esta lámina trae el
+       rótulo del juego pintado, y con el h1 de aquí encima saldría el título
+       dos veces. Así se ve el escenario —las ruinas, las antorchas, el camino—
+       que es lo que la portada del manual tiene que prometer. */
+    background:#000 url('../resources/menus/Main_menu_pre.jpg') center 78%/cover no-repeat;
   }
   .portada::before,.portada::after{ display:none; }
   .portada .velo{
@@ -228,7 +235,7 @@
   <div class="velo">
     <div class="rotulo">
       <div class="kicker">Manual del jugador</div>
-      <h1>EMERITA<br>SURVIVOR</h1>
+      <h1>EXTREMADURA<br>SURVIVORS</h1>
       <div class="subtitulo">Las ruinas del Imperio</div>
       <div class="franja">
         <div><b>30 min</b>por partida</div>

@@ -80,10 +80,10 @@ release. Con `-Zip` sale además el comprimido listo para enviar (200 MB).
 
 ## Al arrancar
 
-Dos pantallas antes del menú. La primera es la ficha del proyecto —con qué está
-hecho, la licencia y el aviso de que se ha usado IA—, y la segunda **presenta el
+Tres pantallas antes del menú. La primera es la ficha del proyecto —con qué está
+hecho, la licencia y el aviso de que se ha usado IA—, la segunda **presenta el
 juego**, con el texto subiendo por el hueco de una placa de piedra que lleva la
-bandera de Extremadura envolviéndola.
+bandera de Extremadura envolviéndola, y la tercera es la portada.
 
 ![La intro](docs/capturas/intro_titulo.jpg)
 
@@ -94,6 +94,16 @@ sonar. El de cada nivel se busca por su identificador, así que narrar uno nuevo
 es dejar su fichero ahí con el nombre correcto.
 
 ![El relato](docs/capturas/intro_narracion.jpg)
+
+**Y la portada espera.** Las dos primeras se van solas —el logo a los ocho
+segundos, el relato cuando acaba—, pero esta se queda: es el primer momento en
+que el juego pide algo. Aquí entra el tema del título, y el aviso de pulsar no
+está pintado en la lámina sino escrito encima, en la capa nítida, latiendo
+despacio sin llegar a apagarse. Las antorchas de la ilustración arden de verdad:
+el resplandor va con dos senos de períodos distintos para que no lata como un
+metrónomo, y las pavesas suben, se van a rojo y se apagan.
+
+![La portada](docs/capturas/intro_portada.jpg)
 
 **Manda la voz, no el texto.** El relato no sube a ritmo fijo: reparte el tiempo
 entre renglones según lo que cuesta *decir* cada uno, de forma que la frase que

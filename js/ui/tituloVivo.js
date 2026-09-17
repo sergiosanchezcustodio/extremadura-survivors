@@ -93,20 +93,26 @@ const NUM_BRASAS = 30;
 // cargar, no durante ningún fotograma.
 const rng = crearRng(20250824);
 
+// DOS LÁMINAS, no una: el título y la PORTADA de la intro. Son la misma escena
+// —la portada es el título sin la lápida del menú— y por eso comparten las
+// antorchas de arriba: medidas sobre las dos, caen en el mismo píxel.
+//
+// Cada una guarda su horneado, y el reloj y las pavesas son comunes: son el
+// mismo fuego visto en dos pantallas seguidas, y darle a cada una sus brasas
+// haría que al pasar de la portada al menú el fuego diera un salto.
+const laminas = {};
+
 const estado = {
-  lienzo: null,      // el fondo ya escalado a tamaño de pantalla
-  esc: 1,            // píxeles del mundo por píxel de la imagen
-  ox: 0, oy: 0,      // esquina de la imagen dentro del lienzo horneado
   t: 0,
   brasas: []
 };
 
 export const TituloVivo = {
-  listo() { return estado.lienzo !== null; },
+  listo(nombre) { return !!laminas[nombre]; },
 
-  // Se llama una vez, al cargar la ilustración. Ya no recibe ancla: desde que
-  // se encaja entera en vez de recortarla, no hay nada que anclar.
-  hornear(img) {
+  // Se llama una vez por lámina, al cargar la ilustración. Ya no recibe ancla:
+  // desde que se encaja entera en vez de recortarla, no hay nada que anclar.
+  hornear(nombre, img) {
     if (!img) return;
     const W = ANCHO_FISICO;
     const H = ALTO_FISICO;
@@ -146,10 +152,7 @@ export const TituloVivo = {
       c.drawImage(img, ox, oy, img.width * esc, img.height * esc);
     }
 
-    estado.lienzo = lienzo;
-    estado.esc = esc;
-    estado.ox = ox;
-    estado.oy = oy;
+    laminas[nombre] = { lienzo, esc, ox, oy };
 
     prepararBrasas();
   },
@@ -166,32 +169,36 @@ export const TituloVivo = {
   // lápida. Es fijo, pero sigue saliendo de aquí y no de un `cubrir` aparte:
   // dos sitios calculando el mismo encaje es la forma segura de que un día
   // dejen de coincidir.
-  encaje() {
-    return { esc: estado.esc / K, x: estado.ox / K, y: estado.oy / K };
+  encaje(nombre) {
+    const l = laminas[nombre];
+    if (!l) return { esc: 1 / K, x: 0, y: 0 };
+    return { esc: l.esc / K, x: l.ox / K, y: l.oy / K };
   },
 
   // El fondo, en copia 1:1.
-  fondo(ctxMundo) {
-    if (!estado.lienzo) return;
+  fondo(ctxMundo, nombre) {
+    const l = laminas[nombre];
+    if (!l) return;
     ctxMundo.setTransform(1, 0, 0, 1, 0, 0);
     ctxMundo.imageSmoothingEnabled = false;
-    ctxMundo.drawImage(estado.lienzo, 0, 0);
+    ctxMundo.drawImage(l.lienzo, 0, 0);
   },
 
   // El fuego. Va DESPUÉS del fondo y ANTES de la capa de interfaz.
-  efectos(ctxMundo) {
-    if (!estado.lienzo) return;
+  efectos(ctxMundo, nombre) {
+    const l = laminas[nombre];
+    if (!l) return;
     ctxMundo.setTransform(1, 0, 0, 1, 0, 0);
     ctxMundo.save();
     ctxMundo.globalCompositeOperation = 'lighter';
-    antorchas(ctxMundo, estado.t);
+    antorchas(ctxMundo, estado.t, l);
     ctxMundo.restore();
   }
 };
 
-// Imagen -> lienzo del mundo.
-function mx(ix) { return estado.ox + ix * estado.esc; }
-function my(iy) { return estado.oy + iy * estado.esc; }
+// Imagen -> lienzo del mundo, con el encaje de la lámina que se esté pintando.
+function mx(l, ix) { return l.ox + ix * l.esc; }
+function my(l, iy) { return l.oy + iy * l.esc; }
 
 // --- Antorchas ---------------------------------------------------------------
 
@@ -211,15 +218,15 @@ function prepararBrasas() {
   }
 }
 
-function antorchas(ctx, t) {
+function antorchas(ctx, t, l) {
   // El resplandor: dos senos de períodos distintos, que es lo que hace que una
   // llama no lata como un metrónomo.
   for (let i = 0; i < ANTORCHAS.length; i++) {
     const b = ANTORCHAS[i];
     const s = t / 1000 + i * 1.7;
     const p = 0.5 + 0.30 * Math.sin(s * 3.1) + 0.20 * Math.sin(s * 7.9 + 1.3);
-    const cx = mx(b.x), cy = my(b.y);
-    const r = (28 + 7 * p) * estado.esc;
+    const cx = mx(l, b.x), cy = my(l, b.y);
+    const r = (28 + 7 * p) * l.esc;
     const a = 0.11 + 0.08 * p;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
     g.addColorStop(0, 'rgba(255,186,92,' + a.toFixed(3) + ')');
@@ -245,8 +252,8 @@ function antorchas(ctx, t) {
     const vida = u < 0.15 ? u / 0.15 : (1 - u) / 0.85;
     const a = vida * 0.75;
     if (a <= 0.02) continue;
-    const cx = mx(ix), cy = my(iy);
-    const r = p.radio * estado.esc * (1.2 - u * 0.45) * 3;
+    const cx = mx(l, ix), cy = my(l, iy);
+    const r = p.radio * l.esc * (1.2 - u * 0.45) * 3;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
     // La ceniza va tirando a rojo según sube: el verde y el azul se apagan
     // antes que el rojo, que es lo que hace una brasa de verdad.

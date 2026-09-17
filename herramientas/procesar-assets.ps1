@@ -4516,12 +4516,11 @@ $informeSuelo | Format-Table -AutoSize
 # Las dos siguen en resources/ y ninguna se copia ya a assets/: el juego lee la
 # que diga esta tabla y solo esa.
 #
-# La ilustracion ANTIGUA (Pantalla_Start.png) ya NO se copia a assets/: no la
-# lee el juego -RUTA_TITULO en ui/pantallas.js apunta al jpg- y guardarla aqui
-# "por si acaso" significaba 2,7 MB de peso muerto en cada build de
-# empaquetar.ps1, que copia assets/ entero. Sigue existiendo intacta en
-# resources/menus/Pantalla_Start.png si algun dia hay que volver a ella; el
-# manual del jugador (manual/manual-jugador.html) la referencia ahi.
+# La ilustracion ANTIGUA (Pantalla_Start.png) ya NO EXISTE: la borro Sergio el
+# 17/09/2026, tres relevos despues de dejar de usarse. Dejo de copiarse a
+# assets/ mucho antes -no la leia el juego y eran 2,7 MB de peso muerto en cada
+# build de empaquetar.ps1, que copia assets/ entero- y lo ultimo que la
+# referenciaba era la portada del manual del jugador, que usa ya Main_menu_pre.
 #
 # SELECCION sigue el mismo razonamiento que el titulo nuevo: opaca, sin
 # recorte que perder, y ver-assets.ps1 confirmo que no tiene alfa real.

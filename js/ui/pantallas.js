@@ -170,7 +170,7 @@ export const Pantallas = {
     // La pantalla de título se hornea aquí: la ilustración escalada una sola vez
     // a su propio lienzo. A partir de ahí cada fotograma es una copia 1:1 más el
     // fuego de las antorchas (ver tituloVivo.js).
-    TituloVivo.hornear(t);
+    TituloVivo.hornear('titulo', t);
   },
 
   titulo(ctxMundo, ctxUi, menu, cursor) { dibujarTitulo(ctxMundo, ctxUi, menu, cursor); },
@@ -375,7 +375,7 @@ function fondo(ctxMundo, img, e) {
 // dos sitios calculándolo por su cuenta es la forma segura de que un día dejen
 // de coincidir.
 export function fondoTitulo(ctxMundo) {
-  if (TituloVivo.listo()) { TituloVivo.fondo(ctxMundo); return; }
+  if (TituloVivo.listo('titulo')) { TituloVivo.fondo(ctxMundo, 'titulo'); return; }
   const img = Imagenes.titulo;
   fondo(ctxMundo, img, cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, ANCLA_TITULO));
 }
@@ -400,11 +400,11 @@ function dibujarTitulo(ctxMundo, ctxUi, menu, cursor) {
   // de tituloVivo.js). Lo único que cambia de un fotograma a otro es la luz que
   // se suma encima.
   let e;
-  if (TituloVivo.listo()) {
+  if (TituloVivo.listo('titulo')) {
     TituloVivo.avanzar();
-    TituloVivo.fondo(ctxMundo);
-    TituloVivo.efectos(ctxMundo);
-    e = TituloVivo.encaje();
+    TituloVivo.fondo(ctxMundo, 'titulo');
+    TituloVivo.efectos(ctxMundo, 'titulo');
+    e = TituloVivo.encaje('titulo');
   } else {
     e = cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, ANCLA_TITULO);
     fondo(ctxMundo, img, e);

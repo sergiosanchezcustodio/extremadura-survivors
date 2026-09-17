@@ -3,7 +3,13 @@
 # El juego usa modulos ES6 nativos, y el navegador los bloquea si la pagina se
 # abre con doble clic sobre index.html (file://). Por eso hace falta servirlo por
 # http, aunque sea desde la propia maquina. Esto es lo unico que hace el script:
-# `python -m http.server` en la raiz del repo y abrir la pagina.
+# levantar herramientas\servidor.py en la raiz del repo y abrir la pagina.
+#
+# Ese servidor es `python -m http.server` mas `Cache-Control: no-store`, y no es
+# capricho: sin eso el navegador se queda con la copia vieja de un .js o de una
+# lamina que se acaba de sustituir, y el sintoma -sigue saliendo la anterior, sin
+# ningun error, con el fichero nuevo en el disco- manda a buscar el fallo al
+# codigo, que es donde no esta. Ver la cabecera de servidor.py.
 #
 #   powershell -ExecutionPolicy Bypass -File herramientas\jugar.ps1
 #
@@ -49,7 +55,11 @@ $ocupado = $null -ne (Get-NetTCPConnection -LocalPort $Puerto -State Listen -Err
 
 $servidor = $null
 if ($ocupado) {
+    # OJO: si el que hay levantado es un `python -m http.server` de antes de
+    # que existiera servidor.py, sirve CON cache y vuelve el problema de la
+    # lamina vieja. Por eso se avisa en vez de callar.
     "Puerto $Puerto ya en uso: se reutiliza el servidor que hay levantado."
+    "  (si es de una sesion anterior y ves arte viejo, cierralo y vuelve a lanzar esto)"
 } else {
     # `python` a secas puede ser el alias de la Store que abre la tienda en vez
     # de ejecutar nada; el lanzador `py` es el fiable cuando esta.
@@ -63,7 +73,7 @@ if ($ocupado) {
     }
 
     $servidor = Start-Process -FilePath $python `
-        -ArgumentList '-m', 'http.server', $Puerto `
+        -ArgumentList (Join-Path $PSScriptRoot 'servidor.py'), $Puerto `
         -WorkingDirectory $RAIZ -WindowStyle Hidden -PassThru
 
     # Esperar a que acepte conexiones antes de abrir el navegador; si no, la

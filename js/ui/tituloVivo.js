@@ -439,8 +439,23 @@ const ESTRELLA_HALO = 7;
 // UNA ANTORCHA es naranja MUY claro. El umbral es alto a propósito: la piedra
 // iluminada por la llama también tira a naranja, y lo que se busca es el
 // corazón del fuego, no su luz.
+//
+// Y LOS TRES CANALES CUENTAN, no solo el rojo, porque con el rojo a secas entra
+// cualquier cosa dorada. Lo vio Sergio: salía una llama en medio de la M de
+// EXTREMADURA.
+//
+//   azul   una llama es naranja de verdad y apenas tiene azul (B≈22 en las del
+//          título). El oro pulido del rótulo refleja bastante más (B≈78..92),
+//          así que bajar el techo de 110 a 60 se lleva las letras enteras sin
+//          tocar el fuego.
+//   verde  por abajo deja fuera los rojos puros —el estandarte del splash y el
+//          logo de HTML5, los dos con G≈70— y por arriba los amarillos limpios,
+//          que en una llama no existen: el fuego va de naranja a ámbar, nunca a
+//          limón.
 const FUEGO_ROJO = 215;
-const FUEGO_AZUL = 110;
+const FUEGO_VERDE_MIN = 100;
+const FUEGO_VERDE_MAX = 205;
+const FUEGO_AZUL = 60;
 
 // Se agrupa por celdas porque una llama ocupa decenas de píxeles y no hace
 // falta una por píxel. Cincuenta es más pequeño que la separación entre dos
@@ -449,12 +464,28 @@ const FUEGO_CELDA = 50;
 
 // Cuántos píxeles de fuego tiene que tener una celda para contar. Por debajo es
 // un reflejo en un casco o el filo de una espada cogiendo la luz.
-const FUEGO_MINIMO = 60;
+const FUEGO_MINIMO = 150;
 
 // Y cuánto puede separarse una celda de otra para ser la misma llama. Una llama
 // alta cae en dos celdas contiguas a lo alto, y si no se juntan salen dos
 // antorchas donde hay una, la de arriba flotando.
 const FUEGO_JUNTAR = 70;
+
+// LO MACIZO QUE PUEDE SER UN FOCO. Es lo que separa una llama de un icono, y
+// hace falta por el splash, que lleva la ficha del proyecto pintada dentro: sus
+// insignias son cuadraditos de color liso, y el color solo no basta para
+// distinguirlas —la de JavaScript es exactamente ámbar—.
+//
+// Lo que las delata es la FORMA: el fuego es irregular y deja huecos, así que
+// sus píxeles llenan entre un 8% y un 41% de su caja. Un icono la llena al 75%,
+// porque es un bloque. Medido sobre las cinco láminas.
+const FUEGO_LLENO = 0.55;
+const FUEGO_CAJA = 45;       // medio lado de la caja donde se mide eso
+
+// Y un tope de cuántas se animan. El splash es una calle encendida con lámparas,
+// ventanas iluminadas y braseros: reconoce media docena larga, y sumarle a cada
+// una su halo dejaría la pantalla lavada. Se quedan las más encendidas.
+const FUEGO_TOPE = 6;
 
 function buscarAntorchas(pix) {
   if (!pix) return [];
@@ -467,8 +498,7 @@ function buscarAntorchas(pix) {
   // la lámina ENTERA, que es cuatro veces lo que miran las estrellas.
   for (let y = 0; y < H; y += 2) {
     for (let x = 0; x < W; x += 2) {
-      const o = (y * W + x) * 4;
-      if (datos[o] < FUEGO_ROJO || datos[o + 2] > FUEGO_AZUL) continue;
+      if (!esFuego(datos, (y * W + x) * 4)) continue;
       const k = ((y / FUEGO_CELDA) | 0) * cw + ((x / FUEGO_CELDA) | 0);
       let c = celdas.get(k);
       if (!c) { c = { n: 0, sx: 0, sy: 0 }; celdas.set(k, c); }
@@ -502,7 +532,39 @@ function buscarAntorchas(pix) {
       focos.push({ x: v.x, y: v.y, n: v.n });
     }
   }
-  return focos;
+
+  // Y fuera lo macizo, que es lo que no arde.
+  const llamas = focos.filter((f) => relleno(datos, W, H, f.x, f.y) <= FUEGO_LLENO);
+  llamas.sort((a, b) => b.n - a.n);
+  llamas.length = Math.min(llamas.length, FUEGO_TOPE);
+  return llamas;
+}
+
+function esFuego(datos, o) {
+  const r = datos[o], g = datos[o + 1], b = datos[o + 2];
+  return r >= FUEGO_ROJO && b <= FUEGO_AZUL &&
+         g >= FUEGO_VERDE_MIN && g <= FUEGO_VERDE_MAX;
+}
+
+// Qué parte de su propia caja llenan los píxeles de fuego de un foco. Uno de
+// cada cuatro, como en la búsqueda: la proporción no cambia por muestrear.
+function relleno(datos, W, H, cx, cy) {
+  const x0 = Math.max(0, (cx | 0) - FUEGO_CAJA), x1 = Math.min(W - 1, (cx | 0) + FUEGO_CAJA);
+  const y0 = Math.max(0, (cy | 0) - FUEGO_CAJA), y1 = Math.min(H - 1, (cy | 0) + FUEGO_CAJA);
+  let n = 0, minX = W, maxX = -1, minY = H, maxY = -1;
+  for (let y = y0; y <= y1; y += 2) {
+    for (let x = x0; x <= x1; x += 2) {
+      if (!esFuego(datos, (y * W + x) * 4)) continue;
+      n++;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+  if (n === 0) return 1;                     // sin fuego: que no pase
+  const caja = ((maxX - minX) / 2 + 1) * ((maxY - minY) / 2 + 1);
+  return n / caja;
 }
 
 // LA LUNA es el único disco claro y frío grande que hay en el cielo. Las

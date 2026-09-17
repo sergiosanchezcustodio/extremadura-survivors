@@ -219,6 +219,7 @@ export const TituloVivo = {
     ctxMundo.save();
     ctxMundo.globalCompositeOperation = 'lighter';
     estrellas(ctxMundo, estado.t, l);
+    calavera(ctxMundo, estado.t, l);
     antorchas(ctxMundo, estado.t, l);
     ctxMundo.restore();
   }
@@ -273,6 +274,9 @@ const ESTRELLA_MAX = 400;
 // cielo entero lata a la vez —eso no parece un cielo, parece un fallo—.
 const ESTRELLA_CICLO_MIN = 1400;
 const ESTRELLA_CICLO_MAX = 4200;
+
+// Cuántas sacan halo además del punto. Ver dónde se reparte, más abajo.
+const ESTRELLA_DESTACADAS = 1 / 6;
 
 // Busca las estrellas en el lienzo YA HORNEADO, una sola vez por lámina.
 //
@@ -347,32 +351,113 @@ function buscarEstrellas(ctx, W, H) {
     e.periodo = ESTRELLA_CICLO_MIN + rng() * (ESTRELLA_CICLO_MAX - ESTRELLA_CICLO_MIN);
     // Las más claras destellan más, que es lo que da profundidad al cielo: si
     // todas suben lo mismo, se ve una rejilla de puntos y no un firmamento.
-    e.fuerza = 0.25 + 0.55 * Math.min(1, (e.brillo - ESTRELLA_BRILLO) / 90);
+    e.fuerza = 0.45 + 0.55 * Math.min(1, (e.brillo - ESTRELLA_BRILLO) / 90);
     // Y las muy claras ocupan un píxel más al destellar.
-    e.lado = e.brillo > 215 ? 2 : 1;
+    e.lado = e.brillo > 215 ? 3 : 2;
+    // UNA DE CADA SEIS DESTACA. No es que brille más fuerte —eso ya lo decide su
+    // brillo pintado—, es que además saca HALO: un disco de luz blanda alrededor
+    // del punto. Es lo que hace que el cielo tenga unas cuantas estrellas de las
+    // que se miran y doscientas de fondo, en vez de doscientas iguales.
+    //
+    // Y las destacadas van MÁS LENTAS, con el ciclo estirado a la mitad más: una
+    // estrella grande que parpadea rápido parece un piloto, no una estrella.
+    e.destacada = rng() < ESTRELLA_DESTACADAS;
+    if (e.destacada) e.periodo *= 1.5;
   }
   return hallazgos;
 }
 
+// Lo que mide el halo de una destacada, en píxeles del lienzo.
+const ESTRELLA_HALO = 7;
+
 function estrellas(ctx, t, l) {
   const es = l.estrellas;
   if (!es || es.length === 0) return;
-  // `fillRect` y no un degradado por estrella: son doscientas y pico en cada
-  // fotograma, y un radial por cada una es crear doscientos objetos por frame
-  // para pintar dos píxeles. El resplandor ya lo trae pintado la lámina; esto
-  // solo lo sube y lo baja.
-  ctx.fillStyle = '#c8e1ff';
+  // El punto va con `fillRect` y no con un degradado: son doscientas y pico en
+  // cada fotograma, y un radial por cada una es crear doscientos objetos por
+  // frame para pintar tres píxeles. El degradado se lo queda la sexta parte que
+  // saca halo, que son unas treinta: eso sí se puede pagar.
   for (let i = 0; i < es.length; i++) {
     const e = es[i];
     // Coseno alzado, igual que el aviso de la portada: va y vuelve sin picos.
     const ciclo = 0.5 - 0.5 * Math.cos((t / e.periodo + e.fase) * Math.PI * 2);
     const a = e.fuerza * ciclo;
     if (a <= 0.02) continue;
+
+    // EL HALO de las destacadas, debajo del punto. Va antes para que el núcleo
+    // quede encima y la estrella siga teniendo centro; al revés se ve una mancha.
+    if (e.destacada) {
+      const r = ESTRELLA_HALO * (0.6 + 0.4 * ciclo);
+      const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r);
+      g.addColorStop(0, 'rgba(190,220,255,' + (a * 0.45).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(120,170,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.globalAlpha = a;
+    ctx.fillStyle = '#dceeff';
     const lado = e.lado + (ciclo > 0.75 ? 1 : 0);
     ctx.fillRect(e.x - (lado >> 1), e.y - (lado >> 1), lado, lado);
+    ctx.globalAlpha = 1;
   }
-  ctx.globalAlpha = 1;
+}
+
+// --- La calavera del rótulo ---------------------------------------------------
+//
+// LOS DOS OJOS de la calavera de bronce que hay bajo el escudo, en la cima del
+// rótulo del juego. Se encienden de rojo muy despacio y se vuelven a apagar,
+// una y otra vez.
+//
+// Van MEDIDOS, como las antorchas y al revés que las estrellas, y por el motivo
+// contrario: son dos y son un sitio concreto del dibujo. Buscarlos solos —"las
+// dos manchas oscuras dentro de la cosa clara del centro"— sería más código y
+// más frágil que escribir dos pares de números.
+//
+// En unidades de ANCHO_MEDIDO. Comprobación de que están donde se cree: su
+// punto medio cae en 691, y el centro del emblema de arriba está en 693 y el de
+// las palabras del menú en 694. La calavera está en el eje de la lámina.
+const CALAVERA_OJOS = [
+  { x: 682, y: 246 },
+  { x: 701, y: 246 }
+];
+
+// La cuenca mide unos 11 de ancho. El resplandor sale algo mayor para que se lea
+// como luz que SALE de dentro y no como dos puntos pegados encima.
+const CALAVERA_RADIO = 7;
+
+// LENTO, que es lo que pidió Sergio. Cinco segundos y pico de ida y vuelta.
+const CALAVERA_CICLO = 5200;
+
+// Y el exponente es lo que hace que esté APAGADA la mayor parte del tiempo. Con
+// el coseno alzado a secas pasa tanto rato encendida como apagada, y eso no es
+// una calavera que se enciende: es una calavera roja que a veces se apaga. Con
+// 1,8 la subida tarda, el rojo se queda un momento arriba y baja, y entre vez y
+// vez el rótulo vuelve a ser solo bronce.
+const CALAVERA_CURVA = 1.8;
+const CALAVERA_ALFA = 0.9;
+
+function calavera(ctx, t, l) {
+  const u = 0.5 - 0.5 * Math.cos((t / CALAVERA_CICLO) * Math.PI * 2);
+  const a = CALAVERA_ALFA * Math.pow(u, CALAVERA_CURVA);
+  if (a <= 0.01) return;
+  const r = CALAVERA_RADIO * l.esc * (0.75 + 0.25 * u);
+  for (let i = 0; i < CALAVERA_OJOS.length; i++) {
+    const o = CALAVERA_OJOS[i];
+    const cx = mx(l, o.x), cy = my(l, o.y);
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    // Del naranja del centro al rojo de fuera: un rojo plano sumado sobre
+    // bronce oscuro se queda sucio, y con el centro caliente parece una brasa.
+    g.addColorStop(0, 'rgba(255,120,60,' + a.toFixed(3) + ')');
+    g.addColorStop(0.35, 'rgba(235,30,20,' + (a * 0.8).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(150,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 // --- Antorchas ---------------------------------------------------------------

@@ -190,6 +190,13 @@ export const Intro = {
     }
   },
 
+  // ¿Estamos en la PORTADA? Lo pregunta main.js para arrancar ahí la música del
+  // título: la portada es el primer cartel del juego y el último paso antes de
+  // elegir partida, así que el tema tiene que abrirla. Las otras dos fases no
+  // la quieren —el splash es un logo de ocho segundos y sobre el relato manda
+  // la voz del narrador—, y por eso no vale con preguntar por la pantalla.
+  get enPortada() { return estado.fase === FASE_PORTADA; },
+
   // La placa de piedra ya horneada. La reutiliza la pantalla de historia de
   // nivel: es la misma placa con otro guion, y hornear una segunda copia de la
   // misma imagen a 1920x1080 sería pagar dos veces por el mismo dibujo.

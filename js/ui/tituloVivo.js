@@ -416,12 +416,22 @@ function estrellas(ctx, t, l) {
 // dos manchas oscuras dentro de la cosa clara del centro"— sería más código y
 // más frágil que escribir dos pares de números.
 //
-// En unidades de ANCHO_MEDIDO. Comprobación de que están donde se cree: su
-// punto medio cae en 691, y el centro del emblema de arriba está en 693 y el de
-// las palabras del menú en 694. La calavera está en el eje de la lámina.
+// Y MEDIDOS DE VERDAD, que la primera vez se pusieron a ojo sobre la lámina
+// ampliada y el derecho salió seis píxeles corrido: se ve enseguida, porque el
+// resplandor se sale de la cuenca por un lado y dentro queda sombra por el
+// otro. Lo que vale es el CENTRO DE MASAS de lo oscuro de cada cuenca, acotado
+// a la caja del hueso —si la caja se pasa de los bordes del cráneo, el fondo
+// negro de alrededor se cuela en la cuenta y arrastra el centro hacia fuera,
+// que es exactamente lo que había pasado—.
+//
+// En unidades de ANCHO_MEDIDO. Comprobación de que están donde se cree: el eje
+// entre los dos cae en 689, y el puente nasal del propio dibujo está en ese
+// mismo sitio; el emblema de arriba está centrado en 693 y las palabras del
+// menú en 694, así que la calavera va un pelo a la izquierda del eje del marco,
+// y así está pintada.
 const CALAVERA_OJOS = [
-  { x: 682, y: 246 },
-  { x: 701, y: 246 }
+  { x: 681.5, y: 247.4 },
+  { x: 696.7, y: 247.4 }
 ];
 
 // La cuenca mide unos 11 de ancho. El resplandor sale algo mayor para que se lea

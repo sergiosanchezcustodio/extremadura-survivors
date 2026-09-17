@@ -179,7 +179,16 @@ export const TituloVivo = {
     // pantallas.js— sigue igual sin saber que esto existe.
     const k = img.width / ANCHO_MEDIDO;
 
-    laminas[nombre] = { lienzo, esc: esc * k, ox, oy, estrellas: buscarEstrellas(c, W, H) };
+    // El cielo se lee UNA vez y lo usan los dos que lo necesitan. Leer un lienzo
+    // no es gratis —y el navegador avisa por consola en cuanto se hace dos
+    // veces seguidas sobre el mismo—, así que la lectura va aquí y lo que baja
+    // son los datos, no la orden de volver a leer.
+    const cielo = leerCielo(c, W, H);
+    laminas[nombre] = {
+      lienzo, esc: esc * k, ox, oy,
+      estrellas: buscarEstrellas(cielo),
+      cielo: mascaraCielo(cielo)
+    };
 
     prepararBrasas();
   },
@@ -218,6 +227,11 @@ export const TituloVivo = {
     ctxMundo.setTransform(1, 0, 0, 1, 0, 0);
     ctxMundo.save();
     ctxMundo.globalCompositeOperation = 'lighter';
+    // De lo ancho a lo fino: el velo baña el cielo entero, la luna es un disco,
+    // las estrellas son puntos. Al revés, el velo pasaría por encima de ellas y
+    // las emborronaría justo cuando destellan.
+    velo(ctxMundo, estado.t, l);
+    luna(ctxMundo, estado.t, l);
     estrellas(ctxMundo, estado.t, l);
     calavera(ctxMundo, estado.t, l);
     antorchas(ctxMundo, estado.t, l);
@@ -278,6 +292,25 @@ const ESTRELLA_CICLO_MAX = 4200;
 // Cuántas sacan halo además del punto. Ver dónde se reparte, más abajo.
 const ESTRELLA_DESTACADAS = 1 / 6;
 
+// La franja de cielo del horneado, cruda. La piden las estrellas y la máscara
+// del velo, y por eso se lee aparte en vez de dentro de cada una.
+//
+// Si el lienzo no se puede leer se devuelve null y lo que se pierde es el cielo
+// vivo, nada más. Pasa cuando el navegador lo da por contaminado por haberse
+// dibujado en él una imagen de otro origen. Hoy no ocurre en ninguna de las dos
+// formas de jugar —servido por http, mismo origen; y empaquetado, porque el
+// manifiesto de NW.js ya arranca con `--allow-file-access-from-files`— pero el
+// guarda se queda: es una línea, y sin ella lo que se cae no es el cielo, es la
+// pantalla entera con una excepción.
+function leerCielo(ctx, W, H) {
+  const alto = Math.floor(H * ESTRELLA_CIELO);
+  try {
+    return { datos: ctx.getImageData(0, 0, W, alto).data, W, alto };
+  } catch {
+    return null;
+  }
+}
+
 // Busca las estrellas en el lienzo YA HORNEADO, una sola vez por lámina.
 //
 // Sobre el horneado y no sobre la imagen original a propósito: así las
@@ -289,22 +322,9 @@ const ESTRELLA_DESTACADAS = 1 / 6;
 // primera pasada es una criba tonta y rapidísima —claro y frío— que deja unos
 // pocos miles; solo a esos se les mira alrededor.
 //
-// Si no se puede leer el lienzo, se devuelve una lista vacía y no pasa nada más
-// que un cielo quieto. Pasa cuando el navegador da el lienzo por contaminado
-// por haberse dibujado en él una imagen de otro origen. Hoy no ocurre en
-// ninguna de las dos formas de jugar —servido por http, mismo origen; y
-// empaquetado, porque el manifiesto de NW.js ya arranca con
-// `--allow-file-access-from-files`— pero el guarda se queda: es una línea, y
-// sin ella lo que se pierde no es el cielo, es la pantalla entera con una
-// excepción.
-function buscarEstrellas(ctx, W, H) {
-  const alto = Math.floor(H * ESTRELLA_CIELO);
-  let datos;
-  try {
-    datos = ctx.getImageData(0, 0, W, alto).data;
-  } catch {
-    return [];                  // lienzo no legible: cielo quieto y a otra cosa
-  }
+function buscarEstrellas(cielo) {
+  if (!cielo) return [];        // lienzo no legible: cielo quieto y a otra cosa
+  const { datos, W, alto } = cielo;
 
   const lum = new Uint8Array(W * alto);
   const candidatos = [];
@@ -403,6 +423,132 @@ function estrellas(ctx, t, l) {
     ctx.fillRect(e.x - (lado >> 1), e.y - (lado >> 1), lado, lado);
     ctx.globalAlpha = 1;
   }
+}
+
+// --- La luna ------------------------------------------------------------------
+//
+// Un halo que respira alrededor del disco. Medida igual que las antorchas: es
+// un sitio concreto y son tres números.
+//
+// EL RADIO NO ES EL DEL ÁREA. La primera medida contó los píxeles muy claros y
+// dio 36, menos de la mitad de lo que mide: la luna tiene sus manchas oscuras
+// dentro y esas no pasaban el umbral. Lo que vale es el BORDE del disco, que
+// son 65 en píxeles de lámina — 46 aquí.
+const LUNA = { x: 404.5, y: 74.4, radio: 46 };
+
+// El halo sale por fuera del disco. Y se suma también ENCIMA, flojo, porque una
+// luna con un anillo alrededor y el disco igual de apagado no parece que
+// brille: parece que tenga un aro.
+const LUNA_HALO = 1.75;
+const LUNA_CICLO = 7400;
+const LUNA_ALFA = 0.17;
+
+function luna(ctx, t, l) {
+  const u = 0.5 - 0.5 * Math.cos((t / LUNA_CICLO) * Math.PI * 2);
+  const a = LUNA_ALFA * (0.35 + 0.65 * u);
+  const cx = mx(l, LUNA.x), cy = my(l, LUNA.y);
+  const r = LUNA.radio * l.esc * LUNA_HALO * (0.94 + 0.06 * u);
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  g.addColorStop(0, 'rgba(225,238,255,' + (a * 0.55).toFixed(3) + ')');
+  g.addColorStop(0.57, 'rgba(190,220,255,' + a.toFixed(3) + ')');
+  g.addColorStop(1, 'rgba(120,170,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// --- El velo que cruza las nubes ----------------------------------------------
+//
+// Una franja de luz que recorre el cielo de un lado a otro, muy despacio, y que
+// enciende las NUBES más que el cielo de detrás. Es lo que hace que el cielo
+// parezca que se mueve sin mover un solo píxel de la lámina.
+//
+// EL TRUCO ESTÁ EN LA MÁSCARA. Una franja de luz sumada a secas sobre la mitad
+// de arriba encendería también las ruinas, la muralla y la catedral, y eso no se
+// lee como una nube pasando: se lee como un fallo. Así que al hornear se saca un
+// mapa de DÓNDE HAY CIELO —lo que tira a azul— y CUÁNTO recibe cada punto, que
+// va con lo claro que ya es: una nube coge mucho y el fondo de la noche casi
+// nada. El velo se pinta a través de ese mapa.
+//
+// La luna queda fuera del mapa a propósito: ya tiene su propio halo, y sumarle
+// el velo por encima la dejaría reventada de blanco al pasar.
+//
+// A UN CUARTO DE RESOLUCIÓN. El velo es una mancha blanda y la máscara también,
+// así que no se pierde nada visible, y en cambio las tres operaciones que hacen
+// falta por fotograma pasan de 830.000 píxeles a 52.000. Al dibujarlo sobre el
+// mundo se amplía con suavizado, que es lo que termina de fundirlo.
+const VELO_ESCALA = 4;
+const VELO_AZUL = 18;             // cuánto tiene que tirar a azul para ser cielo
+const VELO_TECHO = 175;           // por encima de esto es la luna: fuera
+const VELO_CICLO = 34000;         // lo que tarda en cruzar de lado a lado
+const VELO_ANCHO = 0.38;          // media franja, en anchos de pantalla
+const VELO_ALFA = 0.17;
+
+let _velo = null;                 // lienzo de trabajo, uno para todas las láminas
+
+// El mapa de cielo de una lámina, sacado del horneado.
+function mascaraCielo(cielo) {
+  if (!cielo) return null;
+  const { datos, W, alto } = cielo;
+  const w = Math.ceil(W / VELO_ESCALA);
+  const h = Math.ceil(alto / VELO_ESCALA);
+  const mapa = document.createElement('canvas');
+  mapa.width = w;
+  mapa.height = h;
+  const m = mapa.getContext('2d');
+  const img = m.createImageData(w, h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      // Una muestra por celda: la máscara es blanda y promediar dieciséis
+      // píxeles para difuminarlos después no cambia nada que se vea.
+      const o = ((y * VELO_ESCALA) * W + x * VELO_ESCALA) * 4;
+      const r = datos[o], g = datos[o + 1], b = datos[o + 2];
+      const lum = (r * 299 + g * 587 + b * 114) / 1000;
+      const p = (y * w + x) * 4;
+      img.data[p] = 255; img.data[p + 1] = 255; img.data[p + 2] = 255;
+      img.data[p + 3] = (b - r >= VELO_AZUL && lum < VELO_TECHO)
+        ? Math.min(255, Math.round(lum * 1.9))     // lo claro coge más luz
+        : 0;
+    }
+  }
+  m.putImageData(img, 0, 0);
+  return { mapa, alto };
+}
+
+function velo(ctx, t, l) {
+  const c = l.cielo;
+  if (!c) return;
+  const w = c.mapa.width, h = c.mapa.height;
+  if (!_velo) _velo = document.createElement('canvas');
+  if (_velo.width !== w || _velo.height !== h) { _velo.width = w; _velo.height = h; }
+  const v = _velo.getContext('2d');
+
+  // De un lado al otro, y con margen por los dos extremos para que entre y
+  // salga en vez de aparecer y desaparecer en el borde.
+  const u = (t % VELO_CICLO) / VELO_CICLO;
+  const media = w * VELO_ANCHO;
+  const cx = -media + u * (w + media * 2);
+
+  v.setTransform(1, 0, 0, 1, 0, 0);
+  v.globalCompositeOperation = 'source-over';
+  v.clearRect(0, 0, w, h);
+  const g = v.createLinearGradient(cx - media, 0, cx + media, 0);
+  g.addColorStop(0, 'rgba(210,230,255,0)');
+  g.addColorStop(0.5, 'rgba(210,230,255,1)');
+  g.addColorStop(1, 'rgba(210,230,255,0)');
+  v.fillStyle = g;
+  v.fillRect(0, 0, w, h);
+
+  // Y por el mapa: lo que no es cielo se cae aquí.
+  v.globalCompositeOperation = 'destination-in';
+  v.drawImage(c.mapa, 0, 0);
+
+  ctx.globalAlpha = VELO_ALFA;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(_velo, 0, 0, l.lienzo.width, c.alto);
+  ctx.globalAlpha = 1;
+  ctx.imageSmoothingEnabled = false;
 }
 
 // --- La calavera del rótulo ---------------------------------------------------

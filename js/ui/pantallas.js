@@ -134,18 +134,33 @@ const ARCO_ALTO = 395;
 // izquierda del centro del marco.
 const OPCION_X = 694;
 
-// Un solo ancho para las cinco, y lo manda la más larga: CONFIGURACIÓN mide
-// 254. Con 284 quedan quince píxeles de aire a cada lado de esa palabra, y el
-// recuadro entra holgado en el hueco del marco (540..863).
+// EL AIRE QUE DEJA EL RECUADRO alrededor de la palabra, igual por los cuatro
+// lados. Es el único número que hay que tocar para apretarlo o soltarlo: de él
+// salen tanto el alto como el ancho de las cinco cajas.
 //
-// Que a SALIR —96 de ancho— le sobre sitio es deliberado: un recuadro que
-// cambia de tamaño según la palabra no se lee como un cursor que se mueve, sino
-// como cinco recuadros distintos.
-const OPCION_ANCHO = 284;
+// Diez, que es lo que ya tenía de sobra por arriba y por abajo.
+const OPCION_AIRE = 10;
 
-// Alto 42, y los cinco centros DOS PÍXELES MÁS ABAJO que la banda de la letra.
-// Las dos cosas salen del mismo sitio: los 554..575 de arriba son la CAJA DE
-// MAYÚSCULAS, y una palabra ocupa más que eso por los dos lados.
+// Lo que mide de alto la CAJA DE MAYÚSCULAS de las cinco palabras: 22 las cinco
+// (ver las medidas de arriba). El recuadro es eso más el aire por los dos
+// lados, o sea 42.
+const OPCION_CAJA_ALTA = 22;
+const OPCION_ALTO = OPCION_CAJA_ALTA + OPCION_AIRE * 2;
+
+// ANCHO VARIABLE, uno por palabra, y con el mismo aire que dejan el alto por
+// arriba y por abajo. Aquí va SOLO lo que mide la palabra; el aire lo suma el
+// dibujo.
+//
+// ESTO ESTUVO AL REVÉS y lo cambió Sergio. Había un ancho único de 284 para las
+// cinco, mandado por CONFIGURACIÓN, con este argumento: un recuadro que cambia
+// de tamaño según la palabra no se lee como un cursor que se mueve, sino como
+// cinco recuadros distintos. Visto en pantalla, a SALIR —96 contra 254— le
+// sobraba tantísimo sitio que el recuadro parecía mal puesto, y no un cursor
+// grande.
+//
+// Los centros van DOS PÍXELES MÁS ABAJO que la banda de la letra. Eso y el aire
+// salen del mismo sitio: los 554..575 de arriba son la CAJA DE MAYÚSCULAS, y
+// una palabra ocupa más que eso por los dos lados.
 //
 // Por abajo, porque la letra grabada en la piedra arrastra su sombra y su
 // antialiasing: midiendo con umbral flojo, JUGAR EN RED llega a 618 cuando su
@@ -167,11 +182,11 @@ const OPCION_ANCHO = 284;
 // la tinta bajando a 44, que ya recoge tildes y bordes. Con uno solo no salen
 // las dos cosas: flojo, los renglones se funden en un borrón.
 const OPCIONES_TITULO = [
-  { y: 566, alto: 42 },     // JUGAR
-  { y: 602, alto: 42 },     // JUGAR EN RED
-  { y: 636, alto: 42 },     // TIENDA
-  { y: 672, alto: 42 },     // CONFIGURACIÓN
-  { y: 706, alto: 42 }      // SALIR
+  { y: 566, ancho: 103 },   // JUGAR
+  { y: 602, ancho: 225 },   // JUGAR EN RED
+  { y: 636, ancho: 124 },   // TIENDA
+  { y: 672, ancho: 254 },   // CONFIGURACIÓN
+  { y: 706, ancho: 96 }     // SALIR
 ];
 
 const Imagenes = { titulo: null, seleccion: null };
@@ -446,7 +461,12 @@ function dibujarTitulo(ctxMundo, ctxUi, menu, cursor) {
 
   const i = Math.max(0, Math.min(OPCIONES_TITULO.length - 1, cursor));
   const o = OPCIONES_TITULO[i];
-  const r = enUi(e, OPCION_X - OPCION_ANCHO / 2, o.y - o.alto / 2, OPCION_ANCHO, o.alto);
+  // El aire se suma aquí y no en la tabla, para que lo de arriba sea lo medido
+  // sobre la lámina y nada más. Ancho y alto salen del MISMO OPCION_AIRE: es lo
+  // que hace que el hueco entre la letra y el borde sea igual por los cuatro
+  // lados, mida lo que mida la palabra.
+  const ancho = o.ancho + OPCION_AIRE * 2;
+  const r = enUi(e, OPCION_X - ancho / 2, o.y - OPCION_ALTO / 2, ancho, OPCION_ALTO);
 
   ctxUi.save();
 

@@ -90,6 +90,34 @@ if ($ocupado) {
     "Servidor en http://localhost:$Puerto  (PID $($servidor.Id))"
 }
 
+# ---------------------------------------------------------------------------
+# ¿Hay arte mas nuevo que el sello anticache?
+# ---------------------------------------------------------------------------
+# El juego pide cada imagen con `?v=<version de atlas.json>` (ver el SELLO
+# ANTICACHE en core/recursos.js), y ese sello SOLO lo reescribe
+# procesar-assets.ps1. Si alguien deja un fichero en assets/ sin pasar por ahi
+# -copiarlo a mano es lo mas facil del mundo-, la URL no cambia y el navegador
+# sigue sirviendo de su cache la version anterior: el dibujo nuevo esta en el
+# disco y en pantalla sale el viejo, sin ningun error.
+#
+# Costo una tarde entera. Comprobarlo son tres lineas.
+$atlas = Join-Path $RAIZ 'assets/atlas.json'
+if (Test-Path $atlas) {
+    $nuevos = Get-ChildItem (Join-Path $RAIZ 'assets') -Recurse -File |
+              Where-Object { $_.LastWriteTime -gt (Get-Item $atlas).LastWriteTime.AddSeconds(2) }
+    if ($nuevos) {
+        ""
+        "AVISO: hay $($nuevos.Count) fichero(s) en assets/ mas nuevos que atlas.json."
+        $nuevos | Select-Object -First 5 | ForEach-Object {
+            "  - $($_.FullName.Substring($RAIZ.Length + 1))"
+        }
+        if ($nuevos.Count -gt 5) { "  - ...y $($nuevos.Count - 5) mas" }
+        "El sello anticache no los cubre: el navegador puede seguir ensenando los viejos."
+        "Pasa herramientas\procesar-assets.ps1 y vuelve a lanzar esto."
+        ""
+    }
+}
+
 if (-not $SinNavegador) { Start-Process "http://localhost:$Puerto" }
 
 # ---------------------------------------------------------------------------

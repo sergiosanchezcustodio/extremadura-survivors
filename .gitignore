@@ -20,3 +20,6 @@ resources/generadas/
 # no respaldo: una vez dentro del historial de git esos megas ya no se quitan y
 # se los traga todo el que clone.
 resources/**/OLD/
+
+# Rastros de las sesiones de Playwright: capturas y volcados de consola.
+.playwright-mcp/

@@ -3421,11 +3421,18 @@ function dibujar(alpha) {
   // lienzo del juego entero y los resaltados van en la capa de interfaz, así
   // que ni se limpia el suelo ni se recorren pools que están vacíos.
   if (pantalla !== PANTALLA_JUEGO) {
-    // La música del menú, en todas las pantallas previas. Se pide cada
-    // fotograma y no al cambiar de pantalla a propósito: hasta que el usuario no
-    // toca una tecla el navegador no deja sonar nada, y así entra sola en cuanto
-    // lo hace sin que ninguna pantalla tenga que saberlo (ver musicaMenu).
-    GestorAudio.musicaMenu();
+    // La música del menú, en todas las pantallas previas MENOS la intro. Se pide
+    // cada fotograma y no al cambiar de pantalla a propósito: hasta que el
+    // usuario no toca una tecla el navegador no deja sonar nada, y así entra
+    // sola en cuanto lo hace sin que ninguna pantalla tenga que saberlo (ver
+    // musicaMenu).
+    //
+    // La intro queda fuera porque el tema del menú es el del TÍTULO y tiene que
+    // entrar cuando entra el título: sonando ya bajo la narración del arranque
+    // —agachado al 10% por apartarMusica— llegaría al menú a mitad de canción y
+    // sin estreno. El juego arranca en la intro, así que esto es la diferencia
+    // entre que el tema abra la pantalla o se la encuentre empezada.
+    if (pantalla !== PANTALLA_INTRO) GestorAudio.musicaMenu();
     Capa.limpiar();
     if (despedida) { Pantallas.titulo(ctx, Capa.ctx, null, 0); dibujarDespedida(Capa.ctx); return; }
     if (pantalla === PANTALLA_INTRO) { Intro.dibujar(ctx, Capa.ctx); return; }

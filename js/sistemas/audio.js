@@ -190,6 +190,10 @@ const PISTAS = ['assets/musica/emerita-1.mp3', 'assets/musica/emerita-2.mp3'];
 // otras: se repite sobre sí misma hasta que empieza la partida, que es cuando
 // el juego cambia de sitio y toca cambiar de música.
 //
+// Es el tema del TÍTULO, y por eso la intro es la única pantalla previa que no
+// la pide (ver dibujar() en main.js): tiene que ABRIR el menú, no llegar a él
+// ya empezada y agachada bajo la voz del narrador.
+//
 // Existe porque hasta ahora el menú estaba en silencio y la música solo
 // arrancaba al empezar a jugar: quien se quedaba mirando la tienda tenía la
 // impresión de que el juego se había colgado.

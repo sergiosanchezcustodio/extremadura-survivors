@@ -4742,18 +4742,19 @@ if (Test-Path $rutaRuleta) {
 # El ORDEN de esta lista es el orden en que suenan, y de ahi vuelven a empezar.
 # Lo lee sistemas/audio.js por las rutas de assets/musica/.
 #
-# La del MENU va aparte de esas dos: suena en el titulo, la tienda y la
-# configuracion, y en bucle sobre si misma. Se busca por comodin `Ruinas*` y no
-# por su nombre entero porque el fichero lleva tilde ("Ruinas de Menu.mp3") y
-# este .ps1 se guarda en UTF-8 sin BOM: PowerShell 5.1 lo lee como ANSI y la
-# tilde de un literal no sobreviviria a la comparacion.
+# La del MENU va aparte de esas dos: suena en el titulo, la seleccion, la
+# tienda y la configuracion, y en bucle sobre si misma. Es `Music_main_title`
+# desde que Sergio la entrego: antes lo era `Ruinas de Menu.mp3`, que sigue en
+# `resources/musica/` sin usar a la espera de sitio, y por eso esta busqueda ya
+# no va por comodin -aquel nombre llevaba tilde y este .ps1, guardado en UTF-8
+# sin BOM, lo lee PowerShell 5.1 como ANSI; un literal con tilde no sobrevivia
+# a la comparacion-.
 $MUSICA = @(
     @{ src='musica\Musica_emerita_1.mp3'; dst='musica\emerita-1.mp3' }
     @{ src='musica\Musica_emerita_2.mp3'; dst='musica\emerita-2.mp3' }
 )
 
-$rutaMenu = Get-ChildItem -Path (Join-Path $ORIGEN 'musica') -Filter 'Ruinas*.mp3' -ErrorAction SilentlyContinue |
-            Select-Object -First 1
+$rutaMenu = Get-Item -Path (Join-Path $ORIGEN 'musica\Music_main_title.mp3') -ErrorAction SilentlyContinue
 
 $ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
 

@@ -4560,9 +4560,9 @@ $MENUS = @(
     # interfaz y no en pixeles de la imagen, asi que un repintado del mismo
     # encuadre no lo mueve.
     @{ src='menus\Main_menu_pre.jpg'; dst='menus\titulo-pre.jpg'; ancho=1920 }
-    @{ src='menus\seleccion_jugador.png'; dst='menus\seleccion.jpg' }
-    @{ src='menus\splash_screen.png'; dst='menus\splash.jpg' }
-    @{ src='menus\intro_historia.jpg'; dst='menus\intro-historia.jpg' }
+    @{ src='menus\seleccion_jugador.jpg'; dst='menus\seleccion.jpg'; ancho=1920 }
+    @{ src='menus\splash_screen.jpg'; dst='menus\splash.jpg'; ancho=1920 }
+    @{ src='menus\intro_historia.jpg'; dst='menus\intro-historia.jpg'; ancho=1920 }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'menus') | Out-Null

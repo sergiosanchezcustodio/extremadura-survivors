@@ -66,9 +66,15 @@ const K = ANCHO_FISICO / ANCHO_UI;
 // ojo: los saca `herramientas\medir-marcos.ps1` de la propia lámina, buscando
 // el negro cálido del interior —que es lo único de la escena que no tira a
 // azul— y midiendo el bloque de filas que queda cubierto de lado a lado. Cada
-// vez que Sergio repinte `seleccion_jugador.png` se vuelve a pasar y se copian
-// las cinco líneas de abajo. Un repintado que mueva los marcos no da ningún
-// error: los retratos siguen saliendo, solo que fuera de su hueco.
+// vez que Sergio repinte la lámina se vuelve a pasar y se copian las cinco
+// líneas de abajo. Un repintado que mueva los marcos no da ningún error: los
+// retratos siguen saliendo, solo que fuera de su hueco.
+//
+// SON PÍXELES DE `assets/menus/seleccion.jpg`, la lámina HORNEADA, y no de la
+// fuente de resources/: desde que procesar-assets.ps1 la reduce a 1920 las dos
+// ya no miden lo mismo. Por eso medir-marcos.ps1 apunta al asset. Esta pantalla
+// no pasa por el ANCHO_MEDIDO de tituloVivo.js —se encaja con `cubrir` sobre la
+// imagen cargada— así que aquí los números son los de la imagen y punto.
 //
 // ES EL HUECO INTERIOR, no el marco con su piedra. Ahí es donde va el retrato
 // del héroe, así que lo que hace falta es por dónde acaba el dibujo de Sergio y
@@ -79,10 +85,10 @@ const K = ANCHO_FISICO / ANCHO_UI;
 // píxel. Con un paso único, el tercer retrato caía seis píxeles descentrado
 // dentro de su marco — poco, pero de los que se ven cuando los cuatro están en
 // fila.
-const ARCO_CENTRO = [375, 696, 1021, 1335.5];
-const ARCO_ANCHO = 209;
-const ARCO_Y = 305;
-const ARCO_ALTO = 395;
+const ARCO_CENTRO = [419, 779.5, 1136.5, 1490.5];
+const ARCO_ANCHO = 230;
+const ARCO_Y = 339;
+const ARCO_ALTO = 421;
 
 // LAS CINCO OPCIONES DEL MENÚ, medidas sobre la ilustración cuando medía
 // 1360x768 — y siguen valiendo mida lo que mida ahora: van en unidades de
@@ -206,7 +212,22 @@ export const Pantallas = {
     // La pantalla de título se hornea aquí: la ilustración escalada una sola vez
     // a su propio lienzo. A partir de ahí cada fotograma es una copia 1:1 más el
     // fuego de las antorchas (ver tituloVivo.js).
-    TituloVivo.hornear('titulo', t);
+    // La lámina del TÍTULO es la única con la calavera del rótulo, junto con la
+    // portada, que es la misma escena sin la lápida del menú.
+    TituloVivo.hornear('titulo', t, { calavera: true });
+    // Y la de SELECCIÓN, que hasta ahora se encajaba aquí con `cubrir`. Pasa
+    // por el mismo sitio para llevarse el fuego, la luna y las estrellas: la
+    // ilustración nueva de Sergio tiene las tres cosas.
+    //
+    // `cubrir` a la fuerza y no 'auto': 1920x1024 se desvía un 5,5% de la
+    // pantalla y la regla automática la mandaría al telón, que aquí sobra —lo
+    // que se recorta por los lados es suelo, y los cuatro marcos están pintados
+    // en el centro—.
+    //
+    // Y `anchoMedido` es el ancho de la propia lámina, o sea factor uno: los
+    // ARCO_* de arriba están medidos sobre ella en píxeles, no en las unidades
+    // de referencia del título.
+    if (s) TituloVivo.hornear('seleccion', s, { modo: 'cubrir', anchoMedido: s.width });
   },
 
   titulo(ctxMundo, ctxUi, menu, cursor) { dibujarTitulo(ctxMundo, ctxUi, menu, cursor); },
@@ -647,8 +668,21 @@ function corrido(r, dx) {
 
 function dibujarSeleccion(ctxMundo, ctxUi, puestos, foco = -1) {
   const img = Imagenes.seleccion;
-  const e = cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, 0.5);
-  fondo(ctxMundo, img, e);
+
+  // El encaje sale de TituloVivo si la lámina está horneada, y el repliegue
+  // sigue siendo el `cubrir` de siempre. Los dos tienen que dar lo MISMO: los
+  // ARCO_* se colocan con `e`, así que un encaje que no coincida con el fondo
+  // pone los cuatro retratos fuera de sus marcos.
+  let e;
+  if (TituloVivo.listo('seleccion')) {
+    TituloVivo.avanzar();
+    TituloVivo.fondo(ctxMundo, 'seleccion');
+    TituloVivo.efectos(ctxMundo, 'seleccion');
+    e = TituloVivo.encaje('seleccion');
+  } else {
+    e = cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, 0.5);
+    fondo(ctxMundo, img, e);
+  }
 
   dibujarOro(ctxUi);
   dibujarUsuarioGithub(ctxUi);

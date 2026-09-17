@@ -6,7 +6,7 @@ import { TituloVivo } from './tituloVivo.js';
 import {
   ESPERA, FUNDIDO, prepararRelato, dibujarRelato, acompasarAVoz, RETARDO_VOZ,
   avanzarAguante, dibujarAguante,
-  hornearPantalla, fondoPantalla, velo, ENTRADA, ORO, ORO_CLARO
+  velo, ENTRADA, ORO, ORO_CLARO
 } from './relato.js';
 
 // LA INTRO: tres pantallas antes de elegir partida.
@@ -140,8 +140,16 @@ export const Intro = {
       Recursos.cargarSuelta(RUTA_HISTORIA),
       Recursos.cargarSuelta(RUTA_PORTADA)
     ]);
-    if (splash) estado.splash = hornearPantalla(splash, true);
-    if (historia) estado.historia = hornearPantalla(historia, false);
+    // EL SPLASH Y LA PLACA también por TituloVivo, y por lo mismo que la
+    // portada: las tres ilustraciones nuevas de Sergio tienen luna, estrellas y
+    // antorchas, y ahí es donde vive el fuego.
+    //
+    // Las dos piden `cubrir`. El splash mide justo 1920x1080, así que cubrir y
+    // estirar son la misma operación. La placa de la historia era 1536x1024 y
+    // se encajaba entera con telón; la nueva es 16:9 y llena la pantalla sola,
+    // así que el telón ya no pinta nada.
+    if (splash) { TituloVivo.hornear('splash', splash, { modo: 'cubrir' }); estado.splash = true; }
+    if (historia) { TituloVivo.hornear('historia', historia, { modo: 'cubrir' }); estado.historia = true; }
     // LA PORTADA NO SE HORNEA AQUÍ: la hornea TituloVivo, igual que el título.
     // Son la misma escena —la portada es el título sin la lápida del menú— y
     // eso hace que las antorchas de la ilustración sean las mismas, así que la
@@ -189,10 +197,14 @@ export const Intro = {
 
   dibujar(ctxMundo, ctxUi) {
     if (estado.fase === FASE_SPLASH) {
-      fondoPantalla(ctxMundo, estado.splash);
+      TituloVivo.avanzar();
+      TituloVivo.fondo(ctxMundo, 'splash');
+      TituloVivo.efectos(ctxMundo, 'splash');
       velo(ctxMundo, estado.reloj, SPLASH_DURA - estado.reloj, SPLASH_FUNDIDO);
     } else if (estado.fase === FASE_RELATO) {
-      fondoPantalla(ctxMundo, estado.historia);
+      TituloVivo.avanzar();
+      TituloVivo.fondo(ctxMundo, 'historia');
+      TituloVivo.efectos(ctxMundo, 'historia');
       dibujarRelato(ctxUi, estado.relato, estado.reloj);
       dibujarAguante(ctxUi, estado.aguante);
       velo(ctxMundo, estado.reloj, estado.relato.duracion - estado.reloj, FUNDIDO);
@@ -221,7 +233,7 @@ export const Intro = {
   // La placa de piedra ya horneada. La reutiliza la pantalla de historia de
   // nivel: es la misma placa con otro guion, y hornear una segunda copia de la
   // misma imagen a 1920x1080 sería pagar dos veces por el mismo dibujo.
-  get placa() { return estado.historia; }
+  get placa() { return TituloVivo.lienzo('historia'); }
 };
 
 // --- EL AVISO DE LA PORTADA --------------------------------------------------

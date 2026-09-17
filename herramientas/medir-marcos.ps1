@@ -4,7 +4,7 @@
 #   .\herramientas\medir-marcos.ps1 -Ruta assets\menus\seleccion.jpg
 #
 # La hermana de medir-lapida.ps1, y existe por el mismo motivo. La ilustracion
-# de seleccion (resources\menus\seleccion_jugador.png) trae cuatro marcos
+# de seleccion (assets\menus\seleccion.jpg) trae cuatro marcos
 # pintados y VACIOS; dentro de cada uno el juego dibuja por codigo el retrato
 # del heroe que toque (ver ui/pantallas.js). Para eso hacen falta cuatro
 # rectangulos en pixeles de la imagen, y sacarlos a ojo con un editor es como
@@ -25,7 +25,11 @@
 # con muchos pixeles de interior son los marcos y los valles entre ellas son
 # las pilastras.
 param(
-    [string]$Ruta = 'resources\menus\seleccion_jugador.png',
+    # LA LAMINA HORNEADA, no la fuente de resources/. Es donde viven de verdad
+    # los numeros: ARCO_* en js/ui/pantallas.js son pixeles de la imagen que
+    # CARGA EL JUEGO, y desde que procesar-assets.ps1 reduce la fuente a 1920 esa
+    # ya no mide lo mismo que el original de Sergio.
+    [string]$Ruta = 'assets\menus\seleccion.jpg',
     # Umbrales de la mascara. Se exponen porque son lo primero que hay que tocar
     # si algun dia la lamina cambia de iluminacion.
     # 34 y no mas: el empedrado del suelo mide (37,34,36) y tambien es casi

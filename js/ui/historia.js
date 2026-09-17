@@ -1,6 +1,6 @@
 import { Recursos } from '../core/recursos.js';
 import { GestorAudio } from '../sistemas/audio.js';
-import { Intro } from './intro.js';
+import { TituloVivo } from './tituloVivo.js';
 import {
   FUNDIDO, prepararRelato, dibujarRelato, hornearPantalla, fondoPantalla, velo,
   acompasarAVoz, RETARDO_VOZ, avanzarAguante, dibujarAguante
@@ -70,8 +70,12 @@ export const Historia = {
       estado.cache.set(nivel.id, prepararRelato(nivel.historia));
     }
     estado.relato = estado.cache.get(nivel.id);
+    // La placa PROPIA del nivel, si la trae, y si no la de la intro. Cuando cae
+    // en la de la intro se dibuja por TituloVivo para que se lleve su fuego y
+    // sus estrellas; la propia de un nivel sigue por el camino de siempre,
+    // quieta, porque es otra ilustración y no se ha mirado qué tiene dentro.
     const propia = nivel.historiaImagen ? estado.placas.get(nivel.historiaImagen) : null;
-    estado.placa = propia || Intro.placa;
+    estado.placa = propia || null;
 
     // LA VOZ DEL NIVEL, si la tiene. El nombre del fichero sale del id del
     // nivel, así que añadir la narración de uno nuevo es dejar el MP3 en
@@ -103,7 +107,13 @@ export const Historia = {
   },
 
   dibujar(ctxMundo, ctxUi) {
-    fondoPantalla(ctxMundo, estado.placa);
+    if (estado.placa) {
+      fondoPantalla(ctxMundo, estado.placa);
+    } else {
+      TituloVivo.avanzar();
+      TituloVivo.fondo(ctxMundo, 'historia');
+      TituloVivo.efectos(ctxMundo, 'historia');
+    }
     dibujarRelato(ctxUi, estado.relato, estado.reloj);
     dibujarAguante(ctxUi, estado.aguante);
     velo(ctxMundo, estado.reloj, estado.relato.duracion - estado.reloj, FUNDIDO);

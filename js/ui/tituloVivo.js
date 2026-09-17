@@ -97,11 +97,6 @@ const ANCHO_MEDIDO = 1360;
 // caían en (358,550) y (970,554), y con esta de 1360x768 caen en (355,550) y
 // (975,554) — tres píxeles. Por el camino, la de 1672x941 las puso en (442,667)
 // y (1193,675), que son esos mismos escalados por 1,215.
-const ANTORCHAS = [
-  { x: 355, y: 550 },
-  { x: 975, y: 554 }
-];
-
 // Son ANTORCHAS, no los pebeteros de la ilustración anterior: la llama es
 // bastante más pequeña, así que el resplandor y las pavesas se han encogido con
 // ella. Con los números de los pebeteros, el halo se comía media estatua.
@@ -132,8 +127,16 @@ export const TituloVivo = {
 
   // Se llama una vez por lámina, al cargar la ilustración. Ya no recibe ancla:
   // desde que se encaja entera en vez de recortarla, no hay nada que anclar.
-  hornear(nombre, img) {
+  // `opciones`:
+  //   modo         'auto' (por defecto), 'cubrir' o 'entera'. Ver abajo.
+  //   anchoMedido  el ancho sobre el que están tomadas las medidas de quien
+  //                consuma `encaje()`. Por defecto, el de la lámina del título.
+  //   calavera     si esta lámina lleva la calavera del rótulo. Es lo único
+  //                que sigue yendo a mano, porque es un sitio concreto de UNA
+  //                ilustración y no una cosa que se pueda reconocer sola.
+  hornear(nombre, img, opciones) {
     if (!img) return;
+    const o = opciones || {};
     const W = ANCHO_FISICO;
     const H = ALTO_FISICO;
 
@@ -152,8 +155,19 @@ export const TituloVivo = {
     const suya = img.width / img.height;
     const pantalla = W / H;
 
+    // EL MODO puede venir impuesto, y hace falta que se pueda: la tolerancia de
+    // abajo es una regla razonable para elegir sola, pero deja a la pantalla de
+    // selección justo del lado malo —1920x1024 se desvía un 5,5%— y esa lámina
+    // SÍ se quiere recortada, porque sus cuatro marcos están pintados en el
+    // centro y lo que sobra por los lados es suelo. Adivinar bien en cuatro
+    // casos de cinco no vale cuando el quinto sale con telón sin que nadie lo
+    // pida.
+    const modo = o.modo || 'auto';
+    const cubrir = modo === 'cubrir' ||
+      (modo === 'auto' && Math.abs(suya - pantalla) / pantalla <= TOLERANCIA_ENCAJE);
+
     let esc, ox, oy;
-    if (Math.abs(suya - pantalla) / pantalla <= TOLERANCIA_ENCAJE) {
+    if (cubrir) {
       // CUBRIR: llena la pantalla y lo que sobra se recorta. Con la ilustración
       // de ahora eso son siete píxeles y medio por lado, de puro escenario.
       esc = Math.max(W / img.width, H / img.height);
@@ -177,20 +191,30 @@ export const TituloVivo = {
     // aquí por la proporción entre las dos, `esc` pasa a ser "píxeles de lienzo
     // por unidad medida" y todo lo demás —mx/my, el encaje que consume
     // pantallas.js— sigue igual sin saber que esto existe.
-    const k = img.width / ANCHO_MEDIDO;
+    const k = img.width / (o.anchoMedido || ANCHO_MEDIDO);
 
-    // El cielo se lee UNA vez y lo usan los dos que lo necesitan. Leer un lienzo
-    // no es gratis —y el navegador avisa por consola en cuanto se hace dos
-    // veces seguidas sobre el mismo—, así que la lectura va aquí y lo que baja
-    // son los datos, no la orden de volver a leer.
-    const cielo = leerCielo(c, W, H);
+    // LA LÁMINA SE LEE UNA SOLA VEZ y de ahí salen los cuatro reconocimientos.
+    // Leer un lienzo no es gratis —y el navegador avisa por consola en cuanto se
+    // hace dos veces seguidas sobre el mismo—, así que la lectura va aquí y lo
+    // que baja a cada buscador son los datos, no la orden de volver a leer.
+    const pix = leerLamina(c, W, H);
     laminas[nombre] = {
       lienzo, esc: esc * k, ox, oy,
-      estrellas: buscarEstrellas(cielo),
-      cielo: mascaraCielo(cielo)
+      estrellas: buscarEstrellas(pix),
+      cielo: mascaraCielo(pix),
+      antorchas: buscarAntorchas(pix),
+      luna: buscarLuna(pix),
+      calavera: !!o.calavera
     };
 
     prepararBrasas();
+  },
+
+  // El lienzo ya horneado de una lámina. Lo pide quien todavía la dibuja por su
+  // cuenta, como la placa de la historia de nivel cuando el nivel trae la suya.
+  lienzo(nombre) {
+    const l = laminas[nombre];
+    return l ? l.lienzo : null;
   },
 
   // Adelanta el reloj. Hay que llamarlo ANTES que `efectos`: el resplandor de
@@ -233,7 +257,7 @@ export const TituloVivo = {
     velo(ctxMundo, estado.t, l);
     luna(ctxMundo, estado.t, l);
     estrellas(ctxMundo, estado.t, l);
-    calavera(ctxMundo, estado.t, l);
+    if (l.calavera) calavera(ctxMundo, estado.t, l);
     antorchas(ctxMundo, estado.t, l);
     ctxMundo.restore();
   }
@@ -292,8 +316,9 @@ const ESTRELLA_CICLO_MAX = 4200;
 // Cuántas sacan halo además del punto. Ver dónde se reparte, más abajo.
 const ESTRELLA_DESTACADAS = 1 / 6;
 
-// La franja de cielo del horneado, cruda. La piden las estrellas y la máscara
-// del velo, y por eso se lee aparte en vez de dentro de cada una.
+// El horneado entero, crudo. Lo piden los cuatro reconocimientos —estrellas,
+// máscara del velo, antorchas y luna— y por eso se lee aparte en vez de dentro
+// de cada uno.
 //
 // Si el lienzo no se puede leer se devuelve null y lo que se pierde es el cielo
 // vivo, nada más. Pasa cuando el navegador lo da por contaminado por haberse
@@ -302,10 +327,15 @@ const ESTRELLA_DESTACADAS = 1 / 6;
 // manifiesto de NW.js ya arranca con `--allow-file-access-from-files`— pero el
 // guarda se queda: es una línea, y sin ella lo que se cae no es el cielo, es la
 // pantalla entera con una excepción.
-function leerCielo(ctx, W, H) {
-  const alto = Math.floor(H * ESTRELLA_CIELO);
+function leerLamina(ctx, W, H) {
   try {
-    return { datos: ctx.getImageData(0, 0, W, alto).data, W, alto };
+    return {
+      datos: ctx.getImageData(0, 0, W, H).data,
+      W, H,
+      // Hasta dónde llega el cielo. Lo usan las estrellas, la máscara del velo
+      // y la luna; las antorchas miran la lámina entera, que es donde están.
+      alto: Math.floor(H * ESTRELLA_CIELO)
+    };
   } catch {
     return null;
   }
@@ -390,6 +420,137 @@ function buscarEstrellas(cielo) {
 // Lo que mide el halo de una destacada, en píxeles del lienzo.
 const ESTRELLA_HALO = 7;
 
+// --- Reconocer antorchas y luna ----------------------------------------------
+//
+// Las dos ESTABAN MEDIDAS A MANO, y las dos eran números de la lámina del
+// título y solo de ella. Al entrar el splash, la placa de la historia y la
+// pantalla de héroes —que también tienen luna, estrellas y antorchas— había que
+// elegir: tres tablas más de coordenadas, o reconocerlas.
+//
+// Se reconocen, por lo mismo que las estrellas: una tabla por lámina es una
+// tabla que se queda vieja el día que se repinte, sin que salte ningún error.
+// Y el método no es nuevo: es EXACTAMENTE el que se usó a mano para sacar los
+// números que había, así que en la lámina del título devuelve los mismos.
+//
+// Las coordenadas que salen son PÍXELES DEL LIENZO, no de la lámina medida: se
+// leen del horneado, que ya está a tamaño de pantalla. Por eso lo que se dibuja
+// sobre ellas no pasa por mx/my y sus tamaños van en píxeles de lienzo.
+
+// UNA ANTORCHA es naranja MUY claro. El umbral es alto a propósito: la piedra
+// iluminada por la llama también tira a naranja, y lo que se busca es el
+// corazón del fuego, no su luz.
+const FUEGO_ROJO = 215;
+const FUEGO_AZUL = 110;
+
+// Se agrupa por celdas porque una llama ocupa decenas de píxeles y no hace
+// falta una por píxel. Cincuenta es más pequeño que la separación entre dos
+// antorchas de cualquiera de estas láminas y más grande que una chispa suelta.
+const FUEGO_CELDA = 50;
+
+// Cuántos píxeles de fuego tiene que tener una celda para contar. Por debajo es
+// un reflejo en un casco o el filo de una espada cogiendo la luz.
+const FUEGO_MINIMO = 60;
+
+// Y cuánto puede separarse una celda de otra para ser la misma llama. Una llama
+// alta cae en dos celdas contiguas a lo alto, y si no se juntan salen dos
+// antorchas donde hay una, la de arriba flotando.
+const FUEGO_JUNTAR = 70;
+
+function buscarAntorchas(pix) {
+  if (!pix) return [];
+  const { datos, W, H } = pix;
+  const cw = Math.ceil(W / FUEGO_CELDA);
+  const celdas = new Map();
+
+  // DE DOS EN DOS. Una llama mide decenas de píxeles, así que mirar uno de cada
+  // cuatro la encuentra igual y cuesta la cuarta parte — y esto se hace sobre
+  // la lámina ENTERA, que es cuatro veces lo que miran las estrellas.
+  for (let y = 0; y < H; y += 2) {
+    for (let x = 0; x < W; x += 2) {
+      const o = (y * W + x) * 4;
+      if (datos[o] < FUEGO_ROJO || datos[o + 2] > FUEGO_AZUL) continue;
+      const k = ((y / FUEGO_CELDA) | 0) * cw + ((x / FUEGO_CELDA) | 0);
+      let c = celdas.get(k);
+      if (!c) { c = { n: 0, sx: 0, sy: 0 }; celdas.set(k, c); }
+      c.n++; c.sx += x; c.sy += y;
+    }
+  }
+
+  // Celdas con fuego de verdad, de la más encendida a la menos.
+  const vivas = [];
+  for (const c of celdas.values()) {
+    if (c.n * 4 < FUEGO_MINIMO) continue;      // *4: se miró uno de cada cuatro
+    vivas.push({ x: c.sx / c.n, y: c.sy / c.n, n: c.n });
+  }
+  vivas.sort((a, b) => b.n - a.n);
+
+  // Y se juntan las que son la misma llama, promediando por peso.
+  const focos = [];
+  for (let i = 0; i < vivas.length; i++) {
+    const v = vivas[i];
+    let junta = null;
+    for (let j = 0; j < focos.length; j++) {
+      const f = focos[j];
+      if (Math.hypot(f.x - v.x, f.y - v.y) < FUEGO_JUNTAR) { junta = f; break; }
+    }
+    if (junta) {
+      const n = junta.n + v.n;
+      junta.x = (junta.x * junta.n + v.x * v.n) / n;
+      junta.y = (junta.y * junta.n + v.y * v.n) / n;
+      junta.n = n;
+    } else {
+      focos.push({ x: v.x, y: v.y, n: v.n });
+    }
+  }
+  return focos;
+}
+
+// LA LUNA es el único disco claro y frío grande que hay en el cielo. Las
+// estrellas cumplen lo de claro y frío pero miden dos píxeles, así que lo que
+// la distingue es el TAMAÑO del grupo.
+const LUNA_BRILLO = 185;
+const LUNA_CERCA = 120;      // radio en el que se cuenta el disco
+const LUNA_MINIMO = 800;     // menos que esto es un puñado de estrellas, no una luna
+
+function buscarLuna(pix) {
+  if (!pix) return null;
+  const { datos, W, alto } = pix;
+  const xs = [], ys = [];
+  for (let y = 0; y < alto; y++) {
+    for (let x = 0; x < W; x++) {
+      const o = (y * W + x) * 4;
+      const r = datos[o], g = datos[o + 1], b = datos[o + 2];
+      if (b < r) continue;
+      if ((r * 299 + g * 587 + b * 114) / 1000 < LUNA_BRILLO) continue;
+      xs.push(x); ys.push(y);
+    }
+  }
+  if (xs.length < LUNA_MINIMO) return null;
+
+  // LA MEDIANA y no la media: hay estrellas claras repartidas por todo el
+  // cielo, y una media las tendría en cuenta y sacaría el centro del disco.
+  const mx0 = mediana(xs), my0 = mediana(ys);
+
+  // El RADIO es hasta dónde llega el disco, no la raíz de su área: la luna
+  // tiene manchas oscuras dentro que no pasan el umbral, y por área sale menos
+  // de la mitad de lo que mide. Se toma la distancia más lejana del grupo, algo
+  // recortada para no contar un brillo pegado al borde.
+  let n = 0, lejos = 0;
+  for (let i = 0; i < xs.length; i++) {
+    const d = Math.hypot(xs[i] - mx0, ys[i] - my0);
+    if (d > LUNA_CERCA) continue;
+    n++;
+    if (d > lejos) lejos = d;
+  }
+  if (n < LUNA_MINIMO) return null;
+  return { x: mx0, y: my0, radio: lejos * 0.95 };
+}
+
+function mediana(v) {
+  const c = v.slice().sort((a, b) => a - b);
+  return c[c.length >> 1];
+}
+
 function estrellas(ctx, t, l) {
   const es = l.estrellas;
   if (!es || es.length === 0) return;
@@ -434,8 +595,6 @@ function estrellas(ctx, t, l) {
 // dio 36, menos de la mitad de lo que mide: la luna tiene sus manchas oscuras
 // dentro y esas no pasaban el umbral. Lo que vale es el BORDE del disco, que
 // son 65 en píxeles de lámina — 46 aquí.
-const LUNA = { x: 404.5, y: 74.4, radio: 46 };
-
 // El halo sale por fuera del disco. Y se suma también ENCIMA, flojo, porque una
 // luna con un anillo alrededor y el disco igual de apagado no parece que
 // brille: parece que tenga un aro.
@@ -444,10 +603,12 @@ const LUNA_CICLO = 7400;
 const LUNA_ALFA = 0.17;
 
 function luna(ctx, t, l) {
+  const m = l.luna;
+  if (!m) return;
   const u = 0.5 - 0.5 * Math.cos((t / LUNA_CICLO) * Math.PI * 2);
   const a = LUNA_ALFA * (0.35 + 0.65 * u);
-  const cx = mx(l, LUNA.x), cy = my(l, LUNA.y);
-  const r = LUNA.radio * l.esc * LUNA_HALO * (0.94 + 0.06 * u);
+  const cx = m.x, cy = m.y;
+  const r = m.radio * LUNA_HALO * (0.94 + 0.06 * u);
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
   g.addColorStop(0, 'rgba(225,238,255,' + (a * 0.55).toFixed(3) + ')');
   g.addColorStop(0.57, 'rgba(190,220,255,' + a.toFixed(3) + ')');
@@ -618,31 +779,46 @@ function calavera(ctx, t, l) {
 
 // --- Antorchas ---------------------------------------------------------------
 
+// Lo que mide el halo de una llama en su punto bajo, en píxeles de lienzo.
+const HALO_LLAMA = 40;
+
+// LAS PAVESAS SON COMUNES a todas las láminas y se preparan una sola vez, no
+// una tanda por cada una. Son decorado: que la misma brasa suba por la antorcha
+// izquierda del título y por la de la placa de la historia no lo nota nadie, y
+// en cambio evita que el fuego dé un salto al pasar de una pantalla a otra.
+//
+// `antorcha` se reparte por módulo al dibujar (ver antorchas), así que esto no
+// necesita saber cuántas hay en ninguna lámina.
+//
+// Todas las medidas van en PÍXELES DE LIENZO, como las antorchas que ahora se
+// reconocen solas.
 function prepararBrasas() {
-  estado.brasas.length = 0;
+  if (estado.brasas.length) return;
   for (let i = 0; i < NUM_BRASAS; i++) {
     estado.brasas.push({
-      antorcha: i % ANTORCHAS.length,
+      antorcha: i,
       fase: rng(),                       // dónde empieza su vuelta, 0..1
       periodo: 2000 + rng() * 2400,      // lo que tarda en subir y apagarse
-      dx: (rng() - 0.5) * 8,             // desvío horizontal, en píxeles de imagen
-      vaiven: 2 + rng() * 5,
+      dx: (rng() - 0.5) * 11,            // desvío horizontal
+      vaiven: 3 + rng() * 7,
       velVaiven: 0.7 + rng() * 1.3,
-      subida: 30 + rng() * 34,
-      radio: 0.7 + rng() * 1.0
+      subida: 42 + rng() * 48,
+      radio: 1.0 + rng() * 1.4
     });
   }
 }
 
 function antorchas(ctx, t, l) {
+  const ant = l.antorchas;
+  if (!ant || ant.length === 0) return;
   // El resplandor: dos senos de períodos distintos, que es lo que hace que una
   // llama no lata como un metrónomo.
-  for (let i = 0; i < ANTORCHAS.length; i++) {
-    const b = ANTORCHAS[i];
+  for (let i = 0; i < ant.length; i++) {
+    const b = ant[i];
     const s = t / 1000 + i * 1.7;
     const p = 0.5 + 0.30 * Math.sin(s * 3.1) + 0.20 * Math.sin(s * 7.9 + 1.3);
-    const cx = mx(l, b.x), cy = my(l, b.y);
-    const r = (28 + 7 * p) * l.esc;
+    const cx = b.x, cy = b.y;
+    const r = HALO_LLAMA + 10 * p;
     const a = 0.11 + 0.08 * p;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
     g.addColorStop(0, 'rgba(255,186,92,' + a.toFixed(3) + ')');
@@ -660,16 +836,17 @@ function antorchas(ctx, t, l) {
   // fase, ninguna sube a la vez que otra.
   for (let i = 0; i < estado.brasas.length; i++) {
     const p = estado.brasas[i];
-    const b = ANTORCHAS[p.antorcha];
+    // Las pavesas son COMUNES a todas las láminas —ver prepararBrasas— así que
+    // se reparten por el número de antorchas que tenga esta.
+    const b = ant[p.antorcha % ant.length];
     const u = ((t / p.periodo) + p.fase) % 1;          // 0 recién salida, 1 apagada
-    const ix = b.x + p.dx + Math.sin((t / 1000) * p.velVaiven + p.fase * 9) * p.vaiven * u;
-    const iy = b.y - 8 - u * p.subida;
+    const cx = b.x + p.dx + Math.sin((t / 1000) * p.velVaiven + p.fase * 9) * p.vaiven * u;
+    const cy = b.y - 11 - u * p.subida;
     // Se enciende de golpe al salir y se apaga despacio subiendo.
     const vida = u < 0.15 ? u / 0.15 : (1 - u) / 0.85;
     const a = vida * 0.75;
     if (a <= 0.02) continue;
-    const cx = mx(l, ix), cy = my(l, iy);
-    const r = p.radio * l.esc * (1.2 - u * 0.45) * 3;
+    const r = p.radio * (1.2 - u * 0.45) * 3;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
     // La ceniza va tirando a rojo según sube: el verde y el azul se apagan
     // antes que el rojo, que es lo que hace una brasa de verdad.

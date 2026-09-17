@@ -3347,16 +3347,18 @@ $CATALOGO = @(
     @{ src='objetos\cupcake.png';        dst='objetos\obj-comida.png';     id='objComida';     alto=14; anchoFijo=0; tol=0; plano=$true }
     @{ src='objetos\iman.png';           dst='objetos\obj-iman.png';       id='objIman';       alto=14; anchoFijo=0; tol=0; plano=$true }
     @{ src='objetos\reloj.png';          dst='objetos\obj-reloj.png';      id='objReloj';      alto=15; anchoFijo=0; tol=0; plano=$true }
-    # CUENTA ATRAS DEL RELOJ, animada. GIF de Sergio (720x404, 81 fotogramas) para
-    # sustituir a los digitos de siete segmentos que hud.js dibuja a mano mientras
-    # la horda esta helada. 60 de alto: el mismo que tienen hoy esas cifras
-    # (RELOJ_DIGITO_H) en la capa de interfaz, que va a 960x540. `deCada=2`
-    # porque con los 81 la tira salia de 34.668 px de ancho, mas de los 32.767
-    # que admite una imagen en el navegador. No se pierde nada: hud.js no la
-    # reproduce a un fps fijo, la ESTIRA sobre los segundos que dura el efecto
-    # (ver dibujarCuentaAtrasReloj), asi que 41 fotogramas cuentan igual.
-    @{ src='objetos\animaciones\cuenta_atras_reloj.gif'; dst='objetos\cuenta-atras-reloj.png'
-       id='cuentaAtrasReloj'; alto=60; anchoFijo=0; tol=0; gif=$true; plano=$true; deCada=2 }
+    # LA CUENTA ATRAS DEL RELOJ NO SE HORNEA. Estuvo aqui del 13 al 17 de
+    # septiembre de 2026: el GIF de Sergio (720x404, 81 fotogramas, diezmado a 41
+    # porque con los 81 la tira pasaba de los 32.767 px que admite una imagen en
+    # el navegador) sustituyendo a los digitos de siete segmentos que hud.js
+    # dibuja a mano mientras la horda esta helada. Lo pidio el, y el ha pedido
+    # volver al display digital.
+    #
+    # El GIF sigue en resources/objetos/animaciones/cuenta_atras_reloj.gif. Para
+    # recuperarlo hay que reponer dos cosas, las dos en el historial: la entrada
+    # que iba justo aqui -id 'cuentaAtrasReloj', alto=60, gif, plano, deCada=2- y
+    # el `if` de dibujarCuentaAtrasReloj. Horneado pesaba 419 KB en cada build, y
+    # por eso no se queda "por si acaso".
     @{ src='objetos\monedas.png';        dst='objetos\obj-monedas.png';    id='objMonedas';    alto=13; anchoFijo=0; tol=0; plano=$true }
 
     # LA MONEDA DEL CONTADOR, la que sale arriba a la derecha en los menus junto

@@ -3689,7 +3689,7 @@ function dibujar(alpha) {
   // corre. Sale de `paralisisRestante` y no de un cronómetro propio de la
   // interfaz: es el MISMO número que decide cuánto sigue quieta la horda, así
   // que lo que se ve en pantalla no puede desajustarse de lo que pasa.
-  dibujarCuentaAtrasReloj(ctxUi, enemigos.paralisisRestante, PARALISIS_RELOJ);
+  dibujarCuentaAtrasReloj(ctxUi, enemigos.paralisisRestante);
   // Y el mundo entero en blanco y negro mientras dura, del mismo número. El
   // cómo está en css/estilos.css (#juego.congelado): aquí solo se enciende y se
   // apaga un interruptor.

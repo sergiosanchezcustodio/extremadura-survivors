@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260917191027",
+    "version":  "20260917192609",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -807,14 +807,6 @@
                                                       41
                                                   ]
                                    },
-                      "cuentaAtrasReloj":  {
-                                               "archivo":  "objetos/cuenta-atras-reloj.png",
-                                               "w":  428,
-                                               "h":  240,
-                                               "anclaX":  214,
-                                               "anclaY":  240,
-                                               "frames":  41
-                                           },
                       "objMonedas":  {
                                          "archivo":  "objetos/obj-monedas.png",
                                          "w":  64,

@@ -214,7 +214,7 @@ export const Pantallas = {
     // fuego de las antorchas (ver tituloVivo.js).
     // La lámina del TÍTULO es la única con la calavera del rótulo, junto con la
     // portada, que es la misma escena sin la lápida del menú.
-    TituloVivo.hornear('titulo', t, { calavera: true });
+    TituloVivo.hornear('titulo', t, { calavera: true, banderas: true });
     // Y la de SELECCIÓN, que hasta ahora se encajaba aquí con `cubrir`. Pasa
     // por el mismo sitio para llevarse el fuego, la luna y las estrellas: la
     // ilustración nueva de Sergio tiene las tres cosas.

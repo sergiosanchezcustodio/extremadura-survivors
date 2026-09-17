@@ -131,9 +131,12 @@ export const TituloVivo = {
   //   modo         'auto' (por defecto), 'cubrir' o 'entera'. Ver abajo.
   //   anchoMedido  el ancho sobre el que están tomadas las medidas de quien
   //                consuma `encaje()`. Por defecto, el de la lámina del título.
-  //   calavera     si esta lámina lleva la calavera del rótulo. Es lo único
-  //                que sigue yendo a mano, porque es un sitio concreto de UNA
-  //                ilustración y no una cosa que se pueda reconocer sola.
+  //   calavera     si esta lámina lleva la calavera del rótulo.
+  //   banderas     si lleva las dos banderas de la ciudad.
+  //
+  // Esas dos son lo único que sigue yendo a mano, porque son sitios concretos
+  // de UNA ilustración —la del título, y la portada, que es la misma escena— y
+  // no cosas que se puedan reconocer solas.
   hornear(nombre, img, opciones) {
     if (!img) return;
     const o = opciones || {};
@@ -204,7 +207,8 @@ export const TituloVivo = {
       cielo: mascaraCielo(pix),
       antorchas: buscarAntorchas(pix),
       luna: buscarLuna(pix),
-      calavera: !!o.calavera
+      calavera: !!o.calavera,
+      banderas: !!o.banderas
     };
 
     prepararBrasas();
@@ -249,6 +253,13 @@ export const TituloVivo = {
     const l = laminas[nombre];
     if (!l) return;
     ctxMundo.setTransform(1, 0, 0, 1, 0, 0);
+
+    // LAS BANDERAS VAN PRIMERO Y EN COPIA NORMAL. Todo lo demás de aquí suma
+    // luz; esto mueve píxeles de sitio, así que no puede ir dentro del
+    // 'lighter' —sumada, la tela se pondría blanca— ni después de los
+    // resplandores, que se llevaría por delante el trozo que le toque.
+    if (l.banderas) banderas(ctxMundo, estado.t, l);
+
     ctxMundo.save();
     ctxMundo.globalCompositeOperation = 'lighter';
     // De lo ancho a lo fino: el velo baña el cielo entero, la luna es un disco,
@@ -772,6 +783,56 @@ function velo(ctx, t, l) {
   ctx.drawImage(_velo, 0, 0, l.lienzo.width, c.alto);
   ctx.globalAlpha = 1;
   ctx.imageSmoothingEnabled = false;
+}
+
+// --- Las banderas de la ciudad ------------------------------------------------
+//
+// Las dos que ondean en las torres: la de Extremadura y la de la cruz. Y esto
+// NO ES SUMAR LUZ como todo lo demás de este archivo — es lo único que MUEVE
+// píxeles de la lámina.
+//
+// Se puede porque el movimiento es diminuto y vertical. Cada franja de dos
+// píxeles de ancho se vuelve a dibujar unos píxeles más arriba o más abajo,
+// siguiendo una onda que viaja del asta hacia el vuelo. La franja se lleva con
+// ella el trocito de fondo que le toca, y ahí está el truco: detrás de estas dos
+// banderas hay ladera oscura y cielo, sin nada con borde, así que desplazar ese
+// fondo dos píxeles no se ve. Sobre una fachada con ventanas se notaría, y
+// entonces haría falta la bandera recortada en su propia imagen.
+//
+// LA AMPLITUD CRECE AL CUADRADO con la distancia al asta: junto al mástil la
+// tela no se mueve y en la punta restalla. Lineal se lee como una chapa
+// doblándose.
+//
+// Van MEDIDAS, y en PÍXELES DEL LIENZO —como las antorchas reconocidas, y al
+// revés que la calavera—: se leen del horneado, que ya está a tamaño de
+// pantalla. Solo las tienen la lámina del título y la portada, que son la misma
+// escena, y por eso llegan como opción de `hornear` en vez de valer para todas.
+const BANDERAS = [
+  // La de Extremadura, sobre la torre de la izquierda.
+  { x: 1521, y: 368, w: 64, h: 70 },
+  // La de la cruz, sobre la torre de la derecha.
+  { x: 1830, y: 352, w: 55, h: 68 }
+];
+
+const BANDERA_PASO = 2;        // ancho de cada franja, en píxeles de lienzo
+const BANDERA_ALTO = 5;        // cuánto sube y baja la punta
+const BANDERA_ONDAS = 1.3;     // cuántas ondas caben a lo largo de la tela
+const BANDERA_CICLO = 1300;    // lo que tarda la onda en recorrerla
+
+function banderas(ctx, t, l) {
+  const fase = (t / BANDERA_CICLO) * Math.PI * 2;
+  ctx.imageSmoothingEnabled = false;
+  for (let i = 0; i < BANDERAS.length; i++) {
+    const b = BANDERAS[i];
+    for (let x = b.x; x < b.x + b.w; x += BANDERA_PASO) {
+      const u = (x - b.x) / b.w;
+      const dy = Math.round(
+        BANDERA_ALTO * u * u * Math.sin(u * BANDERA_ONDAS * Math.PI * 2 - fase));
+      if (dy === 0) continue;                       // esa franja ya está bien
+      const w = Math.min(BANDERA_PASO, b.x + b.w - x);
+      ctx.drawImage(l.lienzo, x, b.y, w, b.h, x, b.y + dy, w, b.h);
+    }
+  }
 }
 
 // --- La calavera del rótulo ---------------------------------------------------

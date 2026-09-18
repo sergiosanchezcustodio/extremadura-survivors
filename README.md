@@ -277,11 +277,14 @@ Se compran una vez con denarios y se quedan desbloqueadas para siempre.
 ## Elegir dónde se juega
 
 Lo último antes de empezar, cuando ya se ha decidido con quién. La pantalla
-enseña **la región entera**: Emerita Augusta arriba y, debajo, los cinco sitios
-que quedan por escribir —Cáceres, Trujillo, Monfragüe, Guadalupe y Alcántara—
-apagados y con «próximamente». Un mapa que solo muestra donde ya puedes ir no es
-un mapa. Cada nivel se abre al **ganar** en el anterior: morir en el minuto 28
-no abre nada.
+enseña **el recorrido entero**: Emerita Augusta arriba y, debajo, los seis
+sitios que quedan por escribir —el CC The Lighthouse, Monfragüe, la Necrópolis,
+Casas del Turuñuelo, Granadilla y Las Hurdes— apagados y con «próximamente». Un
+mapa que solo muestra donde ya puedes ir no es un mapa. Cada nivel se abre al
+**ganar** en el anterior: morir en el minuto 28 no abre nada.
+
+De qué va cada uno y quién es su jefe —el Jancano en Monfragüe, el Macho Cabrío
+en Las Hurdes— está en **[docs/niveles.md](docs/niveles.md)**.
 
 A la derecha, **una ventana con el sitio señalado**: un trozo del mapa de
 verdad, sin un solo personaje ni un solo bicho. No es una captura guardada — se
@@ -491,10 +494,19 @@ midiendo el paso de lógica en sí, no los fps que reporta la pestaña:
 
 Bien por debajo de los 16,6 ms que exige 60 fps, con margen de sobra.
 
+Dentro hay **Controladores**: un mando de Xbox Series X trazado a mano en la
+capa de interfaz, con la lista de qué hace cada botón y su equivalente de
+teclado al lado. La pieza señalada **se enciende en el dibujo** —no hay líneas
+de guía: son ocho controles en un mando pequeño y saldrían todas cruzadas—. Está
+ahí porque quien enchufa un mando por primera vez no tiene forma de saber que la
+ficha del personaje se abre con VIEW.
+
 <details>
 <summary><b>Opciones</b></summary>
 
 <img src="docs/capturas/menu_configuracion.jpg" alt="Configuración" width="100%">
+
+<img src="docs/capturas/menu_controladores.jpg" alt="Controladores" width="100%">
 
 </details>
 
@@ -547,13 +559,14 @@ Cómo se publica una versión —Pages va solo, itch.io va a mano, y el sello de
 atlas es lo que evita que el navegador sirva imágenes viejas— está en
 **[docs/publicar.md](docs/publicar.md)**.
 
-**Lo que viene**: recorrer la región — Cáceres, Trujillo, Monfragüe, Guadalupe,
-el puente de Alcántara — añadiendo un nivel a la vez. El contrato para escribir
-uno está en **[docs/anadir-un-nivel.md](docs/anadir-un-nivel.md)**, con lo que es
-copiar un fichero de datos y lo que todavía obliga a tocar código.
+**Lo que viene**: los seis sitios que faltan — el CC The Lighthouse, Monfragüe,
+la Necrópolis, Casas del Turuñuelo, Granadilla y Las Hurdes — añadiendo un nivel
+a la vez. Qué es cada uno está en **[docs/niveles.md](docs/niveles.md)**; el
+contrato para escribirlo, en **[docs/anadir-un-nivel.md](docs/anadir-un-nivel.md)**,
+con lo que es copiar un fichero de datos y lo que todavía obliga a tocar código.
 
 El juego ya sabe tener más de uno. Después de elegir héroe y mascota se elige
-**dónde**, en una pantalla que enseña la región entera —los cinco sitios que
+**dónde**, en una pantalla que enseña el recorrido entero —los seis sitios que
 faltan salen apagados, con «próximamente»— y donde un nivel se abre al ganar en
 el anterior. Elegido el sitio, **su historia** sube por la placa de piedra antes
 del primer fotograma: cada nivel cuenta la suya, escrita en su propio archivo de

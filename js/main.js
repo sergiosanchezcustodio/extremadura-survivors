@@ -45,6 +45,7 @@ import { dibujarPaneles, dibujarReloj, dibujarBarraJefe,
          dibujarCuentaAtrasReloj, reiniciarVidasHud } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje, dibujarDespedida } from './ui/pantallas.js';
 import { dibujarConfig, dibujarConfirmacion } from './ui/configuracion.js';
+import { dibujarControles, CONTROLES } from './ui/controles.js';
 import { Capa, FUENTE } from './ui/capa.js';
 import { Tema, olvidarDegradados } from './ui/tema.js';
 import {
@@ -218,6 +219,10 @@ const PANTALLA_TIENDA = 3;
 // solo sirve para pulsar otra vez.
 const PANTALLA_MASCOTAS = 4;
 const PANTALLA_CONFIG = 5;
+// CONTROLADORES: qué hace cada botón, con el mando dibujado. Cuelga de la
+// configuración y solo se llega desde ella, así que se sale a ella y no al
+// título. Ver ui/controles.js.
+const PANTALLA_CONTROLES = 12;
 // La INTRO: la ficha del proyecto y el rótulo, antes del menú. Es la pantalla
 // de arranque, y de ella solo se sale hacia el título — nunca se vuelve.
 const PANTALLA_INTRO = 6;
@@ -1445,11 +1450,20 @@ function turnoAnterior(desde) {
 // del volumen, y menos ahora que esta pantalla se abre TAMBIÉN desde dentro de
 // una partida en marcha.
 const CONFIG = [
-  { id: 'musica',   texto: 'Música' },
-  { id: 'efectos',  texto: 'Efectos' },
-  { id: 'pantalla', texto: 'Pantalla completa' },
-  { id: 'volver',   texto: 'Volver' }
+  { id: 'musica',    texto: 'Música' },
+  { id: 'efectos',   texto: 'Efectos' },
+  { id: 'pantalla',  texto: 'Pantalla completa' },
+  // No es un ajuste: no cambia nada, ABRE una pantalla. Va en esta lista igual
+  // porque es donde la buscaría cualquiera, y porque la alternativa —una quinta
+  // opción en la lápida del título— es repintar la ilustración.
+  { id: 'controles', texto: 'Controladores' },
+  { id: 'volver',    texto: 'Volver' }
 ];
+
+// El cursor de la pantalla de controladores. Aparte del de la configuración:
+// son dos listas distintas y volver de una a otra tiene que dejar cada cursor
+// donde estaba.
+let cursorControl = 0;
 
 // La configuración abierta DESDE LA PARTIDA. No es una pantalla más del bucle
 // —el estado sigue siendo PANTALLA_JUEGO, con el mundo congelado detrás— porque
@@ -1482,7 +1496,25 @@ function entradaConfig(cerrar) {
   if (id === 'musica' && (menos || mas)) GestorAudio.ajustarMusica(mas ? 0.1 : -0.1);
   if (id === 'efectos' && (menos || mas)) GestorAudio.ajustarEfectos(mas ? 0.1 : -0.1);
   if (id === 'pantalla' && (acepta || menos || mas)) alternarPantallaCompleta();
+  if (id === 'controles' && acepta) { cursorControl = 0; irA(PANTALLA_CONTROLES); }
   if (id === 'volver' && acepta) cerrar();
+}
+
+// CONTROLADORES. Solo se recorre y se sale: aquí no hay nada que cambiar, es una
+// pantalla para mirar. Se sale a la CONFIGURACIÓN y no al título, que es de
+// donde se viene.
+function entradaControles() {
+  const c = entrada.controles[0];
+  const n = CONTROLES.length;
+  const ejeV = c ? c.flancoEje(false) : 0;
+  const abajo = entrada.consumirFlanco('ArrowDown') || (c && c.consumirBoton(13)) || ejeV > 0;
+  const arriba = entrada.consumirFlanco('ArrowUp') || (c && c.consumirBoton(12)) || ejeV < 0;
+  const sale = entrada.consumirFlanco('Escape') || entrada.consumirFlanco('Enter') ||
+               entrada.consumirAtras() || (c && c.consumirBoton(0));
+
+  if (abajo) cursorControl = (cursorControl + 1) % n;
+  if (arriba) cursorControl = (cursorControl + n - 1) % n;
+  if (sale) irA(PANTALLA_CONFIG);
 }
 
 // Tienda: un cursor, comprar con Enter/A, Esc/B o T para volver al título. Las
@@ -2733,6 +2765,7 @@ function actualizar(dt) {
     else if (pantalla === PANTALLA_TIENDA) entradaTienda();
     else if (pantalla === PANTALLA_MASCOTAS) entradaMascotas();
     else if (pantalla === PANTALLA_CONFIG) entradaConfig(() => irA(PANTALLA_TITULO));
+    else if (pantalla === PANTALLA_CONTROLES) entradaControles();
     else if (pantalla === PANTALLA_GALERIA) entradaGaleria();   // GALERÍA (temporal)
     else entradaSeleccion();
     entrada.limpiarFlanco();
@@ -3466,6 +3499,8 @@ function dibujar(alpha) {
     else if (pantalla === PANTALLA_MASCOTAS) {
       Pantallas.mascotas(ctx, Capa.ctx, mascotasDisponibles(), cursorMascota,
                          turnoMascota, puestos, mascotasElegidas);
+    } else if (pantalla === PANTALLA_CONTROLES) {
+      dibujarControles(ctx, Capa.ctx, cursorControl);
     } else if (pantalla === PANTALLA_CONFIG) {
       dibujarConfig(ctx, Capa.ctx, CONFIG, cursorConfig);
     }

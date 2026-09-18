@@ -2,6 +2,7 @@ import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
 import { FUENTE, textoEspaciado } from './capa.js';
 import { Tema } from './tema.js';
 import { rejilla, armazon, descripcion, MARGEN } from './tabla.js';
+import { Recursos } from '../core/recursos.js';
 
 // CONTROLADORES: qué hace cada botón, dibujado y no contado.
 //
@@ -10,28 +11,36 @@ import { rejilla, armazon, descripcion, MARGEN } from './tabla.js';
 // depuración— y la tabla del manual, que hay que abrir aparte. Quien enchufa un
 // mando por primera vez no sabe que la ficha del personaje se abre con VIEW.
 //
-// A LA IZQUIERDA, UN MANDO DE VERDAD. Es un Xbox Series X trazado a mano con
-// rectángulos redondeados y círculos: no hay arte para esto y tampoco hace
-// falta, porque un mando se reconoce por su silueta —dos empuñaduras, dos
-// sticks a distinta altura, la cruceta abajo a la izquierda y los cuatro
-// botones arriba a la derecha— antes de que se lea una sola letra. Va en la
-// capa de interfaz, así que sale nítido a la resolución del monitor.
+// A LA IZQUIERDA, LA SILUETA DE UN XBOX SERIES X. Es un dibujo de Sergio
+// (resources/menus/silueta_mando_info.png), y sustituye al mando que había aquí
+// trazado a mano con curvas. Ese sigue abajo, de repliegue, porque la regla de
+// siempre: si la imagen no carga, la pantalla tiene que salir igual.
+//
+// LA LÁMINA ES LÍNEA NEGRA SOBRE TRANSPARENTE, así que se TIÑE antes de
+// dibujarla —sobre el velo oscuro de esta pantalla, tal cual no se vería—. Se
+// tiñe una vez y se guarda: repintarla en cada fotograma es hacer sesenta veces
+// por segundo un trabajo cuyo resultado no cambia.
 //
 // Y CADA PIEZA SE ILUMINA CON SU RENGLÓN. Las líneas de guía de los diagramas
-// clásicos aquí no caben: son ocho controles en un mando de doscientos píxeles
-// y saldrían todas cruzadas. En su lugar, la pieza señalada se enciende y las
-// demás se quedan en gris, que dice lo mismo sin una sola línea.
+// clásicos aquí no caben: son ocho controles en un mando pequeño y saldrían
+// todas cruzadas. En su lugar, sobre la pieza señalada se enciende un halo.
 //
-// A LA DERECHA, EL TECLADO, con la misma lista y en el mismo orden: quien juega
-// con uno u otro lee la misma fila. Los dos se recorren con el mismo cursor.
+// A LA DERECHA, UNA TABLA DE TRES COLUMNAS —ACCIÓN, MANDO y TECLADO— como la
+// pidió Sergio: primero lo que se quiere hacer y después cómo se hace con cada
+// cosa, que es el orden en que se busca.
 
-// El mando, en una caja propia. Se dibuja en coordenadas 0..1 dentro de ella,
-// así que moverlo o cambiarlo de tamaño es tocar estos cuatro números.
-const MANDO_X = MARGEN + 18;
-const MANDO_ANCHO = 330;
+const RUTA_MANDO = 'assets/menus/silueta-mando.png';
 
-// La lista de la derecha empieza donde acaba el mando.
-const LISTA_X = MANDO_X + MANDO_ANCHO + 44;
+// El mando, en su hueco de la izquierda.
+const MANDO_X = MARGEN + 10;
+const MANDO_ANCHO = 286;
+
+// Y LA TABLA, tres columnas. La de TECLADO va alineada a la DERECHA contra el
+// margen, que es lo que hace que se lea como una columna y no como una tercera
+// palabra suelta detrás de la anterior.
+const COL_ACCION = MANDO_X + MANDO_ANCHO + 34;
+const COL_MANDO = COL_ACCION + 196;
+const COL_TECLADO = ANCHO_UI - MARGEN;
 
 // LOS CONTROLES, en el orden en que se aprenden: primero moverse, luego decidir,
 // luego lo que se consulta y al final lo que interrumpe.
@@ -70,7 +79,77 @@ export const CONTROLES = [
 // una fila más, porque no es un control: es cómo se entra.
 const PIE = 'Cada mando enchufado es un jugador. Pulsa A o MENU para entrar.';
 
-// --- El mando -----------------------------------------------------------------
+// DÓNDE ESTÁ CADA PIEZA EN LA LÁMINA, en fracciones de su ancho y de su alto.
+// Van en fracciones y no en píxeles porque así siguen valiendo si Sergio
+// reexporta el dibujo a otro tamaño, que es la lección de la lámina del título.
+const PIEZAS = {
+  stickIzq: { x: 0.250, y: 0.273 },
+  stickDer: { x: 0.625, y: 0.493 },
+  cruceta:  { x: 0.363, y: 0.505 },
+  y:        { x: 0.752, y: 0.204 },
+  x:        { x: 0.691, y: 0.292 },
+  b:        { x: 0.820, y: 0.292 },
+  a:        { x: 0.752, y: 0.380 },
+  view:     { x: 0.428, y: 0.283 },
+  menu:     { x: 0.573, y: 0.278 }
+};
+
+// El halo que marca la pieza. Generoso a propósito: marca un sitio, no dibuja
+// un contorno, y así un par de píxeles de desvío en las medidas no se notan.
+const HALO = 0.055;              // en anchos de la lámina
+
+// --- La lámina ----------------------------------------------------------------
+
+let _lamina = null;          // la silueta ya teñida, o null mientras no esté
+let _pedida = false;         // para no pedirla otra vez en cada fotograma
+
+// Se pide LA PRIMERA VEZ que se dibuja esta pantalla, y no al arrancar el juego
+// con el resto: a esta pantalla se entra a propósito y desde un menú, así que un
+// fotograma con el mando de repliegue no lo ve nadie, y a cambio el arranque no
+// carga una imagen que la mayoría de las partidas no van a abrir.
+function pedirLamina() {
+  if (_pedida) return;
+  _pedida = true;
+  Recursos.cargarSuelta(RUTA_MANDO).then((img) => {
+    if (img) _lamina = tenyir(img, '#c9cede');
+  });
+}
+
+// Deja la línea del color que se le diga, conservando el alfa. `source-in`
+// pinta solo donde YA hay algo, que en esta lámina es exactamente el trazo.
+function tenyir(img, color) {
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  const x = c.getContext('2d');
+  x.drawImage(img, 0, 0);
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = color;
+  x.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+
+// La silueta, con el halo de la pieza señalada debajo. El halo VA DEBAJO para
+// que la línea del dibujo siga leyéndose por encima de él.
+function lamina(ctx, x, y, w, piezaViva) {
+  const h = w * (_lamina.height / _lamina.width);
+  const p = PIEZAS[piezaViva];
+  if (p) {
+    const cx = x + p.x * w, cy = y + p.y * h, r = HALO * w;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, 'rgba(168,220,255,.60)');
+    g.addColorStop(0.55, 'rgba(120,190,255,.22)');
+    g.addColorStop(1, 'rgba(120,190,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.drawImage(_lamina, x, y, w, h);
+  return h;
+}
+
+// --- El mando de repliegue ----------------------------------------------------
 //
 // Todo en coordenadas 0..1 de su caja, para que el tamaño salga de una sola
 // constante. `u` convierte a lo ancho y `v` a lo alto.
@@ -197,50 +276,61 @@ function trazar(ctx, x, y, w, encendida, piezaViva) {
 export function dibujarControles(ctxMundo, ctx, cursor) {
   const t = Tema.actual;
   const r = rejilla(CONTROLES.length, 34);
+  pedirLamina();
 
   ctx.save();
   armazon(ctxMundo, ctx, r, ['CONTROLADORES'], 0,
-          ['MANDO', '', '', 'TECLADO'],
-          { x: [LISTA_X, 0, 0, ANCHO_UI - MARGEN], derecha: ANCHO_UI - MARGEN });
+          ['ACCIÓN', 'MANDO', '', 'TECLADO'],
+          { x: [COL_ACCION, COL_MANDO, 0, COL_TECLADO], derecha: COL_TECLADO });
 
   const c = CONTROLES[Math.max(0, Math.min(CONTROLES.length - 1, cursor))];
 
-  // El mando, centrado a lo alto del hueco de las filas.
-  const alto = MANDO_ANCHO * MANDO_ALTO;
-  trazar(ctx, MANDO_X, r.filas + (r.alto * CONTROLES.length - alto) / 2,
-         MANDO_ANCHO, t.titulo, c.pieza);
+  // El mando, centrado a lo alto del hueco de las filas. Si la lámina todavía no
+  // está —o no ha cargado— sale el de repliegue, trazado a mano.
+  const bloque = r.alto * CONTROLES.length;
+  if (_lamina) {
+    const alto = MANDO_ANCHO * (_lamina.height / _lamina.width);
+    lamina(ctx, MANDO_X, r.filas + (bloque - alto) / 2, MANDO_ANCHO, c.pieza);
+  } else {
+    const alto = MANDO_ANCHO * MANDO_ALTO;
+    trazar(ctx, MANDO_X, r.filas + (bloque - alto) / 2,
+           MANDO_ANCHO, t.titulo, c.pieza);
+  }
 
   for (let i = 0; i < CONTROLES.length; i++) {
     const f = CONTROLES[i];
     const elegida = i === cursor;
     const y = r.filas + i * r.alto;
-    const yc = y + r.alto / 2 - 2;
+    const yc = y + r.alto / 2 - 1;
 
-    // El resalte NO ocupa el ancho entero: se queda en la lista, porque a la
+    // El resalte NO ocupa el ancho entero: se queda en la tabla, porque a la
     // izquierda está el mando y una banda encendida por debajo de él lo
     // convertiría en un dibujo tachado.
     if (elegida) {
       ctx.fillStyle = 'rgba(168,220,255,.16)';
       ctx.beginPath();
-      ctx.roundRect(LISTA_X - 10, y + 1, ANCHO_UI - MARGEN - LISTA_X + 20,
+      ctx.roundRect(COL_ACCION - 10, y + 1, COL_TECLADO - COL_ACCION + 20,
                     r.alto - 2, 5);
       ctx.fill();
     }
 
     ctx.textBaseline = 'middle';
+
+    // ACCIÓN. Es la columna por la que se busca, así que va la primera y en el
+    // color de los títulos aunque no esté señalada.
     ctx.textAlign = 'left';
     ctx.font = `700 12px ${FUENTE}`;
     ctx.fillStyle = elegida ? '#ffffff' : t.titulo;
-    ctx.fillText(f.mando, LISTA_X, yc - 6);
+    ctx.fillText(f.que, COL_ACCION, yc);
 
-    ctx.font = `600 11px ${FUENTE}`;
-    ctx.fillStyle = t.texto;
-    ctx.fillText(f.que, LISTA_X, yc + 8);
+    // MANDO y TECLADO, las dos formas de hacerlo. En el color del texto normal:
+    // lo que se lee primero es QUÉ se hace, y estas dos son la respuesta.
+    ctx.font = `600 12px ${FUENTE}`;
+    ctx.fillStyle = elegida ? '#dfe6f5' : t.texto;
+    ctx.fillText(f.mando, COL_MANDO, yc);
 
     ctx.textAlign = 'right';
-    ctx.font = `700 12px ${FUENTE}`;
-    ctx.fillStyle = elegida ? '#ffffff' : t.titulo;
-    ctx.fillText(f.tecla, ANCHO_UI - MARGEN, yc - 6);
+    ctx.fillText(f.tecla, COL_TECLADO, yc);
   }
 
   // El pie del cooperativo, justo encima del renglón de descripción.

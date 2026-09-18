@@ -494,12 +494,17 @@ midiendo el paso de lógica en sí, no los fps que reporta la pestaña:
 
 Bien por debajo de los 16,6 ms que exige 60 fps, con margen de sobra.
 
-Dentro hay **Controladores**: un mando de Xbox Series X trazado a mano en la
-capa de interfaz, con la lista de qué hace cada botón y su equivalente de
-teclado al lado. La pieza señalada **se enciende en el dibujo** —no hay líneas
-de guía: son ocho controles en un mando pequeño y saldrían todas cruzadas—. Está
-ahí porque quien enchufa un mando por primera vez no tiene forma de saber que la
-ficha del personaje se abre con VIEW.
+Dentro hay **Controladores**: la silueta de un Xbox Series X y, al lado, una
+tabla de tres columnas —**acción**, cómo se hace **con el mando** y cómo **con el
+teclado**—. La pieza de la fila señalada **se enciende sobre el dibujo**: no hay
+líneas de guía porque son ocho controles en un mando pequeño y saldrían todas
+cruzadas. Está ahí porque quien enchufa un mando por primera vez no tiene forma
+de saber que la ficha del personaje se abre con VIEW.
+
+La silueta es de Sergio y es **línea sobre transparencia**, así que el juego la
+**tiñe** antes de dibujarla —tal cual, negra sobre el velo oscuro de esa
+pantalla, no se vería— y guarda el resultado en vez de repetirlo sesenta veces
+por segundo.
 
 <details>
 <summary><b>Opciones</b></summary>

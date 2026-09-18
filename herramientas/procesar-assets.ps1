@@ -4563,6 +4563,13 @@ $MENUS = @(
     @{ src='menus\seleccion_jugador.jpg'; dst='menus\seleccion.jpg'; ancho=1920 }
     @{ src='menus\splash_screen.jpg'; dst='menus\splash.jpg'; ancho=1920 }
     @{ src='menus\intro_historia.jpg'; dst='menus\intro-historia.jpg'; ancho=1920 }
+    # LA SILUETA DEL MANDO de la pantalla de controladores (ui/controles.js).
+    # PNG Y SIN REDUCIR, que es la excepcion de esta tabla: es linea sobre
+    # TRANSPARENCIA -solo el 8% de sus pixeles son opacos- asi que un JPEG la
+    # dejaria sobre un cuadrado negro, y va en la CAPA DE INTERFAZ, que se dibuja
+    # a la resolucion real del monitor: en un 4K se pinta a 1.320 px de ancho, mas
+    # que los 1.239 que mide. Reducirla seria verla borrosa justo donde mas se ve.
+    @{ src='menus\silueta_mando_info.png'; dst='menus\silueta-mando.png' }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'menus') | Out-Null

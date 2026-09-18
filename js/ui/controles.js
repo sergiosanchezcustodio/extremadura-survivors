@@ -3,6 +3,7 @@ import { FUENTE, textoEspaciado } from './capa.js';
 import { Tema } from './tema.js';
 import { rejilla, armazon, descripcion, MARGEN } from './tabla.js';
 import { Recursos } from '../core/recursos.js';
+import { Controles, ACCIONES, nombreTecla, nombreBoton } from '../core/controles.js';
 
 // CONTROLADORES: qué hace cada botón, dibujado y no contado.
 //
@@ -59,36 +60,32 @@ const COL_TECLADO = ANCHO_UI - MARGEN;
 // Por eso `piezas` es una lista: una fila puede encender más de un sitio del
 // mando. Vacía —solo la última— deja el mando entero sin halo, que es lo honesto
 // cuando el control no es un botón concreto.
-export const CONTROLES = [
-  { piezas: ['stickIzq', 'cruceta'], mando: 'Stick izq. o cruceta',
-    tecla: 'WASD o flechas', que: 'Moverte',
-    larga: 'Valen los dos: manda el que más se desplace. El arma dispara sola.' },
-  { piezas: ['a'], mando: 'A', tecla: 'Enter',
-    que: 'Confirmar y elegir carta',
-    larga: 'Al subir de nivel salen tres armas: esto elige la señalada.' },
-  { piezas: ['b'], mando: 'B', tecla: 'Esc',
-    que: 'Atrás y cerrar',
-    larga: 'Sale de cualquier pantalla y cierra la ficha y la pausa.' },
-  { piezas: ['cruceta', 'stickIzq'], mando: 'Cruceta o stick izq.',
-    tecla: 'Flechas', que: 'Moverte por los menús',
-    larga: 'También aquí valen los dos, igual que para moverse por el mapa.' },
-  { piezas: ['view'], mando: 'VIEW', tecla: 'Tab',
-    que: 'Ficha del personaje',
-    larga: 'Congela el mundo y enseña vida, características y el arsenal.' },
-  { piezas: ['menu'], mando: 'MENU', tecla: 'Esc',
-    que: 'Pausa',
-    larga: 'Desde la pausa se llega a esta misma configuración.' },
-  { piezas: ['x'], mando: 'X', tecla: 'F',
-    que: 'Subida automática',
-    larga: 'Con las ocho ranuras llenas, sube sola el arma que toque.' },
-  { piezas: [], mando: 'Cualquier botón', tecla: 'Cualquier tecla',
-    que: 'Saltar la presentación',
-    larga: 'El relato del arranque se salta MANTENIENDO pulsado, no de un toque.' }
-];
+// LO QUE SE PUEDE CAMBIAR sale de core/controles.js, que es quien guarda las
+// asignaciones. Aquí solo está lo que hay que ESCRIBIR de cada una: el renglón
+// largo de abajo y qué pieza del mando se enciende.
+//
+// `piezas` es una lista porque una fila puede encender más de un sitio: la
+// dirección va con el stick Y con la cruceta, que el motor lee las dos y se
+// queda con la que más desplace.
+const EXPLICA = {
+  arriba:    'Con el mando, el stick o la cruceta: valen los dos.',
+  abajo:     'Con el mando, el stick o la cruceta: valen los dos.',
+  izquierda: 'Con el mando, el stick o la cruceta: valen los dos.',
+  derecha:   'El arma dispara sola: moverse es lo único que se hace con las manos.',
+  aceptar:   'Al subir de nivel salen tres armas: esto elige la señalada.',
+  atras:     'Sale de cualquier pantalla y cierra la ficha.',
+  ficha:     'Congela el mundo y enseña vida, características y el arsenal.',
+  pausa:     'En el teclado es la MISMA tecla que Atrás; en el mando, otro botón.',
+  autosubir: 'Con las ocho ranuras llenas, sube sola el arma que toque.'
+};
 
-// EN COOPERATIVO, CADA MANDO ES UN JUGADOR. Va de pie de la pantalla y no como
-// una fila más, porque no es un control: es cómo se entra.
-const PIE = 'Cada mando enchufado es un jugador. Pulsa A o MENU para entrar.';
+// La última fila de la pantalla, que no es un control sino un botón.
+export const FILA_RESET = { texto: 'Restablecer los controles', piezas: [] };
+
+// Cuántas filas tiene la pantalla. Lo pide main.js para mover el cursor.
+export function numeroDeFilas() { return ACCIONES.length + 1; }
+
+const PIE = 'Cada mando enchufado es un jugador · Las flechas siempre mueven, se asigne lo que se asigne';
 
 // DÓNDE ESTÁ CADA PIEZA EN LA LÁMINA, en fracciones de su ancho y de su alto.
 // Van en fracciones y no en píxeles porque así siguen valiendo si Sergio
@@ -313,9 +310,10 @@ function trazar(ctx, x, y, w, encendida, piezaViva) {
   ctx.restore();
 }
 
-export function dibujarControles(ctxMundo, ctx, cursor) {
+export function dibujarControles(ctxMundo, ctx, cursor, capturando) {
   const t = Tema.actual;
-  const r = rejilla(CONTROLES.length, 34);
+  const filas = numeroDeFilas();
+  const r = rejilla(filas, 32);
   pedirLamina();
 
   ctx.save();
@@ -323,31 +321,33 @@ export function dibujarControles(ctxMundo, ctx, cursor) {
           ['ACCIÓN', 'MANDO', '', 'TECLADO'],
           { x: [COL_ACCION, COL_MANDO, 0, COL_TECLADO], derecha: COL_TECLADO });
 
-  const c = CONTROLES[Math.max(0, Math.min(CONTROLES.length - 1, cursor))];
+  const i = Math.max(0, Math.min(filas - 1, cursor));
+  const sel = i < ACCIONES.length ? ACCIONES[i] : null;
 
   // El mando, centrado a lo alto del hueco de las filas. Si la lámina todavía no
   // está —o no ha cargado— sale el de repliegue, trazado a mano.
-  const bloque = r.alto * CONTROLES.length;
+  const bloque = r.alto * filas;
+  const piezas = sel ? sel.piezas : [];
   if (_lamina) {
     const alto = MANDO_ANCHO * (_lamina.height / _lamina.width);
-    lamina(ctx, MANDO_X, r.filas + (bloque - alto) / 2, MANDO_ANCHO, c.piezas);
+    lamina(ctx, MANDO_X, r.filas + (bloque - alto) / 2, MANDO_ANCHO, piezas);
   } else {
     const alto = MANDO_ANCHO * MANDO_ALTO;
     trazar(ctx, MANDO_X, r.filas + (bloque - alto) / 2,
-           MANDO_ANCHO, t.titulo, c.piezas[0]);
+           MANDO_ANCHO, t.titulo, piezas[0]);
   }
 
-  for (let i = 0; i < CONTROLES.length; i++) {
-    const f = CONTROLES[i];
-    const elegida = i === cursor;
-    const y = r.filas + i * r.alto;
+  for (let f = 0; f < filas; f++) {
+    const a = f < ACCIONES.length ? ACCIONES[f] : null;
+    const elegida = f === cursor;
+    const y = r.filas + f * r.alto;
     const yc = y + r.alto / 2 - 1;
 
     // El resalte NO ocupa el ancho entero: se queda en la tabla, porque a la
     // izquierda está el mando y una banda encendida por debajo de él lo
     // convertiría en un dibujo tachado.
     if (elegida) {
-      ctx.fillStyle = 'rgba(168,220,255,.16)';
+      ctx.fillStyle = capturando ? 'rgba(255,205,120,.22)' : 'rgba(168,220,255,.16)';
       ctx.beginPath();
       ctx.roundRect(COL_ACCION - 10, y + 1, COL_TECLADO - COL_ACCION + 20,
                     r.alto - 2, 5);
@@ -355,30 +355,61 @@ export function dibujarControles(ctxMundo, ctx, cursor) {
     }
 
     ctx.textBaseline = 'middle';
-
-    // ACCIÓN. Es la columna por la que se busca, así que va la primera y en el
-    // color de los títulos aunque no esté señalada.
     ctx.textAlign = 'left';
     ctx.font = `700 12px ${FUENTE}`;
     ctx.fillStyle = elegida ? '#ffffff' : t.titulo;
-    ctx.fillText(f.que, COL_ACCION, yc);
+    ctx.fillText(a ? a.texto : FILA_RESET.texto, COL_ACCION, yc);
 
-    // MANDO y TECLADO, las dos formas de hacerlo. En el color del texto normal:
-    // lo que se lee primero es QUÉ se hace, y estas dos son la respuesta.
+    // La fila de restablecer no tiene columnas: lo que hace se lee en su
+    // nombre, y rellenarlas con rayas sería ruido.
+    if (!a) continue;
+
+    const puesto = Controles.de(a.id);
     ctx.font = `600 12px ${FUENTE}`;
+
+    if (elegida && capturando) {
+      // Mientras se captura, las dos columnas dicen qué hay que hacer. Sin esto
+      // la pantalla se queda igual y no se sabe que está esperando.
+      ctx.fillStyle = '#ffd98a';
+      ctx.fillText(a.fijoEnMando ? 'Pulsa una tecla…' : 'Pulsa una tecla o un botón…',
+                   COL_MANDO, yc);
+      ctx.textAlign = 'right';
+      ctx.fillText('Esc cancela', COL_TECLADO, yc);
+      continue;
+    }
+
     ctx.fillStyle = elegida ? '#dfe6f5' : t.texto;
-    ctx.fillText(f.mando, COL_MANDO, yc);
+    ctx.fillText(a.fijoEnMando ? 'Stick o cruceta' : nombreBoton(puesto.boton),
+                 COL_MANDO, yc);
 
     ctx.textAlign = 'right';
-    ctx.fillText(f.tecla, COL_TECLADO, yc);
+    // La alterna se enseña detrás y más apagada: está, no se puede cambiar, y
+    // no debe competir con la que sí.
+    const alterna = a.alterna ? nombreTecla(a.alterna) : '';
+    let x = COL_TECLADO;
+    if (alterna) {
+      ctx.font = `600 10px ${FUENTE}`;
+      ctx.fillStyle = t.texto;
+      ctx.fillText('o ' + alterna, x, yc);
+      x -= ctx.measureText('o ' + alterna).width + 8;
+    }
+    ctx.font = `600 12px ${FUENTE}`;
+    ctx.fillStyle = elegida ? '#ffffff' : t.titulo;
+    ctx.fillText(nombreTecla(puesto.tecla), x, yc);
   }
 
-  // El pie del cooperativo, justo encima del renglón de descripción.
+  // El pie, justo encima del renglón de descripción.
   ctx.textAlign = 'center';
   ctx.font = `600 10px ${FUENTE}`;
   ctx.fillStyle = t.texto;
   ctx.fillText(PIE, ANCHO_UI / 2, r.desc - 16);
 
-  descripcion(ctx, r, c.larga);
+  const abajo = capturando
+    ? 'Esperando… pulsa lo que quieras poner en su sitio, o Esc para dejarlo como está.'
+    : (sel ? EXPLICA[sel.id] || ''
+           : (Controles.tocado()
+              ? 'Devuelve las teclas y los botones a como venían de fábrica.'
+              : 'Ya están todos como venían de fábrica.'));
+  descripcion(ctx, r, abajo);
   ctx.restore();
 }

@@ -1,4 +1,5 @@
 import { hipot } from './mate.js';
+import { Controles } from './controles.js';
 // Teclado, gamepad y joystick virtual táctil, repartidos POR JUGADOR.
 //
 // Reparto: el teclado siempre maneja al jugador 1; el mando k maneja al jugador
@@ -13,10 +14,14 @@ import { hipot } from './mate.js';
 const ZONA_MUERTA = 0.18;     // radial, nunca por eje
 const RADIO_STICK = 42;       // px de pantalla que equivalen a stick al máximo
 
-const IZQUIERDA = ['KeyA', 'ArrowLeft'];
-const DERECHA   = ['KeyD', 'ArrowRight'];
-const ARRIBA    = ['KeyW', 'ArrowUp'];
-const ABAJO     = ['KeyS', 'ArrowDown'];
+// LAS TECLAS DE MOVIMIENTO YA NO SON CONSTANTES: la primera de cada par la
+// elige el jugador (core/controles.js) y la segunda —la flecha— no se puede
+// cambiar, que es la red de seguridad. Se piden en cada fotograma porque
+// cambiarlas es tan raro como barato preguntarlo.
+function izquierda() { return [Controles.tecla('KeyA'), 'ArrowLeft']; }
+function derecha()   { return [Controles.tecla('KeyD'), 'ArrowRight']; }
+function arriba()    { return [Controles.tecla('KeyW'), 'ArrowUp']; }
+function abajo()     { return [Controles.tecla('KeyS'), 'ArrowDown']; }
 
 // Cruceta en el mapeo estándar del navegador. NO son ejes, son botones.
 const CRUZ_ARRIBA = 12, CRUZ_ABAJO = 13, CRUZ_IZQ = 14, CRUZ_DER = 15;
@@ -163,10 +168,10 @@ export class Entrada {
       // --- Teclado y táctil: solo el jugador 1 ----------------------------
       if (i === 0) {
         let tx = 0, ty = 0;
-        if (this._algunaTecla(DERECHA))   tx += 1;
-        if (this._algunaTecla(IZQUIERDA)) tx -= 1;
-        if (this._algunaTecla(ABAJO))     ty += 1;
-        if (this._algunaTecla(ARRIBA))    ty -= 1;
+        if (this._algunaTecla(derecha()))   tx += 1;
+        if (this._algunaTecla(izquierda())) tx -= 1;
+        if (this._algunaTecla(abajo()))     ty += 1;
+        if (this._algunaTecla(arriba()))    ty -= 1;
         if (tx !== 0 && ty !== 0) {
           const inv = Math.SQRT1_2;      // 1/raiz(2): nada de ir un 41% más rápido
           tx *= inv; ty *= inv;
@@ -237,12 +242,21 @@ export class Entrada {
   // Consume el flanco: devuelve true una sola vez por pulsación. Acepta también
   // un botón de mando, que se busca en CUALQUIER control: la pausa la puede
   // pedir quien sea.
-  consumirFlanco(codigo, boton = -1) {
-    let pulsada = this._flanco.has(codigo);
-    if (pulsada) this._flanco.delete(codigo);
+  // AQUÍ SE TRADUCE. El juego pregunta por la tecla DE FÁBRICA —'Escape',
+  // 'Tab'— y esto mira la que el jugador tenga puesta en su sitio. Por eso
+  // remapear no obligó a tocar ni una de las ciento setenta llamadas que hay
+  // repartidas por main.js. Ver core/controles.js.
+  //
+  // `crudo` se salta la traducción, y lo usa la pantalla de controles: ahí hace
+  // falta leer la tecla física que se acaba de pulsar, no lo que significa.
+  consumirFlanco(codigo, boton = -1, crudo = false) {
+    const real = crudo ? codigo : Controles.tecla(codigo);
+    let pulsada = this._flanco.has(real);
+    if (pulsada) this._flanco.delete(real);
     if (boton >= 0) {
+      const b = crudo ? boton : Controles.boton(boton);
       for (let i = 0; i < this.controles.length; i++) {
-        if (this.controles[i].consumirBoton(boton)) pulsada = true;
+        if (this.controles[i].consumirBoton(b)) pulsada = true;
       }
     }
     return pulsada;
@@ -257,10 +271,31 @@ export class Entrada {
   // en todas partes, así que no debe además ponerse a abrir la que le toque a
   // cada sitio.
   consumirAtras() {
+    const b = Controles.boton(1);
     for (let i = 0; i < this.controles.length; i++) {
-      if (this.controles[i].consumirBoton(1)) return true;
+      if (this.controles[i].consumirBoton(b)) return true;
     }
     return false;
+  }
+
+  // La PRIMERA tecla que se haya pulsado este fotograma, sin traducir y sin
+  // consumirla del todo. La pide la pantalla de controles para saber qué se
+  // acaba de apretar; el juego normal no la usa.
+  teclaCruda() {
+    for (const c of this._flanco) return c;
+    return '';
+  }
+
+  // Y el primer botón de mando, igual. Devuelve -1 si no hay ninguno.
+  botonCrudo() {
+    for (let i = 0; i < this.controles.length; i++) {
+      const c = this.controles[i];
+      if (!c._flancoBotones) continue;
+      for (let b = 0; b < 32; b++) {
+        if (c._flancoBotones & (1 << b)) return b;
+      }
+    }
+    return -1;
   }
 
   // ¿Se ha pulsado ALGO en este paso? Teclado o cualquier botón de cualquier

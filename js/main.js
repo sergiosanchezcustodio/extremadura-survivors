@@ -45,7 +45,8 @@ import { dibujarPaneles, dibujarReloj, dibujarBarraJefe,
          dibujarCuentaAtrasReloj, reiniciarVidasHud } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje, dibujarDespedida } from './ui/pantallas.js';
 import { dibujarConfig, dibujarConfirmacion } from './ui/configuracion.js';
-import { dibujarControles, CONTROLES } from './ui/controles.js';
+import { dibujarControles, numeroDeFilas } from './ui/controles.js';
+import { Controles, ACCIONES } from './core/controles.js';
 import { Capa, FUENTE } from './ui/capa.js';
 import { Tema, olvidarDegradados } from './ui/tema.js';
 import {
@@ -1464,6 +1465,8 @@ const CONFIG = [
 // son dos listas distintas y volver de una a otra tiene que dejar cada cursor
 // donde estaba.
 let cursorControl = 0;
+// Y si está esperando a que se pulse algo para asignarlo.
+let capturandoControl = false;
 
 // La configuración abierta DESDE LA PARTIDA. No es una pantalla más del bucle
 // —el estado sigue siendo PANTALLA_JUEGO, con el mundo congelado detrás— porque
@@ -1496,24 +1499,68 @@ function entradaConfig(cerrar) {
   if (id === 'musica' && (menos || mas)) GestorAudio.ajustarMusica(mas ? 0.1 : -0.1);
   if (id === 'efectos' && (menos || mas)) GestorAudio.ajustarEfectos(mas ? 0.1 : -0.1);
   if (id === 'pantalla' && (acepta || menos || mas)) alternarPantallaCompleta();
-  if (id === 'controles' && acepta) { cursorControl = 0; irA(PANTALLA_CONTROLES); }
+  if (id === 'controles' && acepta) {
+    cursorControl = 0;
+    capturandoControl = false;
+    irA(PANTALLA_CONTROLES);
+  }
   if (id === 'volver' && acepta) cerrar();
 }
 
-// CONTROLADORES. Solo se recorre y se sale: aquí no hay nada que cambiar, es una
-// pantalla para mirar. Se sale a la CONFIGURACIÓN y no al título, que es de
-// donde se viene.
+// CONTROLADORES. Se recorre, se cambia lo que se quiera y se sale a la
+// CONFIGURACIÓN, que es de donde se viene.
+//
+// ESTA PANTALLA SE MANEJA EN CRUDO, sin pasar por las asignaciones del jugador,
+// y es a propósito: aquí es donde se cambian, así que si respetara lo asignado
+// alguien podría dejarse sin manera de salir. Las flechas, Enter y Esc mandan
+// siempre dentro de ella, se haya puesto lo que se haya puesto.
 function entradaControles() {
   const c = entrada.controles[0];
-  const n = CONTROLES.length;
+  const n = numeroDeFilas();
+
+  // --- Esperando a que se pulse algo ---------------------------------------
+  if (capturandoControl) {
+    // Esc cancela, y por eso se mira ANTES: si no, se asignaría Esc.
+    if (entrada.consumirFlanco('Escape', -1, true)) { capturandoControl = false; return; }
+
+    const a = ACCIONES[cursorControl];
+    const tecla = entrada.teclaCruda();
+    if (tecla) {
+      entrada.consumirFlanco(tecla, -1, true);
+      Controles.asignarTecla(a.id, tecla);
+      capturandoControl = false;
+      return;
+    }
+    // El mando, salvo en las direcciones: ahí van al stick y a la cruceta, y
+    // cambiar «cruceta arriba» por «botón B» no es algo que nadie quiera.
+    if (!a.fijoEnMando && c) {
+      const boton = entrada.botonCrudo();
+      if (boton >= 0) {
+        c.consumirBoton(boton);
+        Controles.asignarBoton(a.id, boton);
+        capturandoControl = false;
+      }
+    }
+    return;
+  }
+
+  // --- Recorriendo ----------------------------------------------------------
   const ejeV = c ? c.flancoEje(false) : 0;
-  const abajo = entrada.consumirFlanco('ArrowDown') || (c && c.consumirBoton(13)) || ejeV > 0;
-  const arriba = entrada.consumirFlanco('ArrowUp') || (c && c.consumirBoton(12)) || ejeV < 0;
-  const sale = entrada.consumirFlanco('Escape') || entrada.consumirFlanco('Enter') ||
-               entrada.consumirAtras() || (c && c.consumirBoton(0));
+  const abajo = entrada.consumirFlanco('ArrowDown', -1, true) ||
+                (c && c.consumirBoton(13)) || ejeV > 0;
+  const arriba = entrada.consumirFlanco('ArrowUp', -1, true) ||
+                 (c && c.consumirBoton(12)) || ejeV < 0;
+  const acepta = entrada.consumirFlanco('Enter', -1, true) || (c && c.consumirBoton(0));
+  const sale = entrada.consumirFlanco('Escape', -1, true) || (c && c.consumirBoton(1));
 
   if (abajo) cursorControl = (cursorControl + 1) % n;
   if (arriba) cursorControl = (cursorControl + n - 1) % n;
+
+  if (acepta) {
+    if (cursorControl < ACCIONES.length) capturandoControl = true;
+    else Controles.restablecer();
+    return;
+  }
   if (sale) irA(PANTALLA_CONFIG);
 }
 
@@ -3500,7 +3547,7 @@ function dibujar(alpha) {
       Pantallas.mascotas(ctx, Capa.ctx, mascotasDisponibles(), cursorMascota,
                          turnoMascota, puestos, mascotasElegidas);
     } else if (pantalla === PANTALLA_CONTROLES) {
-      dibujarControles(ctx, Capa.ctx, cursorControl);
+      dibujarControles(ctx, Capa.ctx, cursorControl, capturandoControl);
     } else if (pantalla === PANTALLA_CONFIG) {
       dibujarConfig(ctx, Capa.ctx, CONFIG, cursorConfig);
     }
@@ -3826,6 +3873,10 @@ async function arrancar() {
   // trae nada, sale en el acto; si trae un código, sigue en segundo plano
   // mientras el resto de arrancar() continúa.
   recogerRetornoDeGithub();
+  // LAS ASIGNACIONES DE CONTROLES, lo primero de todo: en cuanto haya una tecla
+  // que leer hay que saber de quién es. Ajuste de esta máquina, como el
+  // volumen, no progreso ganado jugando. Ver core/controles.js.
+  Controles.cargar();
   GestorAudio.iniciar();
   // Los datos de TODOS los niveles, antes que nada: la pantalla de selección
   // necesita el nombre y la duración de cada uno para pintar la lista, y son

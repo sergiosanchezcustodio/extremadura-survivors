@@ -506,6 +506,24 @@ mancha clara que se come media pantalla, y lo que se viene a leer aquí es la
 tabla. Y la dirección enciende **dos** piezas a la vez, stick y cruceta, porque
 el motor lee las dos y se queda con la que más se desplace.
 
+**Y se pueden cambiar.** Cada fila se reasigna pulsando Enter o A y después la
+tecla o el botón que se quiera, y la última fila los devuelve todos a como
+venían de fábrica. Se guardan en `localStorage`, como el volumen: son ajustes de
+esa máquina, no progreso ganado jugando.
+
+Por dentro, el truco es que **el juego no se entera**. `main.js` pregunta por
+teclas y botones concretos en unos ciento setenta sitios, así que la traducción
+se hace en el origen: el juego pide la tecla de fábrica y `core/entrada.js` la
+cambia por la que el jugador tenga puesta antes de mirar el teclado. Ni una
+llamada cambió.
+
+Dos decisiones que se ven al usarlo. **Las flechas no se pueden reasignar** y
+siguen moviendo pase lo que pase — sin esa red, quien asigne las cuatro
+direcciones a teclas que luego no recuerde se queda encerrado en su propia
+configuración. Y **esta pantalla se maneja en crudo**, sin pasar por lo
+asignado: es donde se cambian, así que Enter, Esc y las flechas mandan siempre
+dentro de ella.
+
 <details>
 <summary><b>Opciones</b></summary>
 

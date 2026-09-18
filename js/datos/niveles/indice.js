@@ -28,12 +28,23 @@ const MODULOS = [
 //
 // Cuando uno de estos se escriba de verdad, se le añade su `import` arriba y se
 // le quita el renglón de aquí. La pantalla no se entera: dibuja lo que le den.
+//
+// SON LOS SEIS QUE CIERRAN EL RECORRIDO, y van en el orden en que se juegan.
+// Sergio los fijó en septiembre de 2026 y sustituyen a la lista anterior
+// —Cáceres, Trujillo, Monfragüe, Guadalupe y Alcántara—, que era un puñado de
+// sitios de Extremadura puestos como marcador de sitio antes de que hubiera
+// decidido de qué iba cada uno.
+//
+// De qué va cada uno, quién es su jefe y qué falta por decidir está en
+// docs/niveles.md. Aquí solo van los NOMBRES porque es lo único que la pantalla
+// enseña de un nivel que todavía no existe.
 export const PROXIMOS = [
-  { nombre: 'Cáceres' },
-  { nombre: 'Trujillo' },
+  { nombre: 'CC The Lighthouse' },
   { nombre: 'Monfragüe' },
-  { nombre: 'Guadalupe' },
-  { nombre: 'Alcántara' }
+  { nombre: 'Necrópolis' },
+  { nombre: 'Casas del Turuñuelo' },
+  { nombre: 'Granadilla' },
+  { nombre: 'Las Hurdes' }
 ];
 
 export const Niveles = {

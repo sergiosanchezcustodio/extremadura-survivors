@@ -93,16 +93,27 @@ const PIE = 'Cada mando enchufado es un jugador. Pulsa A o MENU para entrar.';
 // DÓNDE ESTÁ CADA PIEZA EN LA LÁMINA, en fracciones de su ancho y de su alto.
 // Van en fracciones y no en píxeles porque así siguen valiendo si Sergio
 // reexporta el dibujo a otro tamaño, que es la lección de la lámina del título.
+// NO VAN A OJO: salen de barrer la lámina buscando el contorno oscuro de cada
+// pieza y quedarse con el centro de su caja. La primera tanda sí fue a ojo sobre
+// el dibujo ampliado y se notaba —Sergio vio el halo del stick y el de la
+// cruceta descentrados—; el del stick estaba once milésimas alto, que en
+// pantalla son dos píxeles sobre un halo de dieciséis.
+//
+// LA VENTANA DE MEDIDA TIENE QUE QUEDARSE DENTRO DEL CUERPO y lejos de las
+// piezas vecinas. Si toca el contorno del mando, ese negro entra en la cuenta y
+// estira la caja; y en el rombo de A/B/X/Y ninguna ventana puede aislar la Y sin
+// pillar la X y la B, así que esas dos se midieron por una franja estrecha entre
+// medias.
 const PIEZAS = {
-  stickIzq: { x: 0.250, y: 0.273 },
-  stickDer: { x: 0.625, y: 0.493 },
-  cruceta:  { x: 0.363, y: 0.505 },
-  y:        { x: 0.752, y: 0.204 },
-  x:        { x: 0.691, y: 0.292 },
-  b:        { x: 0.820, y: 0.292 },
-  a:        { x: 0.752, y: 0.380 },
-  view:     { x: 0.428, y: 0.283 },
-  menu:     { x: 0.573, y: 0.278 }
+  stickIzq: { x: 0.2518, y: 0.2841 },
+  stickDer: { x: 0.6279, y: 0.5000 },
+  cruceta:  { x: 0.3717, y: 0.5093 },
+  y:        { x: 0.7502, y: 0.1938 },
+  x:        { x: 0.6885, y: 0.2899 },
+  b:        { x: 0.8103, y: 0.2899 },
+  a:        { x: 0.7502, y: 0.3802 },
+  view:     { x: 0.4294, y: 0.2824 },
+  menu:     { x: 0.5706, y: 0.2824 }
 };
 
 // El halo que marca la pieza. Generoso a propósito: marca un sitio, no dibuja

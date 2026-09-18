@@ -2,6 +2,7 @@ import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
 import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 import { Tema, panel } from './tema.js';
 import { GestorAudio } from '../sistemas/audio.js';
+import { Recursos } from '../core/recursos.js';
 import {
   rejilla, armazon, resalte, puntos, descripcion, nombreFila,
   X_ICONO, X_NOMBRE, X_NIVEL, X_EFECTO, X_VALOR, RADIO_PUNTO
@@ -35,6 +36,8 @@ const TEXTOS = {
               larga: 'Volumen de todo lo que suena al jugar, sin contar la música.' },
   pantalla: { efecto: 'Ocupa el monitor entero',
               larga: 'También se entra y se sale con el botón de la esquina.' },
+  controles: { efecto: 'Qué hace cada botón',
+               larga: 'Abre la lista, con el mando dibujado y la pieza señalada encendida.' },
   volver:   { efecto: 'Vuelve a donde estabas',
               larga: 'Esc o B hacen lo mismo desde cualquier punto de la lista.' }
 };
@@ -54,6 +57,42 @@ function nivel(id) {
   if (id === 'musica') return Math.round(GestorAudio.volumenMusica() * PASOS_VOLUMEN);
   if (id === 'efectos') return Math.round(GestorAudio.volumenEfectos() * PASOS_VOLUMEN);
   return -1;                    // sin escalones: no es un mando graduado
+}
+
+// EL ICONO DE CONTROLADORES sí es arte: un mando dibujado por Sergio
+// (resources/menus/silueta_mando_xbox_icon.png). Los otros cuatro van trazados a
+// mano porque son símbolos —una nota, un altavoz— que no merecen un fichero;
+// este no, porque un mando trazado con cuatro curvas a quince píxeles de radio
+// no se reconoce.
+//
+// Se TIÑE del mismo azul que los otros cuatro, que es lo que hace que la columna
+// se lea como una sola cosa y no como cuatro dibujos y una foto. La lámina es
+// línea sobre transparente, así que `source-in` pinta exactamente el trazo.
+//
+// Y SE RECORTA A SU CONTENIDO al teñirla: el PNG viene con márgenes generosos
+// —1024x1024 para un dibujo de 831x570— y sin recortar, el mando saldría a la
+// mitad de tamaño que los demás iconos y descentrado hacia arriba.
+const RUTA_ICONO_MANDO = 'assets/menus/icono-mando.png';
+const RECORTE_MANDO = { x: 97, y: 234, w: 831, h: 570 };
+
+let _mando = null;
+let _pedido = false;
+
+function pedirIconoMando() {
+  if (_pedido) return;
+  _pedido = true;
+  Recursos.cargarSuelta(RUTA_ICONO_MANDO).then((img) => {
+    if (!img) return;
+    const c = document.createElement('canvas');
+    c.width = RECORTE_MANDO.w;
+    c.height = RECORTE_MANDO.h;
+    const x = c.getContext('2d');
+    x.drawImage(img, -RECORTE_MANDO.x, -RECORTE_MANDO.y);
+    x.globalCompositeOperation = 'source-in';
+    x.fillStyle = '#9fd0e8';
+    x.fillRect(0, 0, c.width, c.height);
+    _mando = c;
+  });
 }
 
 // Un icono por ajuste, trazado a mano. No hay arte para esto y tampoco hace
@@ -121,6 +160,14 @@ function icono(ctx, id, cx, cy, r) {
     ctx.moveTo(cx + r * 0.72 - b, cy + r * 0.56); ctx.lineTo(cx + r * 0.72, cy + r * 0.56); ctx.lineTo(cx + r * 0.72, cy + r * 0.56 - b);
     ctx.stroke();
 
+  } else if (id === 'controles') {
+    // Encajado POR EL ANCHO y un pelo mayor que el radio: un mando es más ancho
+    // que alto, y al alto de los demás iconos se quedaría en una pastilla.
+    if (_mando) {
+      const w = r * 2.25;
+      const h = w * (RECORTE_MANDO.h / RECORTE_MANDO.w);
+      ctx.drawImage(_mando, cx - w / 2, cy - h / 2, w, h);
+    }
   } else if (id === 'volver') {
     // Flecha a la izquierda: se vuelve por donde se vino. Mismo trazo azul que
     // los otros tres, porque esta fila ya no es la peligrosa de la pantalla.
@@ -144,6 +191,7 @@ function icono(ctx, id, cx, cy, r) {
 // no queda nada que confirmar.
 export function dibujarConfig(ctxMundo, ctx, opciones, cursor) {
   const t = Tema.actual;
+  pedirIconoMando();
   const r = rejilla(opciones.length, ALTO_FILA);
 
   ctx.save();

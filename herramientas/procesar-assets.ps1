@@ -4570,6 +4570,10 @@ $MENUS = @(
     # a la resolucion real del monitor: en un 4K se pinta a 1.320 px de ancho, mas
     # que los 1.239 que mide. Reducirla seria verla borrosa justo donde mas se ve.
     @{ src='menus\silueta_mando_info.png'; dst='menus\silueta-mando.png' }
+    # Y SU ICONO, el de la fila Controladores de la configuracion. Mismo criterio
+    # que la silueta grande: PNG, porque es linea sobre transparente y ui/
+    # la tine del azul de los otros iconos.
+    @{ src='menus\silueta_mando_xbox_icon.png'; dst='menus\icono-mando.png' }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'menus') | Out-Null

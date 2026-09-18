@@ -542,6 +542,7 @@ Todas offline, en PowerShell y sin dependencias. Ninguna forma parte del juego.
 | Herramienta | Qué hace |
 |---|---|
 | `jugar.ps1` | Levanta el servidor y abre el juego (`jugar.bat` a doble clic) |
+| `servidor.py` | El servidor que levanta el anterior: `http.server` más `Cache-Control: no-store`, para que el navegador no sirva arte viejo |
 | `procesar-assets.ps1` | Convierte `resources/` en sprites y escribe el atlas |
 | `generar-efectos.ps1` | Hornea por código las 41 hojas de efectos |
 | `montar-galeria.ps1` | Compone las láminas de este README, y con `-Capturas` normaliza las capturas de pantalla |

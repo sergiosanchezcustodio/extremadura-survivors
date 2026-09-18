@@ -4,6 +4,13 @@ Documento de referencia para quien vaya a escribir el nivel 2. Estaba en el
 README y se movió aquí cuando el README pasó a ser la portada del proyecto:
 el detalle sigue haciendo falta, pero no en la primera pantalla.
 
+**Qué es cada nivel del recorrido está en [niveles.md](niveles.md)**; aquí solo
+está el CÓMO. El ejemplo de más abajo usa el nivel 2 —el CC The Lighthouse—
+porque es el siguiente que toca, pero vale igual para cualquiera de los seis que
+faltan. Hasta septiembre de 2026 el ejemplo era Cáceres, que era uno de los
+sitios que había apuntados antes de que Sergio cerrara el recorrido; se cambió
+para no dejar el documento enseñando un nivel que ya no existe.
+
 ## El contrato
 
 `js/datos/niveles/merida.js` exporta un único objeto `NIVEL`. Un nivel nuevo
@@ -42,7 +49,7 @@ export const NIVEL = {
   // un `patron` ('anillo' | 'linea' | 'oleada' | 'cerco' | 'individual'),
   // eligiendo el tipo al azar de `tipos`. Los ids de `tipos` son claves del
   // catálogo GLOBAL y COMPARTIDO en datos/enemigos.js — hoy no hay bestiario
-  // por nivel; si Cáceres necesita un monstruo que Mérida no tiene, se añade
+  // por nivel; si The Lighthouse necesita un monstruo que Mérida no tiene, se añade
   // como entrada nueva a ese catálogo global.
   eventos: [
     { desde: 0, hasta: 120, patron: 'anillo', cada: 0.37, cantidad: 2,
@@ -95,7 +102,7 @@ export const NIVEL = {
 ## Lo que NO es "solo copiar el archivo de datos" (todavía)
 
 El contrato de arriba es real, pero hay tres sitios donde un nivel nuevo sí
-obliga a tocar código, y conviene saberlo antes de prometer que Cáceres es
+obliga a tocar código, y conviene saberlo antes de prometer que The Lighthouse es
 gratis:
 
 1. **Los jefes tienen comportamiento a medida, no genérico.**
@@ -115,8 +122,8 @@ gratis:
    `resources/stages/<n>/` (mapa, objetos de escenario, bestiario si trae
    ilustraciones propias) y hoy tiene las rutas de `stages\1\...` escritas a
    mano en sus tablas de configuración (`$SUELOS`, la lista de objetos del
-   escenario, etc.). Añadir Cáceres implica **añadir sus propias entradas
-   en esas tablas** (`stages\2\...` → `dst='niveles\caceres-suelo.png'`,
+   escenario, etc.). Añadir The Lighthouse implica **añadir sus propias entradas
+   en esas tablas** (`stages\2\...` → `dst='niveles\lighthouse-suelo.png'`,
    etc.), no solo dejar caer los PNG en una carpeta y esperar a que el
    script los encuentre solo.
 
@@ -127,26 +134,26 @@ gratis:
    línea. Es la única de todo el proyecto fuera de `datos/niveles/`. Ver
    **El índice y el selector**, más abajo.
 
-## Ejemplo comentado: añadir Cáceres como nivel 2
+## Ejemplo comentado: añadir el nivel 2, CC The Lighthouse
 
 ```js
-// js/datos/niveles/caceres.js
+// js/datos/niveles/lighthouse.js
 //
-// Copiado de merida.js y con los números cambiados. Mientras Cáceres
+// Copiado de merida.js y con los números cambiados. Mientras The Lighthouse
 // reutilice el bestiario y los tres jefes existentes (solo con otro nombre
 // y otra curva de escalado), esto es TODO lo que hace falta escribir aquí.
 
 export const NIVEL = {
-  id: 'caceres',
-  nombre: 'Norba Caesarina',
-  subtitulo: 'La ciudad amurallada',
+  id: 'lighthouse',
+  nombre: 'CC The Lighthouse',
+  subtitulo: 'Sin salida',
   duracion: 1800,
 
-  paleta: { /* ocres de la muralla, en vez de los de Mérida */ },
+  paleta: { /* neones y baldosa, en vez de los ocres de Mérida */ },
   interfaz: { /* mismo formato que merida.js, otra paleta */ },
 
   suelo: {
-    imagen: 'niveles/caceres-suelo.png',   // sale de resources/stages/2/...
+    imagen: 'niveles/lighthouse-suelo.png',   // sale de resources/stages/2/...
     variantes: 4, base: 'piedra',
     motas: ['piedraOscura', 'musgo'], densidadMotas: 38, grietas: 3
   },
@@ -161,19 +168,19 @@ export const NIVEL = {
   hitos: [
     { t: 600, texto: 'CERBERO', jefe: 'intermedio' }
   ],
-  decoracion: [ /* columnas/estatuas medidas sobre caceres-suelo.png */ ],
+  decoracion: [ /* escaparates/jardineras medidos sobre lighthouse-suelo.png */ ],
 
   // Reutiliza los tres jefes SIN tocar sistemas/jefes.js: solo cambian el
   // nombre de aviso y los números de datos/jefes.js si se quiere que
   // pegue distinto que en Mérida.
   jefes: { intermedio: 'cerbero', segundo: 'hidra', final: 'loba',
-           escolta: 'gemelo', avisoFinal: 'EL LOBO DE LA MURALLA' }
+           escolta: 'gemelo', avisoFinal: 'LO QUE VIVE EN EL CENTRO' }
 };
 ```
 
 Para jugarlo: `herramientas/procesar-assets.ps1` necesita sus propias
 entradas para `stages\2\...` (ver el aviso 2 de arriba), y hay que dar de alta
-`caceres.js` en el índice.
+`lighthouse.js` en el índice.
 
 ## El índice y el selector
 
@@ -183,7 +190,7 @@ es una línea:
 ```js
 const MODULOS = [
   () => import('./merida.js'),
-  () => import('./caceres.js')      // <- lo único que hay que escribir fuera
+  () => import('./lighthouse.js')      // <- lo único que hay que escribir fuera
 ];                                  //    de datos/niveles/<el nivel>.js
 ```
 
@@ -191,7 +198,7 @@ A partir de ahí el juego se ocupa solo:
 
 - **La pantalla de elegir nivel** (`js/ui/niveles.js`) se pinta con el
   `nombre`, el `subtitulo` y la `duracion` que traiga cada archivo de datos. No
-  hay ninguna lista de nombres escrita a mano en la interfaz: si Cáceres cambia
+  hay ninguna lista de nombres escrita a mano en la interfaz: si The Lighthouse cambia
   de nombre, la pantalla lo dice sin que nadie la toque.
 - **Va al final del recorrido**, después de elegir héroe y mascota: primero con
   quién se va, después adónde. Y se ve SIEMPRE, enseñando la región entera,
@@ -210,7 +217,7 @@ A partir de ahí el juego se ocupa solo:
   ```
 
   Se comprueba contra `MetaProgreso.fases`, que solo apunta las VICTORIAS:
-  morir en el minuto 28 de Mérida no abre Cáceres. Un nivel sin `requiere` está
+  morir en el minuto 28 de Mérida no abre The Lighthouse. Un nivel sin `requiere` está
   siempre abierto, que es el caso de Mérida.
 - **En cooperativo online lo elige el anfitrión.** El id del nivel viaja en el
   saludo junto a la semilla y los personajes, y quien se une carga ese mismo
@@ -229,12 +236,12 @@ un renglón en blanco, `'#'` es titular y `'@'` antetítulo:
 ```js
 historia: [
   '@CAPÍTULO II',
-  '#LA CIUDAD',
-  '#AMURALLADA',
+  '#SIN',
+  '#SALIDA',
   '',
-  'Aquí lo que pasó en Cáceres.'
+  'Aquí lo que pasó en el centro comercial.'
 ],
-historiaImagen: 'menus/caceres-placa.jpg'   // opcional: otra lámina de fondo
+historiaImagen: 'menus/lighthouse-placa.jpg'   // opcional: otra lámina de fondo
 ```
 
 Un nivel **sin** `historia` no pasa por esa pantalla y entra directo a jugar. No

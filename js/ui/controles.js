@@ -104,21 +104,32 @@ const PIE = 'Cada mando enchufado es un jugador. Pulsa A o MENU para entrar.';
 // estira la caja; y en el rombo de A/B/X/Y ninguna ventana puede aislar la Y sin
 // pillar la X y la B, así que esas dos se midieron por una franja estrecha entre
 // medias.
+// `r` es EL RADIO DE LA PROPIA PIEZA, medido en la misma pasada que su centro:
+// media caja, en anchos de lámina. No es el halo; el halo sale de él.
 const PIEZAS = {
-  stickIzq: { x: 0.2518, y: 0.2841 },
-  stickDer: { x: 0.6279, y: 0.5000 },
-  cruceta:  { x: 0.3717, y: 0.5093 },
-  y:        { x: 0.7502, y: 0.1938 },
-  x:        { x: 0.6885, y: 0.2899 },
-  b:        { x: 0.8103, y: 0.2899 },
-  a:        { x: 0.7502, y: 0.3802 },
-  view:     { x: 0.4294, y: 0.2824 },
-  menu:     { x: 0.5706, y: 0.2824 }
+  stickIzq: { x: 0.2518, y: 0.2841, r: 0.0724 },
+  stickDer: { x: 0.6279, y: 0.5000, r: 0.0710 },
+  cruceta:  { x: 0.3717, y: 0.5093, r: 0.0801 },
+  y:        { x: 0.7502, y: 0.1938, r: 0.0387 },
+  x:        { x: 0.6885, y: 0.2899, r: 0.0385 },
+  b:        { x: 0.8103, y: 0.2899, r: 0.0381 },
+  a:        { x: 0.7502, y: 0.3802, r: 0.0391 },
+  view:     { x: 0.4294, y: 0.2824, r: 0.0246 },
+  menu:     { x: 0.5706, y: 0.2824, r: 0.0246 }
 };
 
-// El halo que marca la pieza. Generoso a propósito: marca un sitio, no dibuja
-// un contorno, y así un par de píxeles de desvío en las medidas no se notan.
-const HALO = 0.055;              // en anchos de la lámina
+// EL HALO NO ES IGUAL PARA TODOS: es el radio de la pieza más este aire. Antes
+// era un número fijo y se notaba —lo vio Sergio—: el que le venía bien a VIEW,
+// que es un botón diminuto, dejaba el stick y la cruceta con un punto de luz en
+// medio de una pieza cuatro veces mayor.
+//
+// El aire sale de la única medida que ya estaba bien: VIEW mide 0,0246 de radio
+// y su halo de 0,055 es el que Sergio dio por bueno, así que sobran 0,0304 por
+// fuera. Puesto ese mismo aire a todas, el stick y la cruceta se van a 0,10 y
+// los cuatro botones del rombo a 0,069, que es lo que se pidió: mucho más
+// grandes los primeros, algo más grandes los segundos y VIEW y MENU igual que
+// estaban.
+const HALO_AIRE = 0.0304;        // en anchos de la lámina
 
 // Lo transparente que va la silueta. Ver la cabecera: al 16% se pierde y al 40%
 // pesa más que la tabla, que es lo que de verdad se viene a leer aquí.
@@ -160,10 +171,14 @@ function lamina(ctx, x, y, w, piezas) {
   for (let i = 0; i < piezas.length; i++) {
     const p = PIEZAS[piezas[i]];
     if (!p) continue;
-    const cx = x + p.x * w, cy = y + p.y * h, r = HALO * w;
+    const cx = x + p.x * w, cy = y + p.y * h, r = (p.r + HALO_AIRE) * w;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    // El corazón se queda dentro de la pieza y el desvanecido cae en el aire de
+    // fuera: con el halo atado al tamaño, ese reparto vale igual para el botón
+    // más pequeño y para la cruceta.
+    const nucleo = p.r / (p.r + HALO_AIRE);
     g.addColorStop(0, 'rgba(150,205,255,.85)');
-    g.addColorStop(0.5, 'rgba(90,160,255,.30)');
+    g.addColorStop(nucleo * 0.75, 'rgba(105,175,255,.40)');
     g.addColorStop(1, 'rgba(70,140,255,0)');
     ctx.fillStyle = g;
     ctx.beginPath();

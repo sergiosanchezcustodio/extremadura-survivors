@@ -4564,12 +4564,17 @@ $MENUS = @(
     @{ src='menus\splash_screen.jpg'; dst='menus\splash.jpg'; ancho=1920 }
     @{ src='menus\intro_historia.jpg'; dst='menus\intro-historia.jpg'; ancho=1920 }
     # LA SILUETA DEL MANDO de la pantalla de controladores (ui/controles.js).
+    # SIN EL LOGO DE XBOX: lo quito Sergio, y un mando limpio es lo que toca
+    # cuando lo que hay que mirar son sus botones. Sustituye a
+    # `silueta_mando_info.png`, que era el mismo dibujo con la equis verde y ya
+    # no la lee nadie. Misma caja y mismas piezas al pixel, asi que las medidas
+    # de PIEZAS en ui/controles.js siguen valiendo tal cual: comprobado.
     # PNG Y SIN REDUCIR, que es la excepcion de esta tabla: es linea sobre
     # TRANSPARENCIA -solo el 8% de sus pixeles son opacos- asi que un JPEG la
     # dejaria sobre un cuadrado negro, y va en la CAPA DE INTERFAZ, que se dibuja
     # a la resolucion real del monitor: en un 4K se pinta a 1.320 px de ancho, mas
     # que los 1.239 que mide. Reducirla seria verla borrosa justo donde mas se ve.
-    @{ src='menus\silueta_mando_info.png'; dst='menus\silueta-mando.png' }
+    @{ src='menus\silueta_mando_info_sin_logo.png'; dst='menus\silueta-mando.png' }
     # Y SU ICONO, el de la fila Controladores de la configuracion. Mismo criterio
     # que la silueta grande: PNG, porque es linea sobre transparente y ui/
     # la tine del azul de los otros iconos.

@@ -501,10 +501,10 @@ líneas de guía porque son ocho controles en un mando pequeño y saldrían toda
 cruzadas. Está ahí porque quien enchufa un mando por primera vez no tiene forma
 de saber que la ficha del personaje se abre con VIEW.
 
-La silueta es de Sergio y es **línea sobre transparencia**, así que el juego la
-**tiñe** antes de dibujarla —tal cual, negra sobre el velo oscuro de esa
-pantalla, no se vería— y guarda el resultado en vez de repetirlo sesenta veces
-por segundo.
+La silueta es de Sergio y se dibuja **a un cuarto de opacidad**: a plena es una
+mancha clara que se come media pantalla, y lo que se viene a leer aquí es la
+tabla. Y la dirección enciende **dos** piezas a la vez, stick y cruceta, porque
+el motor lee las dos y se queda con la que más se desplace.
 
 <details>
 <summary><b>Opciones</b></summary>

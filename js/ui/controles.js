@@ -16,10 +16,14 @@ import { Recursos } from '../core/recursos.js';
 // trazado a mano con curvas. Ese sigue abajo, de repliegue, porque la regla de
 // siempre: si la imagen no carga, la pantalla tiene que salir igual.
 //
-// LA LÁMINA ES LÍNEA NEGRA SOBRE TRANSPARENTE, así que se TIÑE antes de
-// dibujarla —sobre el velo oscuro de esta pantalla, tal cual no se vería—. Se
-// tiñe una vez y se guarda: repintarla en cada fotograma es hacer sesenta veces
-// por segundo un trabajo cuyo resultado no cambia.
+// LA LÁMINA ES SÓLIDA y se dibuja A UN CUARTO DE OPACIDAD. Viene con su cuerpo
+// gris relleno, sus botones y la equis verde, y a plena opacidad es una mancha
+// clara que se come la mitad izquierda de la pantalla: lo que se mira aquí es la
+// tabla, y el mando está para situarla. Probada al 16, al 26 y al 40 por ciento:
+// al 16 se pierde en el fondo y al 40 pesa más que la tabla.
+//
+// La versión anterior era línea negra sobre transparente y había que teñirla
+// para que se viera; esta trae su propio color y no se toca.
 //
 // Y CADA PIEZA SE ILUMINA CON SU RENGLÓN. Las líneas de guía de los diagramas
 // clásicos aquí no caben: son ocho controles en un mando pequeño y saldrían
@@ -48,29 +52,36 @@ const COL_TECLADO = ANCHO_UI - MARGEN;
 // `pieza` es lo que se enciende en el dibujo del mando. Un control que el mando
 // no tiene —no hay ninguno hoy— llevaría `pieza: null` y dejaría el mando
 // entero apagado, que es lo honesto: no inventarse un botón.
+// LA DIRECCIÓN VA CON LAS DOS COSAS, stick y cruceta, y no es una promesa de la
+// tabla: el motor ya lee las dos y se queda con la que más desplace (ver
+// core/entrada.js). Lo decía mal esta pantalla, no el juego.
+//
+// Por eso `piezas` es una lista: una fila puede encender más de un sitio del
+// mando. Vacía —solo la última— deja el mando entero sin halo, que es lo honesto
+// cuando el control no es un botón concreto.
 export const CONTROLES = [
-  { pieza: 'stickIzq', mando: 'Stick izquierdo', tecla: 'WASD o flechas',
-    que: 'Moverte',
-    larga: 'Lo único que se hace con las manos: el arma dispara sola.' },
-  { pieza: 'a', mando: 'A', tecla: 'Enter',
+  { piezas: ['stickIzq', 'cruceta'], mando: 'Stick izq. o cruceta',
+    tecla: 'WASD o flechas', que: 'Moverte',
+    larga: 'Valen los dos: manda el que más se desplace. El arma dispara sola.' },
+  { piezas: ['a'], mando: 'A', tecla: 'Enter',
     que: 'Confirmar y elegir carta',
     larga: 'Al subir de nivel salen tres armas: esto elige la señalada.' },
-  { pieza: 'b', mando: 'B', tecla: 'Esc',
+  { piezas: ['b'], mando: 'B', tecla: 'Esc',
     que: 'Atrás y cerrar',
     larga: 'Sale de cualquier pantalla y cierra la ficha y la pausa.' },
-  { pieza: 'cruceta', mando: 'Cruceta', tecla: 'Flechas',
-    que: 'Moverte por los menús',
-    larga: 'El stick izquierdo también vale: en los menús hacen lo mismo.' },
-  { pieza: 'view', mando: 'VIEW', tecla: 'Tab',
+  { piezas: ['cruceta', 'stickIzq'], mando: 'Cruceta o stick izq.',
+    tecla: 'Flechas', que: 'Moverte por los menús',
+    larga: 'También aquí valen los dos, igual que para moverse por el mapa.' },
+  { piezas: ['view'], mando: 'VIEW', tecla: 'Tab',
     que: 'Ficha del personaje',
     larga: 'Congela el mundo y enseña vida, características y el arsenal.' },
-  { pieza: 'menu', mando: 'MENU', tecla: 'Esc',
+  { piezas: ['menu'], mando: 'MENU', tecla: 'Esc',
     que: 'Pausa',
     larga: 'Desde la pausa se llega a esta misma configuración.' },
-  { pieza: 'x', mando: 'X', tecla: 'F',
+  { piezas: ['x'], mando: 'X', tecla: 'F',
     que: 'Subida automática',
     larga: 'Con las ocho ranuras llenas, sube sola el arma que toque.' },
-  { pieza: null, mando: 'Cualquier botón', tecla: 'Cualquier tecla',
+  { piezas: [], mando: 'Cualquier botón', tecla: 'Cualquier tecla',
     que: 'Saltar la presentación',
     larga: 'El relato del arranque se salta MANTENIENDO pulsado, no de un toque.' }
 ];
@@ -98,6 +109,10 @@ const PIEZAS = {
 // un contorno, y así un par de píxeles de desvío en las medidas no se notan.
 const HALO = 0.055;              // en anchos de la lámina
 
+// Lo transparente que va la silueta. Ver la cabecera: al 16% se pierde y al 40%
+// pesa más que la tabla, que es lo que de verdad se viene a leer aquí.
+const MANDO_ALFA = 0.27;
+
 // --- La lámina ----------------------------------------------------------------
 
 let _lamina = null;          // la silueta ya teñida, o null mientras no esté
@@ -110,42 +125,41 @@ let _pedida = false;         // para no pedirla otra vez en cada fotograma
 function pedirLamina() {
   if (_pedida) return;
   _pedida = true;
-  Recursos.cargarSuelta(RUTA_MANDO).then((img) => {
-    if (img) _lamina = tenyir(img, '#c9cede');
-  });
+  Recursos.cargarSuelta(RUTA_MANDO).then((img) => { if (img) _lamina = img; });
 }
 
-// Deja la línea del color que se le diga, conservando el alfa. `source-in`
-// pinta solo donde YA hay algo, que en esta lámina es exactamente el trazo.
-function tenyir(img, color) {
-  const c = document.createElement('canvas');
-  c.width = img.width;
-  c.height = img.height;
-  const x = c.getContext('2d');
-  x.drawImage(img, 0, 0);
-  x.globalCompositeOperation = 'source-in';
-  x.fillStyle = color;
-  x.fillRect(0, 0, c.width, c.height);
-  return c;
-}
-
-// La silueta, con el halo de la pieza señalada debajo. El halo VA DEBAJO para
-// que la línea del dibujo siga leyéndose por encima de él.
-function lamina(ctx, x, y, w, piezaViva) {
+// La silueta, y ENCIMA el halo de las piezas señaladas.
+//
+// Encima y no debajo, que es lo contrario de lo que pedía la lámina anterior:
+// aquella era línea sobre el vacío y el halo se veía por los huecos; esta es
+// sólida y a un cuarto de opacidad, así que un halo por detrás quedaría tapado
+// justo donde tiene que verse. Va SUMANDO LUZ —'lighter'— para que encienda el
+// botón en vez de pintarle una mancha encima.
+function lamina(ctx, x, y, w, piezas) {
   const h = w * (_lamina.height / _lamina.width);
-  const p = PIEZAS[piezaViva];
-  if (p) {
+
+  ctx.save();
+  ctx.globalAlpha = MANDO_ALFA;
+  ctx.drawImage(_lamina, x, y, w, h);
+  ctx.restore();
+
+  if (!piezas || piezas.length === 0) return h;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < piezas.length; i++) {
+    const p = PIEZAS[piezas[i]];
+    if (!p) continue;
     const cx = x + p.x * w, cy = y + p.y * h, r = HALO * w;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-    g.addColorStop(0, 'rgba(168,220,255,.60)');
-    g.addColorStop(0.55, 'rgba(120,190,255,.22)');
-    g.addColorStop(1, 'rgba(120,190,255,0)');
+    g.addColorStop(0, 'rgba(150,205,255,.85)');
+    g.addColorStop(0.5, 'rgba(90,160,255,.30)');
+    g.addColorStop(1, 'rgba(70,140,255,0)');
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.drawImage(_lamina, x, y, w, h);
+  ctx.restore();
   return h;
 }
 
@@ -290,11 +304,11 @@ export function dibujarControles(ctxMundo, ctx, cursor) {
   const bloque = r.alto * CONTROLES.length;
   if (_lamina) {
     const alto = MANDO_ANCHO * (_lamina.height / _lamina.width);
-    lamina(ctx, MANDO_X, r.filas + (bloque - alto) / 2, MANDO_ANCHO, c.pieza);
+    lamina(ctx, MANDO_X, r.filas + (bloque - alto) / 2, MANDO_ANCHO, c.piezas);
   } else {
     const alto = MANDO_ANCHO * MANDO_ALTO;
     trazar(ctx, MANDO_X, r.filas + (bloque - alto) / 2,
-           MANDO_ANCHO, t.titulo, c.pieza);
+           MANDO_ANCHO, t.titulo, c.piezas[0]);
   }
 
   for (let i = 0; i < CONTROLES.length; i++) {

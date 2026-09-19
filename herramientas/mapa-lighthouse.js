@@ -212,6 +212,10 @@ function amueblar(g, local, rng) {
   if (tipo === HIPER) {
     // Lineales de estantería en el lado largo, con cabecera libre arriba y abajo
     // para poder cambiar de pasillo sin recorrerlo entero.
+    // Los lineales van SUELTOS, sin tocar ningún muro: dejan dos módulos de
+    // cabecera arriba y abajo (64 unidades) para poder cambiar de pasillo sin
+    // recorrerlo entero. Eso es un hueco de paso de verdad, no un descuido — la
+    // diferencia con el caso del IKEA es que aquí el hueco se cruza.
     const vertical = h >= w;
     const paso = 3 * F;                        // estantería, y dos módulos de paso
     if (vertical) {
@@ -236,12 +240,18 @@ function amueblar(g, local, rng) {
     // mapa a propósito — es lo que hace un IKEA.
     let abierto = 0;
     for (let cy = y + 3 * F; cy < y + h - 3 * F; cy += 4 * F) {
-      // El tabique, de lado a lado del local.
+      // El tabique, DE PARED A PARED del local.
+      //
+      // De `x` a `x+w-1`, no de `x+1` a `x+w-2`: el suelo del local llega hasta
+      // `x`, así que dejando un margen quedaba una celda de suelo suelta en cada
+      // extremo, entre la punta del tabique y el muro. Ocho unidades: el jugador
+      // mide veinte, así que no se pasa — pero se ve un hueco y parece que la
+      // pared está sin terminar. Lo cazó Sergio jugando.
       for (let j = 0; j < TABIQUE; j++) {
-        for (let cx = x + 1; cx < x + w - 1; cx++) g[cy + j][cx] = PARED;
+        for (let cx = x; cx < x + w; cx++) g[cy + j][cx] = PARED;
       }
       // Y el hueco de paso, en un extremo y alternando: eso es la serpentina.
-      const bx = abierto % 2 === 0 ? x + 1 : x + w - 1 - 3 * F;
+      const bx = abierto % 2 === 0 ? x : x + w - 3 * F;
       for (let j = 0; j < TABIQUE; j++) {
         for (let k = 0; k < 3 * F; k++) if (dentro(bx + k, cy + j)) g[cy + j][bx + k] = tipo;
       }
@@ -331,6 +341,107 @@ function abrirPuerta(g, local, rng) {
     abiertas++;
   }
   return abiertas;
+}
+
+// --- Huecos por los que no se pasa -------------------------------------------
+//
+// EL PROBLEMA, que encontró Sergio jugando: un tabique que se queda a una celda
+// de tocar con el muro de al lado. Ocho unidades de hueco; el jugador mide veinte
+// y no cabe. No es zona transitable, pero tampoco es una pared cerrada: se ve el
+// hueco, se intenta pasar y no se pasa. Queda raro, y con razón.
+//
+// Salen solos por todas partes: un tabique mal rematado, una galería que corta un
+// muro en diagonal y le deja la punta al aire, un túnel de reconexión que pasa
+// rozando. Ir tapando los casos de uno en uno es una carrera que no se gana.
+//
+// LA SOLUCIÓN ES GEOMÉTRICA Y DE UNA VEZ: se tapia todo el suelo por el que no
+// quepa el jugador. Formalmente es una apertura morfológica —lo que no sobreviva
+// a encoger y volver a crecer con un cuadrado de HOLGURA, se rellena—, y dicho en
+// claro: una celda de suelo se queda si forma parte de algún cuadrado de HOLGURA
+// celdas enteramente libre. Si no, era una rendija y pasa a ser pared.
+//
+// HOLGURA = 4 son 32 unidades. El jugador ocupa unas 20, así que por debajo de
+// eso no se pasa de todas formas; y el paso más estrecho que el generador abre a
+// propósito son 64 (la puerta de una tienda), así que no hay forma de que esto se
+// coma nada que sirva para algo.
+//
+// Y de paso arregla un fallo callado: las comprobaciones de conectividad miran si
+// dos celdas se tocan, que NO es lo mismo que si el jugador puede ir de una a
+// otra. El mapa se daba por bien comunicado a través de rendijas que nadie puede
+// cruzar. Pasando esto ANTES de comprobar, las dos cosas vuelven a significar lo
+// mismo.
+const HOLGURA = 4;
+
+// Cuántas rendijas quedan, sin tocar nada. Es la comprobación que acompaña a
+// `cerrarHuecosEstrechos`: afirmar que no queda ninguna vale más que confiar en
+// que la pasada se haya hecho en el sitio correcto.
+function contarHuecosEstrechos(g, puertasAbiertas) {
+  return cerrarHuecosEstrechos(g, true, puertasAbiertas);
+}
+
+// `puertasAbiertas` decide con qué cara del mapa se mide. HAY QUE MIRAR LAS DOS:
+// con ellas abiertas, que es por donde se andará al final de la partida; y con
+// ellas cerradas, que es como ARRANCA — y una hoja de cierre es una pared más, así
+// que puede pinchar contra otra y dejar su propia rendija justo delante de la
+// puerta, que es el peor sitio para dejar una.
+function cerrarHuecosEstrechos(g, soloContar, puertasAbiertas) {
+  const n = ANCHO * ALTO;
+  // Se mira el mapa con TODAS las puertas abiertas: lo que hay que validar es
+  // por dónde se podrá andar al final de la partida.
+  const libre = new Uint8Array(n);
+  for (let y = 0; y < ALTO; y++) {
+    for (let x = 0; x < ANCHO; x++) {
+      if (!esSolido(g[y][x], puertasAbiertas !== false)) libre[y * ANCHO + x] = 1;
+    }
+  }
+
+  // Suma acumulada en dos dimensiones: con ella, preguntar si un cuadrado de
+  // HOLGURA está entero libre son cuatro lecturas en vez de dieciséis. Sobre un
+  // millón de celdas la diferencia se nota al generar.
+  const suma = new Int32Array((ANCHO + 1) * (ALTO + 1));
+  for (let y = 0; y < ALTO; y++) {
+    for (let x = 0; x < ANCHO; x++) {
+      suma[(y + 1) * (ANCHO + 1) + (x + 1)] =
+        libre[y * ANCHO + x] +
+        suma[y * (ANCHO + 1) + (x + 1)] +
+        suma[(y + 1) * (ANCHO + 1) + x] -
+        suma[y * (ANCHO + 1) + x];
+    }
+  }
+  const todoLibre = (x0, y0) => {
+    const x1 = x0 + HOLGURA, y1 = y0 + HOLGURA;
+    if (x0 < 0 || y0 < 0 || x1 > ANCHO || y1 > ALTO) return false;
+    const total = suma[y1 * (ANCHO + 1) + x1] - suma[y0 * (ANCHO + 1) + x1] -
+                  suma[y1 * (ANCHO + 1) + x0] + suma[y0 * (ANCHO + 1) + x0];
+    return total === HOLGURA * HOLGURA;
+  };
+
+  // Las celdas que SÍ sobreviven: las que caen dentro de algún cuadrado libre.
+  const sobrevive = new Uint8Array(n);
+  for (let y0 = 0; y0 + HOLGURA <= ALTO; y0++) {
+    for (let x0 = 0; x0 + HOLGURA <= ANCHO; x0++) {
+      if (!todoLibre(x0, y0)) continue;
+      for (let y = y0; y < y0 + HOLGURA; y++) {
+        for (let x = x0; x < x0 + HOLGURA; x++) sobrevive[y * ANCHO + x] = 1;
+      }
+    }
+  }
+
+  let tapiadas = 0;
+  for (let y = 0; y < ALTO; y++) {
+    for (let x = 0; x < ANCHO; x++) {
+      const i = y * ANCHO + x;
+      if (!libre[i] || sobrevive[i]) continue;
+      // Una PUERTA no se toca nunca: es la pieza que abre un jefe, y taparla
+      // dejaría un anillo sin entrada. Sus huecos miden 64, así que esto no
+      // debería darse; la comprobación está por si algún día dejan de medirlo.
+      const ch = g[y][x];
+      if (ch === PUERTA_GRIS || ch === PUERTA_AZUL || ch === SALIDA) continue;
+      if (!soloContar) g[y][x] = PARED;
+      tapiadas++;
+    }
+  }
+  return tapiadas;
 }
 
 // --- Conectividad -------------------------------------------------------------
@@ -659,7 +770,17 @@ function tapiarFrontera(g, zona, k, protegidas) {
 
 // Abrir un cierre en la celda `centro` de una frontera: todas las celdas de esa
 // frontera que le queden cerca pasan a ser puerta.
-function abrirCierre(g, frontera, centro, simbolo) {
+//
+// Y CON SU VESTÍBULO A LOS DOS LADOS, que no es un adorno. El cierre es una hoja
+// de una celda de grosor, y con la puerta ECHADA el suelo que tiene delante queda
+// pinchado entre ella y lo que hubiera al otro lado: salían rendijas de las que
+// no gustan —suelo al que no se puede entrar— justo delante de cada puerta, que
+// es el peor sitio posible para dejarlas.
+//
+// Se despeja un círculo alrededor de la puerta, saltándose la membrana que separa
+// los anillos: así el muro no se toca y lo único que comunica los dos lados sigue
+// siendo la hoja.
+function abrirCierre(g, frontera, centro, simbolo, protegidas) {
   const ex = centro % ANCHO, ey = (centro / ANCHO) | 0;
   const r2 = RADIO_CIERRE * RADIO_CIERRE * 4;
   for (const i of frontera) {
@@ -667,6 +788,19 @@ function abrirCierre(g, frontera, centro, simbolo) {
     const dx = cx - ex, dy = cy - ey;
     if (dx * dx + dy * dy > r2) continue;
     g[cy][cx] = simbolo;
+  }
+
+  const alcance = RADIO_CIERRE * 2 + HOLGURA;
+  for (let oy = -alcance; oy <= alcance; oy++) {
+    for (let ox = -alcance; ox <= alcance; ox++) {
+      if (ox * ox + oy * oy > alcance * alcance) continue;
+      const nx = ex + ox, ny = ey + oy;
+      if (nx < FACHADA || ny < FACHADA ||
+          nx >= ANCHO - FACHADA || ny >= ALTO - FACHADA) continue;
+      const ni = ny * ANCHO + nx;
+      if (protegidas && protegidas[ni]) continue;    // la membrana no se toca
+      if (g[ny][nx] === PARED) g[ny][nx] = PASILLO;
+    }
   }
 }
 
@@ -804,7 +938,7 @@ function unirAnillo(g, zona, k, protegidas) {
 //
 // Y con distancia mínima entre ellos: dos cierres pegados son, a efectos de
 // juego, un cierre ancho, y en el plano se pintan uno encima de otro.
-function cierresRepartidos(g, frontera, simbolo, inicio, cuantos) {
+function cierresRepartidos(g, frontera, simbolo, inicio, cuantos, protegidas) {
   const elegidos = [];
 
   // Separaciones mínimas a probar, de más exigente a menos (en celdas: 150 son
@@ -834,7 +968,7 @@ function cierresRepartidos(g, frontera, simbolo, inicio, cuantos) {
       }
       if (mejor < 0) continue;      // a este ángulo no queda sitio
       elegidos.push(mejor);
-      abrirCierre(g, frontera, mejor, simbolo);
+      abrirCierre(g, frontera, mejor, simbolo, protegidas);
     }
     if (elegidos.length >= cuantos) break;
   }
@@ -875,6 +1009,11 @@ function trazar(semilla) {
   for (const l of locales) abrirPuerta(g, l, rng);
 
   levantarFachada(g);
+  // LAS RENDIJAS, ANTES DE COMPROBAR NADA. Los tabiques y el mobiliario dejan
+  // huecos por los que no se pasa, y si se comprueba la conectividad con ellos
+  // puestos, el mapa se da por bien comunicado a través de sitios que el jugador
+  // no puede cruzar.
+  let rendijas = cerrarHuecosEstrechos(g);
   const taladros = conectar(g, false, null, null);
 
   // DÓNDE EMPIEZA LA PARTIDA: la plaza si la hay, y si no el centro del mapa,
@@ -916,12 +1055,17 @@ function trazar(semilla) {
                         unirAnillo(g, zona, 2, protegidas);
 
   const cierresGrises = cierresRepartidos(g, fronteras[0].celdas, PUERTA_GRIS,
-                                          inicio, CIERRES_POR_FRONTERA);
+                                          inicio, CIERRES_POR_FRONTERA, protegidas);
   const cierresAzules = cierresRepartidos(g, fronteras[1].celdas, PUERTA_AZUL,
-                                          inicio, CIERRES_POR_FRONTERA);
+                                          inicio, CIERRES_POR_FRONTERA, protegidas);
 
   // Y las salidas de la calle, que van en el anillo de fuera.
   const salidas = abrirSalidas(g, zona, rng);
+
+  // Y otra pasada de rendijas: las galerías, los cierres y las salidas han vuelto
+  // a abrir y cerrar suelo, y cada uno de esos cortes puede dejar una punta de
+  // muro al aire.
+  rendijas += cerrarHuecosEstrechos(g);
 
   // Las salidas tampoco: son la fachada.
   for (let y = 0; y < ALTO; y++) {
@@ -968,7 +1112,14 @@ function trazar(semilla) {
     }
   }
 
-  return { g, locales, salidas, inicio, zona, tunelesAnillo, galerias,
+  // Y las últimas, después de reconectar: los túneles de repaso también cortan
+  // muros y dejan puntas al aire. Primero con las puertas abiertas y luego con
+  // ellas cerradas, que es como arranca la partida. A partir de aquí ya no se
+  // toca el mapa.
+  rendijas += cerrarHuecosEstrechos(g, false, true);
+  rendijas += cerrarHuecosEstrechos(g, false, false);
+
+  return { g, locales, salidas, inicio, zona, tunelesAnillo, galerias, rendijas,
            taladros: taladros + taladros2, cierresGrises, cierresAzules };
 }
 
@@ -1187,6 +1338,13 @@ function resumen(g, locales, salidas, taladros, zona, trazado) {
               trazado.cierresAzules + ' azules (min 20) y ' + salidas.length + ' salidas');
   console.log('  galerías circulares: ' + trazado.galerias + ' celdas abiertas; ' +
               'túneles de repaso: ' + trazado.tunelesAnillo);
+  const quedanAbierto = contarHuecosEstrechos(g, true);
+  const quedanCerrado = contarHuecosEstrechos(g, false);
+  const quedan = quedanAbierto + quedanCerrado;
+  console.log('  rendijas tapiadas (huecos por los que no cabe el jugador): ' +
+              trazado.rendijas + '; quedan ' + quedanAbierto + ' con las puertas ' +
+              'abiertas y ' + quedanCerrado + ' con ellas cerradas' +
+              (quedan === 0 ? ' (bien)' : ' (MAL: hay paredes sin rematar)'));
 
   // Lo que ocupa cada anillo, que es lo que de verdad se juega en cada tramo.
   const porZona = [0, 0, 0];
@@ -1296,6 +1454,15 @@ function importar() {
     else if (clase === 'inicio') inicio = p;
   }
   if (!inicio) inicio = celdaLibreCerca(g, tmj.width >> 1, tmj.height >> 1);
+
+  // Lo retocado a mano también puede dejar rendijas: un tabique arrastrado un
+  // píxel de más es exactamente el caso. Aquí se AVISA en vez de taparlas solas,
+  // porque lo que Sergio haya dibujado manda — pero conviene que lo sepa.
+  const rendijas = contarHuecosEstrechos(g, true) + contarHuecosEstrechos(g, false);
+  if (rendijas > 0) {
+    console.warn('  AVISO: ' + rendijas + ' celdas de suelo por las que no cabe el ' +
+                 'jugador (paredes que no llegan a tocarse). Se importan tal cual.');
+  }
 
   const piezas = componentes(g, true).trozos.length;
   if (piezas !== 1) {

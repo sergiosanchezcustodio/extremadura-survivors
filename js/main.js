@@ -39,7 +39,7 @@ import { Progresion } from './sistemas/progresion.js';
 import { dibujarMenuNivel } from './ui/menuNivel.js';
 import { dibujarCofre } from './ui/cofre.js';
 import { dibujarFicha } from './ui/ficha.js';
-import { dibujarMapa } from './ui/mapa.js';
+import { dibujarMapa, acercarMapa, reiniciarZoomMapa } from './ui/mapa.js';
 import { dibujarTienda } from './ui/tienda.js';
 import { dibujarFinal, dibujarCartelFinal } from './ui/final.js';
 import { dibujarPaneles, dibujarReloj, dibujarBarraJefe,
@@ -2518,6 +2518,11 @@ function empezarPartida() {
     // El campo de flujo, hecho ya para el primer paso: sin esto, la primera
     // décima de segundo la horda persigue con el campo de la partida anterior.
     RejillaMapa.actualizarCampo(jugadores, true);
+    // Y el mapa, en blanco: el centro comercial se descubre andando, y eso vale
+    // también para la segunda partida.
+    RejillaMapa.olvidarLoVisto();
+    RejillaMapa.mirarAlrededor(jugadores);
+    reiniciarZoomMapa();
   }
   camara.situar(jugadores[0].x, jugadores[0].y);
   // Que mascota lleva cada uno se decide en su pantalla y no cambia en toda la
@@ -2938,7 +2943,29 @@ function actualizar(dt) {
   }
 
   if (entrada.consumirFlanco('F3')) verDepuracion = !verDepuracion;
-  if (entrada.consumirFlanco('F4')) mapaAbierto = !mapaAbierto;
+  // EL MAPA: Bloq Mayús en el teclado, Y en cualquier mando. F4 se queda como
+  // atajo de siempre para no romperle la costumbre a nadie.
+  if (entrada.consumirFlanco('CapsLock') || entrada.consumirFlanco('F4')) {
+    mapaAbierto = !mapaAbierto;
+  }
+  for (let i = 0; i < jugadores.length; i++) {
+    const c = entrada.controles[i];
+    if (c && c.consumirBoton(3)) mapaAbierto = !mapaAbierto;
+  }
+  // Y el zoom, mientras está abierto. En el teclado los dos signos, con sus
+  // gemelos del teclado numérico; en el mando, los gatillos de arriba.
+  if (mapaAbierto) {
+    let z = 0;
+    if (entrada.consumirFlanco('Equal') || entrada.consumirFlanco('NumpadAdd')) z = 1;
+    if (entrada.consumirFlanco('Minus') || entrada.consumirFlanco('NumpadSubtract')) z = -1;
+    for (let i = 0; i < jugadores.length; i++) {
+      const c = entrada.controles[i];
+      if (!c) continue;
+      if (c.consumirBoton(5)) z = 1;
+      if (c.consumirBoton(4)) z = -1;
+    }
+    if (z !== 0) acercarMapa(z);
+  }
   // LA CONFIGURACIÓN, DESDE DENTRO DE LA PARTIDA. Se abre con la pausa puesta y
   // se cierra volviendo a ella, no al menú: quien la abre está jugando y quiere
   // seguir jugando. El estado sigue siendo PANTALLA_JUEGO con el mundo
@@ -3152,6 +3179,10 @@ function actualizar(dt) {
   // mueva. Solo hace trabajo de verdad una vez cada seis pasos (ver
   // sistemas/rejillaMapa.js) y en Mérida no hace ninguno.
   RejillaMapa.actualizarCampo(jugadores, false);
+  // Lo que se va viendo del nivel. Cada paso, y no cada seis como el campo de
+  // flujo: son mil celdas por jugador y casi todas ya están marcadas, así que
+  // cuesta menos que ponerle un contador.
+  RejillaMapa.mirarAlrededor(jugadores);
   enemigos.mover(dt, jugadores, camara);
   proyectiles.mover(dt, estallar, camara, cazarCercano, jugadores);
 

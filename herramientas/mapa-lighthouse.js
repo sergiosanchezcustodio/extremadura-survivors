@@ -27,13 +27,35 @@ import { fileURLToPath } from 'node:url';
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // --- La rejilla ---------------------------------------------------------------
-// La celda mide lo que el tile de suelo de Mérida (TILE=32 unidades lógicas),
-// así que un pasillo de 4 celdas son 128 unidades: un cuarto de pantalla de
-// ancho. 112x72 celdas son 3584x2304 unidades ≈ 64 pantallas de 480x270, que es
-// el "enorme, una sola planta" que pidió Sergio.
-const CELDA = 32;
-const ANCHO = 112;
-const ALTO = 72;
+//
+// EL GROSOR DE LA PARED ES EL TAMAÑO DE LA CELDA, y esa es la razón de que la
+// celda sea pequeña. Una pared es UNA celda: no hay forma de tener un muro más
+// fino que la rejilla que lo dibuja. Con la celda de 32 que tuvo esto al
+// principio, los tabiques entre el pasillo y una tienda medían 32 unidades —un
+// quinto de lo que mide el pasillo entero— y el centro comercial parecía un
+// búnker. A 8, el tabique mide 8: un 75% más fino, y ya se lee como un
+// escaparate y no como un muro de carga.
+//
+// No se baja más porque la cuenta de celdas crece al cuadrado: a 8 el mapa son
+// 129.024 celdas y el campo de flujo sigue costando décimas de milisegundo; a 4
+// serían medio millón y la búsqueda en anchura dejaría de ser gratis.
+//
+// El MUNDO no cambia de tamaño: 448x288 celdas de 8 son los mismos 3584x2304
+// unidades ≈ 64 pantallas de 480x270 que había con 112x72 celdas de 32.
+const CELDA = 8;
+
+// Todo el trazado se piensa en "módulos" de 32 unidades —que es como se pensó
+// cuando la celda medía eso— y se expresa en celdas multiplicando por esto. Así
+// los números de abajo siguen leyéndose igual (un pasillo de 3 o 4 módulos) y
+// cambiar la finura de la rejilla es cambiar una constante.
+const F = 4;                      // celdas por módulo (32 / CELDA)
+const ANCHO = 112 * F;
+const ALTO = 72 * F;
+
+// Lo que mide de grueso un tabique: UNA celda, que es el mínimo posible. La
+// fachada del edificio va aparte y es más gorda, que para eso es la fachada.
+const TABIQUE = 1;
+const FACHADA = 3;
 
 // El alfabeto del mapa. El juego solo distingue PARED de lo demás; los otros
 // símbolos son el TIPO de suelo, y de momento solo sirven para pintarlo de un
@@ -99,7 +121,7 @@ function rellenar(g, x0, y0, w, h, ch) {
 // Los cortes alternan según el lado más largo, que es lo que da la retícula
 // irregular de un centro comercial de verdad en vez de un tablero de ajedrez.
 function partir(g, x0, y0, w, h, profundidad, rng, hojas) {
-  const MIN = 11;                     // por debajo de esto ya no cabe local + pasillo
+  const MIN = 11 * F;                 // por debajo de esto ya no cabe local + pasillo
   if (profundidad === 0 || (w < MIN * 2 && h < MIN * 2)) {
     hojas.push({ x: x0, y: y0, w, h });
     return;
@@ -111,7 +133,7 @@ function partir(g, x0, y0, w, h, profundidad, rng, hojas) {
   // pasillos. Dejando de partir de vez en cuando cuando la región ya es grande,
   // esas moles aparecen solas.
   const area = w * h;
-  if (area >= 520 && area <= 980 && rng() < 0.55) {
+  if (area >= 520 * F * F && area <= 980 * F * F && rng() < 0.55) {
     hojas.push({ x: x0, y: y0, w, h });
     return;
   }
@@ -122,7 +144,7 @@ function partir(g, x0, y0, w, h, profundidad, rng, hojas) {
   let porAncho = w >= h;
   if (porAncho && w < MIN * 2) porAncho = false;
   else if (!porAncho && h < MIN * 2) porAncho = true;
-  const anchoPasillo = rnd(rng, 3, 4);   // "pasillos anchos": 96 o 128 unidades
+  const anchoPasillo = rnd(rng, 3 * F, 4 * F);   // "pasillos anchos": 96 o 128 unidades
 
   if (porAncho) {
     // El corte no va nunca al 50%: locales todos iguales se leen como un almacén.
@@ -143,7 +165,7 @@ function partir(g, x0, y0, w, h, profundidad, rng, hojas) {
 // Qué local cabe en cada hoja. Se decide por SUPERFICIE, que es como funciona un
 // centro comercial: el IKEA está donde hay sitio para el IKEA, no al revés.
 function tipoDeLocal(w, h, rng) {
-  const area = w * h;
+  const area = (w * h) / (F * F);      // en módulos, para que los números se lean
   if (area >= 500) return rng() < 0.5 ? IKEA : HIPER;
   if (area >= 260) return rng() < 0.5 ? HIPER : OCIO;
   if (area >= 120) return OCIO;
@@ -153,9 +175,9 @@ function tipoDeLocal(w, h, rng) {
 // El local ocupa la hoja menos un anillo de pared. El anillo es lo que separa
 // una tienda de la de al lado y del pasillo: sin él, todo sería una nave diáfana.
 function carvarLocal(g, hoja, rng, locales) {
-  const x0 = hoja.x + 1, y0 = hoja.y + 1;
-  const w = hoja.w - 2, h = hoja.h - 2;
-  if (w < 4 || h < 4) return;                 // hueco residual: se queda macizo
+  const x0 = hoja.x + TABIQUE, y0 = hoja.y + TABIQUE;
+  const w = hoja.w - TABIQUE * 2, h = hoja.h - TABIQUE * 2;
+  if (w < 4 * F || h < 4 * F) return;         // hueco residual: se queda macizo
 
   const tipo = tipoDeLocal(w, h, rng);
   rellenar(g, x0, y0, w, h, tipo);
@@ -172,14 +194,18 @@ function amueblar(g, local, rng) {
     // Lineales de estantería en el lado largo, con cabecera libre arriba y abajo
     // para poder cambiar de pasillo sin recorrerlo entero.
     const vertical = h >= w;
-    const paso = 3;                            // estantería, hueco, hueco
+    const paso = 3 * F;                        // estantería, y dos módulos de paso
     if (vertical) {
-      for (let cx = x + 2; cx < x + w - 2; cx += paso) {
-        for (let cy = y + 2; cy < y + h - 2; cy++) g[cy][cx] = PARED;
+      for (let cx = x + 2 * F; cx < x + w - 2 * F; cx += paso) {
+        for (let k = 0; k < TABIQUE; k++) {
+          for (let cy = y + 2 * F; cy < y + h - 2 * F; cy++) g[cy][cx + k] = PARED;
+        }
       }
     } else {
-      for (let cy = y + 2; cy < y + h - 2; cy += paso) {
-        for (let cx = x + 2; cx < x + w - 2; cx++) g[cy][cx] = PARED;
+      for (let cy = y + 2 * F; cy < y + h - 2 * F; cy += paso) {
+        for (let k = 0; k < TABIQUE; k++) {
+          for (let cx = x + 2 * F; cx < x + w - 2 * F; cx++) g[cy + k][cx] = PARED;
+        }
       }
     }
     return;
@@ -190,11 +216,16 @@ function amueblar(g, local, rng) {
     // el paso alternando de un lado al otro. Es el trozo más laberíntico del
     // mapa a propósito — es lo que hace un IKEA.
     let abierto = 0;
-    for (let cy = y + 3; cy < y + h - 3; cy += 4) {
-      for (let cx = x + 1; cx < x + w - 1; cx++) g[cy][cx] = PARED;
-      // El hueco de paso, en un extremo y alternando.
-      const bx = abierto % 2 === 0 ? x + 1 : x + w - 4;
-      for (let k = 0; k < 3; k++) if (dentro(bx + k, cy)) g[cy][bx + k] = tipo;
+    for (let cy = y + 3 * F; cy < y + h - 3 * F; cy += 4 * F) {
+      // El tabique, de lado a lado del local.
+      for (let j = 0; j < TABIQUE; j++) {
+        for (let cx = x + 1; cx < x + w - 1; cx++) g[cy + j][cx] = PARED;
+      }
+      // Y el hueco de paso, en un extremo y alternando: eso es la serpentina.
+      const bx = abierto % 2 === 0 ? x + 1 : x + w - 1 - 3 * F;
+      for (let j = 0; j < TABIQUE; j++) {
+        for (let k = 0; k < 3 * F; k++) if (dentro(bx + k, cy + j)) g[cy + j][bx + k] = tipo;
+      }
       abierto++;
     }
     return;
@@ -205,9 +236,9 @@ function amueblar(g, local, rng) {
     // butacas— y nada más. Ocupan poco y no cortan ningún paso.
     const n = rnd(rng, 2, 4);
     for (let i = 0; i < n; i++) {
-      const bw = rnd(rng, 2, 4), bh = rnd(rng, 2, 3);
-      const bx = rnd(rng, x + 2, x + w - bw - 2);
-      const by = rnd(rng, y + 2, y + h - bh - 2);
+      const bw = rnd(rng, 2 * F, 4 * F), bh = rnd(rng, 2 * F, 3 * F);
+      const bx = rnd(rng, x + 2 * F, x + w - bw - 2 * F);
+      const by = rnd(rng, y + 2 * F, y + h - bh - 2 * F);
       rellenar(g, bx, by, bw, bh, PARED);
     }
   }
@@ -217,6 +248,13 @@ function amueblar(g, local, rng) {
 // La puerta: se taladra desde el borde del local hacia fuera hasta topar con
 // pasillo. Como el local está metido una celda dentro de su hoja y los pasillos
 // corren por los bordes de las hojas, el túnel nunca es largo.
+// Lo ancha que es una puerta: dos módulos, 64 unidades. Con cuatro jugadores y
+// una horda detrás, un hueco más estrecho es un tapón.
+const PUERTA = 2 * F;
+
+// La puerta: se taladra desde el borde del local hacia fuera hasta topar con
+// pasillo. Como el local está separado de su hoja por un tabique de una celda,
+// el túnel es casi siempre esa única celda.
 function abrirPuerta(g, local, rng) {
   const lados = [0, 1, 2, 3];
   // Barajado con la misma semilla, para no depender del orden de `sort`.
@@ -226,36 +264,50 @@ function abrirPuerta(g, local, rng) {
   }
 
   let abiertas = 0;
-  const quiere = local.w * local.h >= 200 ? 2 : 1;   // los grandes, con dos bocas
+  const quiere = (local.w * local.h) / (F * F) >= 200 ? 2 : 1;   // los grandes, dos bocas
+  // Hasta dónde se mira buscando pasillo. Un tabique y algo de margen: más allá
+  // de eso, lo que hay al otro lado es otra tienda, no un pasillo.
+  const ALCANCE = TABIQUE + F;
 
   for (const lado of lados) {
     if (abiertas >= quiere) break;
-    let px, py, dx = 0, dy = 0;
-    if (lado === 0)      { px = rnd(rng, local.x + 1, local.x + local.w - 2); py = local.y - 1; dy = -1; }
-    else if (lado === 1) { px = rnd(rng, local.x + 1, local.x + local.w - 2); py = local.y + local.h; dy = 1; }
-    else if (lado === 2) { px = local.x - 1; py = rnd(rng, local.y + 1, local.y + local.h - 2); dx = -1; }
-    else                 { px = local.x + local.w; py = rnd(rng, local.y + 1, local.y + local.h - 2); dx = 1; }
 
-    // Mirar si a menos de 4 celdas en esa dirección hay pasillo. Si no lo hay,
-    // este lado da a otra tienda o al borde del mapa y no se abre: una puerta
-    // que comunica dos tiendas no es una puerta de centro comercial.
+    // Punto de partida en el borde del local y hacia dónde se taladra. `px,py`
+    // es la esquina del hueco y `ox,oy` la dirección en la que se ensancha.
+    let px, py, dx = 0, dy = 0, ox = 0, oy = 0;
+    if (lado === 0) {
+      px = rnd(rng, local.x, local.x + local.w - PUERTA); py = local.y - 1; dy = -1; ox = 1;
+    } else if (lado === 1) {
+      px = rnd(rng, local.x, local.x + local.w - PUERTA); py = local.y + local.h; dy = 1; ox = 1;
+    } else if (lado === 2) {
+      px = local.x - 1; py = rnd(rng, local.y, local.y + local.h - PUERTA); dx = -1; oy = 1;
+    } else {
+      px = local.x + local.w; py = rnd(rng, local.y, local.y + local.h - PUERTA); dx = 1; oy = 1;
+    }
+
+    // ¿Hay pasillo ahí detrás? Si no, ese lado da a otra tienda o a la fachada,
+    // y una puerta que comunica dos tiendas no es una puerta de centro
+    // comercial.
     let hay = false;
-    for (let k = 0; k < 4; k++) {
+    for (let k = 0; k <= ALCANCE && !hay; k++) {
       const tx = px + dx * k, ty = py + dy * k;
       if (!dentro(tx, ty)) break;
-      if (g[ty][tx] === PASILLO) { hay = true; break; }
+      if (g[ty][tx] === PASILLO) hay = true;
     }
     if (!hay) continue;
 
-    // Puerta de dos celdas de ancho: un hueco de una sola se atasca con cuatro
-    // jugadores y una horda detrás.
-    for (let k = 0; k < 4; k++) {
+    // Y se taladra el hueco entero, de PUERTA celdas de ancho, hasta el pasillo.
+    for (let k = 0; k <= ALCANCE; k++) {
       const tx = px + dx * k, ty = py + dy * k;
       if (!dentro(tx, ty)) break;
-      if (g[ty][tx] === PASILLO) break;
-      g[ty][tx] = PASILLO;
-      const ox = dx === 0 ? 1 : 0, oy = dy === 0 ? 1 : 0;
-      if (dentro(tx + ox, ty + oy) && g[ty + oy][tx + ox] === PARED) g[ty + oy][tx + ox] = PASILLO;
+      let tocado = false;
+      for (let w = 0; w < PUERTA; w++) {
+        const ax = tx + ox * w, ay = ty + oy * w;
+        if (!dentro(ax, ay)) continue;
+        if (g[ay][ax] === PASILLO) { tocado = true; continue; }
+        g[ay][ax] = PASILLO;
+      }
+      if (tocado) break;          // ya se ha llegado al pasillo: no seguir
     }
     abiertas++;
   }
@@ -341,8 +393,20 @@ function conectar(g) {
       continue;
     }
 
+    // El túnel se abre de PUERTA celdas de ancho. Con una sola, el pasadizo
+    // sería más estrecho que el propio jugador y no se pasaría por él.
+    const radio = PUERTA >> 1;
     for (let c = destino; c !== -1; c = previo[c]) {
-      g[(c / ANCHO) | 0][c % ANCHO] = PASILLO;
+      const cx = c % ANCHO, cy = (c / ANCHO) | 0;
+      for (let oy = -radio; oy <= radio; oy++) {
+        for (let ox = -radio; ox <= radio; ox++) {
+          const nx = cx + ox, ny = cy + oy;
+          // La fachada no se toca: el agujero de salida lo abre quien toca.
+          if (nx < FACHADA || ny < FACHADA ||
+              nx >= ANCHO - FACHADA || ny >= ALTO - FACHADA) continue;
+          if (g[ny][nx] === PARED) g[ny][nx] = PASILLO;
+        }
+      }
     }
     vueltas++;
     if (vueltas > 200) throw new Error('el trazado no converge');
@@ -354,15 +418,18 @@ function conectar(g) {
 // nada: el jefe final entra rompiendo la pared y ganar es vencerlo, así que la
 // salida es lo que se PROMETE durante media hora, no una casilla de meta.
 function fachadaYSalidas(g, rng) {
-  for (let x = 0; x < ANCHO; x++) { g[0][x] = PARED; g[ALTO - 1][x] = PARED; }
-  for (let y = 0; y < ALTO; y++) { g[y][0] = PARED; g[y][ANCHO - 1] = PARED; }
+  // La fachada es más gorda que un tabique: es el muro del edificio.
+  for (let k = 0; k < FACHADA; k++) {
+    for (let x = 0; x < ANCHO; x++) { g[k][x] = PARED; g[ALTO - 1 - k][x] = PARED; }
+    for (let y = 0; y < ALTO; y++) { g[y][k] = PARED; g[y][ANCHO - 1 - k] = PARED; }
+  }
 
   const salidas = [];
   const lados = [
-    { fijo: 1,         eje: 'y', recorre: ANCHO, dir: [0, -1] },
-    { fijo: ALTO - 2,  eje: 'y', recorre: ANCHO, dir: [0,  1] },
-    { fijo: 1,         eje: 'x', recorre: ALTO,  dir: [-1, 0] },
-    { fijo: ANCHO - 2, eje: 'x', recorre: ALTO,  dir: [ 1, 0] }
+    { fijo: FACHADA,            eje: 'y', recorre: ANCHO, dir: [0, -1] },
+    { fijo: ALTO - 1 - FACHADA, eje: 'y', recorre: ANCHO, dir: [0,  1] },
+    { fijo: FACHADA,            eje: 'x', recorre: ALTO,  dir: [-1, 0] },
+    { fijo: ANCHO - 1 - FACHADA, eje: 'x', recorre: ALTO, dir: [ 1, 0] }
   ];
 
   for (const lado of lados) {
@@ -376,13 +443,16 @@ function fachadaYSalidas(g, rng) {
     }
     if (candidatos.length === 0) continue;
     const [x, y] = candidatos[Math.floor(rng() * candidatos.length)];
-    // Un boquete de tres celdas en la fachada, en el borde.
-    for (let k = -1; k <= 1; k++) {
-      const sx = lado.eje === 'y' ? x + k : x + lado.dir[0];
-      const sy = lado.eje === 'y' ? y + lado.dir[1] : y + k;
-      if (dentro(sx, sy)) g[sy][sx] = SALIDA;
+    // El boquete atraviesa la fachada entera y mide lo que una puerta doble.
+    const media = (PUERTA * 3) >> 1;
+    for (let prof = 0; prof <= FACHADA; prof++) {
+      for (let k = -media; k <= media; k++) {
+        const sx = lado.eje === 'y' ? x + k : x + lado.dir[0] * prof;
+        const sy = lado.eje === 'y' ? y + lado.dir[1] * prof : y + k;
+        if (dentro(sx, sy)) g[sy][sx] = SALIDA;
+      }
     }
-    salidas.push({ x: x + lado.dir[0], y: y + lado.dir[1] });
+    salidas.push({ x: x + lado.dir[0] * FACHADA, y: y + lado.dir[1] * FACHADA });
   }
   return salidas;
 }
@@ -395,7 +465,7 @@ function trazar(semilla) {
 
   // 5 niveles de partición sobre 112x72 dan del orden de 20-32 locales, que es
   // lo que tiene un centro comercial grande de verdad.
-  partir(g, 1, 1, ANCHO - 2, ALTO - 2, 5, rng, hojas);
+  partir(g, FACHADA, FACHADA, ANCHO - FACHADA * 2, ALTO - FACHADA * 2, 5, rng, hojas);
 
   const locales = [];
   for (const hoja of hojas) carvarLocal(g, hoja, rng, locales);
@@ -405,7 +475,7 @@ function trazar(semilla) {
   // referencia fija que tiene quien se ha perdido.
   let plaza = null, mejor = Infinity;
   for (const l of locales) {
-    const area = l.w * l.h;
+    const area = (l.w * l.h) / (F * F);     // en módulos, como tipoDeLocal
     if (area < 130 || area > 420) continue;
     const dx = l.x + l.w / 2 - ANCHO / 2, dy = l.y + l.h / 2 - ALTO / 2;
     const d = dx * dx + dy * dy;

@@ -225,6 +225,48 @@ calzada no existen:
 Lo que NO cambia: oleadas, densidad, escalado, hitos y jefes son el mismo
 contrato y los lee el mismo director.
 
+### El grosor de la pared es el tamaño de la celda
+
+Es la consecuencia que más condiciona el trazado y no es evidente: **una pared
+es UNA celda**, así que no hay forma de tener un tabique más fino que la rejilla
+que lo dibuja. The Lighthouse empezó con celdas de 32 y los tabiques entre el
+pasillo y una tienda medían 32 unidades —un quinto del ancho del pasillo—, con
+aspecto de búnker. Hoy la celda mide **8** y el tabique mide 8.
+
+No se baja más porque la cuenta de celdas crece al cuadrado. Y por eso hay **dos
+rejillas**, que conviene no confundir:
+
+| | Tamaño | Celdas | Para qué |
+|---|---|---|---|
+| **Colisión** | 8 unidades | 448x288 = 129.024 | paredes, dibujo, línea de visión |
+| **Navegación** | 16 unidades | 224x144 = 32.256 | campo de flujo y niebla del plano |
+
+La de navegación se deriva de la otra al cargar el nivel: una celda suya es
+sólida si lo es **cualquiera** de las cuatro finas que la forman. Eso engorda las
+paredes 8 unidades a efectos de ruta —la horda pasa algo despegada del muro, que
+es lo que uno quiere— y no cierra ningún paso, porque la puerta más estrecha del
+mapa mide 64 unidades.
+
+Por qué dos y no una: el campo de flujo recorre el mapa entero cada vez que se
+rehace. Sobre la rejilla fina costaba 7,8 ms —un pico capaz de comerse un
+fotograma cada décima de segundo—; sobre la basta, 0,56.
+
+## El plano del nivel
+
+Un recinto trae plano, y es otra cosa que el radar de Mérida: se abre con **Bloq
+Mayús** o con el botón **Y**, congela la partida y se aleja y acerca con **+** y
+**-** (o con los gatillos de arriba del mando).
+
+Lo importante es lo que NO enseña. El plano arranca **en blanco** y se descubre
+andando: `RejillaMapa.visto` marca un disco de 19 celdas de navegación alrededor
+de cada jugador a cada paso. Lo único visible desde el primer segundo son **las
+salidas, y solo como un icono de puerta**, sin nada alrededor. Es la diferencia
+entre enseñar el mapa y dar una referencia: sabes que hay una salida en el muro
+norte y no sabes cómo se llega, que es lo que tiene que sentir quien está dentro.
+
+Lo explorado se olvida al empezar cada partida — heredarlo de la anterior le
+quitaría al nivel justo lo que lo hace un laberinto.
+
 ## El mapa se dibuja en Tiled
 
 La rejilla vive en `js/datos/niveles/<nivel>-mapa.js` y es un fichero

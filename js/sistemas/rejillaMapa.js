@@ -31,6 +31,11 @@ const LEJOS = 0xffff;
 const VX = [1, -1, 0, 0, 1, 1, -1, -1];
 const VY = [0, 0, 1, -1, 1, -1, 1, -1];
 
+// Hasta dónde se descubre el mapa alrededor de cada jugador, en celdas de
+// navegación (16 unidades cada una). 19 celdas son 304 unidades: algo más que la
+// media diagonal del visor, o sea "lo que da tiempo a ver de pasada".
+const RADIO_VISTA = 19;
+
 export const RejillaMapa = {
   activa: false,
 
@@ -47,12 +52,26 @@ export const RejillaMapa = {
   inicio: { x: 0, y: 0 },      // en unidades lógicas
   salidas: [],                 // en unidades lógicas
 
-  // Campo de flujo hacia los jugadores.
+  // Campo de flujo hacia los jugadores, sobre la REJILLA DE NAVEGACIÓN (ver
+  // `_prepararNavegacion`), que es más basta que la de colisión.
+  navAncho: 0,
+  navAlto: 0,
+  navCelda: 0,
+  navSolido: null,
   _dist: null,
-  _dirX: null,
-  _dirY: null,
   _cola: null,
   _pasos: 0,
+
+  // LO QUE SE HA VISTO, por celda de navegación. Es la niebla del mapa: el
+  // centro comercial no se enseña entero, se descubre andando.
+  //
+  // Va en la rejilla de navegación y no en la fina por dos razones: 32.256
+  // celdas son la resolución justa para un minimapa de 224x144 píxeles, y
+  // marcar un disco de veinte celdas de radio cuesta cuatro veces menos.
+  visto: null,
+  celdasVistas: 0,        // cualquiera: sirve para saber si hay que repintar
+  transitablesVistas: 0,  // solo las pisables: es el "explorado" que se enseña
+  navTransitables: 0,     // cuántas hay en total, para el porcentaje
 
   // A qué celda transitable se corre lo que aparezca dentro de una pared.
   _refugio: null,
@@ -97,14 +116,10 @@ export const RejillaMapa = {
       }
     }
 
-    this._dist = new Uint16Array(n);
-    this._dirX = new Float32Array(n);
-    this._dirY = new Float32Array(n);
-    this._cola = new Int32Array(n);
+    this._cola = new Int32Array(n);      // el mayor de los dos usos: los refugios
     this._pasos = 0;
-    this._dist.fill(LEJOS);
-
     this._calcularRefugios();
+    this._prepararNavegacion();
 
     // Al CENTRO de la celda, no a su esquina: nacer en la esquina de una celda
     // es nacer medio cuerpo dentro de la pared de al lado.
@@ -117,6 +132,59 @@ export const RejillaMapa = {
     }
 
     this.activa = true;
+  },
+
+  // OLVIDAR EL MAPA, al empezar cada partida. Se descubre andando, y eso incluye
+  // la segunda partida: heredar lo explorado de la anterior le quitaría al nivel
+  // justo lo que lo hace un laberinto.
+  //
+  // No se vuelve a reservar el array —eso sería asignar memoria al empezar—: se
+  // pone a cero el que ya hay.
+  olvidarLoVisto() {
+    if (!this.visto) return;
+    this.visto.fill(0);
+    this.celdasVistas = 0;
+    this.transitablesVistas = 0;
+  },
+
+  // LO QUE ALCANZA LA VISTA desde donde está cada jugador, marcado en la niebla.
+  //
+  // Es un disco, no un cono ni una línea de visión: lo que se quiere contar es
+  // "por aquí he pasado", y con la visión bloqueada por paredes la tienda en la
+  // que estás metido se descubriría a trozos según andas por ella, que se lee
+  // como un fallo. El radio es algo más que media pantalla.
+  //
+  // Se llama con la misma cadencia que el campo de flujo: en seis pasos nadie
+  // recorre veinte celdas, así que no deja agujeros.
+  mirarAlrededor(jugadores) {
+    if (!this.activa || !this.visto) return;
+    const R = RADIO_VISTA;
+    const R2 = R * R;
+    for (let k = 0; k < jugadores.length; k++) {
+      const j = jugadores[k];
+      // Un caído SIGUE viendo: sigue ahí tirado, y borrarle el mapa mientras
+      // espera a que lo levanten no ayuda a nadie.
+      const cx = (j.x / this.navCelda) | 0;
+      const cy = (j.y / this.navCelda) | 0;
+      for (let oy = -R; oy <= R; oy++) {
+        const ny = cy + oy;
+        if (ny < 0 || ny >= this.navAlto) continue;
+        const fila = ny * this.navAncho;
+        for (let ox = -R; ox <= R; ox++) {
+          if (ox * ox + oy * oy > R2) continue;
+          const nx = cx + ox;
+          if (nx < 0 || nx >= this.navAncho) continue;
+          const i = fila + nx;
+          if (this.visto[i]) continue;
+          this.visto[i] = 1;
+          this.celdasVistas++;
+          // El "explorado" que se le enseña al jugador cuenta SOLO lo pisable:
+          // "he visto el 40%" tiene que querer decir 40% de lo que se puede
+          // andar, no del solar entero contando los muros.
+          if (this.navSolido[i] === 0) this.transitablesVistas++;
+        }
+      }
+    }
   },
 
   // --- Consultas básicas ------------------------------------------------------
@@ -253,6 +321,57 @@ export const RejillaMapa = {
     return true;
   },
 
+  // DOS REJILLAS, Y NO ES UN CAPRICHO.
+  //
+  // La de COLISIÓN es fina —celdas de 8 unidades— porque el grosor de una pared
+  // es el tamaño de la celda: con celdas grandes no hay tabiques finos, y un
+  // centro comercial con muros de 32 parece un búnker.
+  //
+  // La de NAVEGACIÓN es el doble de basta. El campo de flujo recorre el mapa
+  // ENTERO cada vez que se rehace, y sobre la rejilla fina eso son 129.024
+  // celdas y 7,8 ms: amortizado entre seis pasos sale barato de media, pero es
+  // un pico de 7,8 ms cada décima de segundo, y un pico así se come un
+  // fotograma. Sobre la basta son 32.256 celdas y cuatro veces menos.
+  //
+  // Una celda de navegación es sólida si lo es CUALQUIERA de las cuatro finas
+  // que la forman. Eso engorda las paredes 8 unidades a efectos de ruta —los
+  // enemigos pasan un poco despegados del muro, que es justo lo que uno quiere
+  // de una horda— y no cierra ningún paso: la puerta más estrecha del mapa mide
+  // 64 unidades, cuatro celdas de navegación.
+  _prepararNavegacion() {
+    const P = 2;                                  // celdas finas por celda de nav
+    this.navAncho = Math.ceil(this.ancho / P);
+    this.navAlto = Math.ceil(this.alto / P);
+    this.navCelda = this.celda * P;
+
+    const n = this.navAncho * this.navAlto;
+    this.navSolido = new Uint8Array(n);
+    this.navTransitables = 0;
+    this._dist = new Uint16Array(n);
+
+    for (let ny = 0; ny < this.navAlto; ny++) {
+      for (let nx = 0; nx < this.navAncho; nx++) {
+        let solido = 0;
+        for (let oy = 0; oy < P && !solido; oy++) {
+          for (let ox = 0; ox < P; ox++) {
+            if (this.solidoEnCelda(nx * P + ox, ny * P + oy)) { solido = 1; break; }
+          }
+        }
+        this.navSolido[ny * this.navAncho + nx] = solido;
+        if (!solido) this.navTransitables++;
+      }
+    }
+    this._dist.fill(LEJOS);
+    this.visto = new Uint8Array(n);
+    this.celdasVistas = 0;
+    this.transitablesVistas = 0;
+  },
+
+  navSolidoEn(nx, ny) {
+    if (nx < 0 || ny < 0 || nx >= this.navAncho || ny >= this.navAlto) return true;
+    return this.navSolido[ny * this.navAncho + nx] === 1;
+  },
+
   // --- Campo de flujo ---------------------------------------------------------
   //
   // EL PROBLEMA: los enemigos de este juego persiguen en línea recta
@@ -275,6 +394,8 @@ export const RejillaMapa = {
     if (!this.activa) return;
     if (!forzar && this._pasos++ % PASOS_POR_CAMPO !== 0) return;
 
+    const ancho = this.navAncho, alto = this.navAlto;
+    const solido = this.navSolido;
     const dist = this._dist;
     const cola = this._cola;
     dist.fill(LEJOS);
@@ -283,70 +404,101 @@ export const RejillaMapa = {
     for (let k = 0; k < jugadores.length; k++) {
       const j = jugadores[k];
       if (j.abatido) continue;          // un caído no atrae a la horda
-      const cx = (j.x / this.celda) | 0;
-      const cy = (j.y / this.celda) | 0;
-      if (cx < 0 || cy < 0 || cx >= this.ancho || cy >= this.alto) continue;
-      const i = cy * this.ancho + cx;
-      // Dentro de una pared no puede ser origen: el BFS no saldría de ahí.
-      if (this.solido[i] === 1 || dist[i] === 0) continue;
-      dist[i] = 0;
-      cola[fin++] = i;
+      const cx = (j.x / this.navCelda) | 0;
+      const cy = (j.y / this.navCelda) | 0;
+      if (cx < 0 || cy < 0 || cx >= ancho || cy >= alto) continue;
+      const i = cy * ancho + cx;
+      // Dentro de una pared no puede ser origen: el BFS no saldría de ahí. Pasa
+      // de verdad —la celda de navegación es sólida si CUALQUIERA de sus cuatro
+      // finas lo es, así que un jugador pegado a un muro cae en una—, y por eso
+      // se prueba también con los cuatro vecinos antes de rendirse.
+      if (dist[i] === 0) continue;
+      if (solido[i] === 0) { dist[i] = 0; cola[fin++] = i; continue; }
+      for (let v = 0; v < 4; v++) {
+        const nx = cx + VX[v], ny = cy + VY[v];
+        if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto) continue;
+        const ni = ny * ancho + nx;
+        if (solido[ni] === 1 || dist[ni] === 0) continue;
+        dist[ni] = 0; cola[fin++] = ni;
+        break;
+      }
     }
     if (fin === 0) return;              // nadie en pie: el campo anterior vale
 
     while (ini < fin) {
       const c = cola[ini++];
       const d = dist[c] + 1;
-      const cx = c % this.ancho, cy = (c / this.ancho) | 0;
+      const cx = c % ancho, cy = (c / ancho) | 0;
       // Solo los cuatro rectos: en diagonal se cortarían las esquinas y los
       // enemigos se meterían de canto por juntas de pared que no son huecos.
       for (let k = 0; k < 4; k++) {
         const nx = cx + VX[k], ny = cy + VY[k];
-        if (nx < 0 || ny < 0 || nx >= this.ancho || ny >= this.alto) continue;
-        const ni = ny * this.ancho + nx;
-        if (this.solido[ni] === 1 || dist[ni] !== LEJOS) continue;
+        if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto) continue;
+        const ni = ny * ancho + nx;
+        if (solido[ni] === 1 || dist[ni] !== LEJOS) continue;
         dist[ni] = d;
         cola[fin++] = ni;
       }
     }
-
-    // Y de las distancias, la dirección: hacia el vecino que menos dista. Aquí
-    // sí entran las diagonales, que es lo que hace que el recorrido se vea
-    // andado y no a escuadra.
-    const dirX = this._dirX, dirY = this._dirY;
-    const n = this.ancho * this.alto;
-    for (let i = 0; i < n; i++) {
-      dirX[i] = 0; dirY[i] = 0;
-      if (this.solido[i] === 1 || dist[i] === LEJOS || dist[i] === 0) continue;
-      const cx = i % this.ancho, cy = (i / this.ancho) | 0;
-      let mejor = dist[i], mx = 0, my = 0;
-      for (let k = 0; k < 8; k++) {
-        const nx = cx + VX[k], ny = cy + VY[k];
-        if (nx < 0 || ny < 0 || nx >= this.ancho || ny >= this.alto) continue;
-        const ni = ny * this.ancho + nx;
-        if (this.solido[ni] === 1) continue;
-        // Una diagonal solo vale si los dos rectos que la forman están libres:
-        // si no, es pasar por el vértice de dos paredes.
-        if (k >= 4 && (this.solidoEnCelda(nx, cy) || this.solidoEnCelda(cx, ny))) continue;
-        if (dist[ni] < mejor) { mejor = dist[ni]; mx = VX[k]; my = VY[k]; }
-      }
-      if (mx === 0 && my === 0) continue;
-      if (mx !== 0 && my !== 0) { dirX[i] = mx * 0.7071068; dirY[i] = my * 0.7071068; }
-      else { dirX[i] = mx; dirY[i] = my; }
-    }
   },
 
-  // Hacia dónde tirar desde un punto del mundo. Escribe en `salida` para no
-  // asignar un objeto por enemigo y por paso (cero `new` en partida).
-  // Devuelve false si desde ahí no se llega a ningún jugador.
+  // Hacia dónde tirar desde un punto del mundo: hacia el vecino que menos dista.
+  // Escribe en `salida` para no asignar un objeto por enemigo y por paso (cero
+  // `new` en partida). Devuelve false si desde ahí no se llega a ningún jugador.
+  //
+  // LA DIRECCIÓN SE CALCULA AQUÍ, NO AL REHACER EL CAMPO. Precalcularla para
+  // todas las celdas eran ocho consultas por cada una de las 32.256, y de esas
+  // celdas se preguntan unos cientos —una por enemigo vivo—. Mirar los ocho
+  // vecinos en el momento cuesta lo mismo por consulta y ahorra el 99% de ellas.
+  //
+  // Las diagonales entran aquí y no en el BFS: en la búsqueda cortarían esquinas
+  // y meterían a la horda de canto por juntas de pared que no son huecos, y aquí
+  // son lo que hace que el recorrido se vea andado y no a escuadra.
   direccionEn(x, y, salida) {
-    const cx = (x / this.celda) | 0;
-    const cy = (y / this.celda) | 0;
-    if (cx < 0 || cy < 0 || cx >= this.ancho || cy >= this.alto) return false;
-    const i = cy * this.ancho + cx;
-    const dx = this._dirX[i], dy = this._dirY[i];
-    if (dx === 0 && dy === 0) return false;
-    salida.x = dx; salida.y = dy;
+    if (!this.activa) return false;
+    const ancho = this.navAncho, alto = this.navAlto;
+    const cx = (x / this.navCelda) | 0;
+    const cy = (y / this.navCelda) | 0;
+    if (cx < 0 || cy < 0 || cx >= ancho || cy >= alto) return false;
+
+    const dist = this._dist;
+    const solido = this.navSolido;
+    let aqui = dist[cy * ancho + cx];
+
+    // PEGADO A LA PARED NO ES ESTAR PERDIDO. La celda de navegación es sólida si
+    // lo es cualquiera de sus cuatro finas, así que un enemigo que roza un muro
+    // —que son muchos, en un sitio hecho de pasillos— cae en una celda sin
+    // distancia y se quedaría sin ruta justo cuando más falta le hace. Antes de
+    // rendirse se mira a los cuatro vecinos y se sale hacia el mejor de ellos.
+    if (aqui === LEJOS) {
+      let mejorD = LEJOS, bx = 0, by = 0;
+      for (let k = 0; k < 4; k++) {
+        const nx = cx + VX[k], ny = cy + VY[k];
+        if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto) continue;
+        const ni = ny * ancho + nx;
+        if (solido[ni] === 1 || dist[ni] === LEJOS) continue;
+        if (dist[ni] < mejorD) { mejorD = dist[ni]; bx = VX[k]; by = VY[k]; }
+      }
+      if (mejorD === LEJOS) return false;   // ahora sí: desde aquí no se llega
+      salida.x = bx; salida.y = by;
+      return true;
+    }
+    if (aqui === 0) return false;       // ya se está encima: manda la recta
+
+    let mejor = aqui, mx = 0, my = 0;
+    for (let k = 0; k < 8; k++) {
+      const nx = cx + VX[k], ny = cy + VY[k];
+      if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto) continue;
+      const ni = ny * ancho + nx;
+      if (solido[ni] === 1) continue;
+      // Una diagonal solo vale si los dos rectos que la forman están libres: si
+      // no, es pasar por el vértice de dos paredes.
+      if (k >= 4 && (this.navSolidoEn(nx, cy) || this.navSolidoEn(cx, ny))) continue;
+      if (dist[ni] < mejor) { mejor = dist[ni]; mx = VX[k]; my = VY[k]; }
+    }
+    if (mx === 0 && my === 0) return false;
+    if (mx !== 0 && my !== 0) { salida.x = mx * 0.7071068; salida.y = my * 0.7071068; }
+    else { salida.x = mx; salida.y = my; }
     return true;
   },
 

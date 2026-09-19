@@ -49,7 +49,16 @@ export const ACCIONES = [
   { id: 'pausa',     texto: 'Pausa',               tecla: 'Escape', alterna: '',
     boton: 9, piezas: ['menu'], comparteTecla: 'atras' },
   { id: 'autosubir', texto: 'Subida automática',   tecla: 'KeyF', alterna: '',
-    boton: 2, piezas: ['x'] }
+    boton: 2, piezas: ['x'] },
+  // EL MAPA DEL NIVEL. Solo hace algo en los niveles que son un recinto (hoy el
+  // CC The Lighthouse): en una calzada como Mérida enseña el radar de siempre.
+  //
+  // La tecla es BLOQ MAYÚS, que la eligió Sergio: está debajo del tabulador —que
+  // es la ficha— y no la usa nadie para nada. Que además encienda la lucecita
+  // del teclado es un efecto secundario que no molesta; el juego no lee el
+  // estado del bloqueo, solo el golpe de tecla.
+  { id: 'mapa',      texto: 'Mapa del nivel',      tecla: 'CapsLock', alterna: '',
+    boton: 3, piezas: ['y'] }
 ];
 
 // Lo asignado ahora mismo: id -> { tecla, boton }. Arranca en los de fábrica.

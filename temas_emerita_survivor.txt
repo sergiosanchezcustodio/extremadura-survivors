@@ -1,6 +1,42 @@
 
 
+
+
+
+
+##################
+Mini Mapa un 30% más transparente. lo quiero además la mitad del ancho actual.
+Quiero que se reduzca a 8 puertas grises y otras 8 puertas azules y 4 verdes. Además las puertas no deben solaparse, deben estar relativamente lejos unas de otras. quiero que mantengamos el mapa como 3 zonas en circulos concentricos, la zona interior es la inicial, a la zona 2 pasamos a traves de una puerta gris y la zona 3 pasamos a traves de puertas azules
+##################
+los enemigos serán diferentes, pero tengo pendiente crearlos, de momento usamos los mismos que en el nivel 1.
+El mini mapa debe ser algo más pequeño la mitad de tamaño aproximadamente, además debe ser algo transparente.
+La música del nivel dos debe ser diferente, he dejado un nuevo fichero mp3 para el nivel 2. Musica_The_Lighthouse_1 y Musica_The_Lighthouse_2, como siempre ponlas en bucle.
+al estar en el mini mapa, pausa, ficha jugador o alguna otra situación similar en el game play, al pulsar ESC se debe quitar, con el mando sería el botón "b"
+##############################################
+Niveles 
+
+Nivel 1: Emerita
+Nivel 2: CC The Lighthouse (atrapados en el centro comercial The Lighthouse, deben encontrar una salida antes de que la )
+Nivel 3: Monfragüe (animales poseidos, monstruo final El Jancano)
+Nivel 4: Necrópolis (zombies a mogollón, salen de criptas, tumbas, etc)
+Nivel 5: Casas del Turuñuelo (antiguos espíritus de gerreros tartesicos que no descansaron en paz, al no defender con honor a su pueblo)
+Nivel 6: Granadilla, antigua villa medieval, amurallada y rodeada de agua por todos lados, su gente tuvo que huir del lugar al ser atacada por templarios malditos y adoradores de la oscuridad (monjes, curas, monjas que adoran al mal), habiendo un Gran Maestre templario conocido como "FFF", por sus siglas (Führer Franz Frank)
+Nivel 7: Las Hurdes (espíritus, duendes malignos y luces populares que atacan a la gente incauta que se adentra donde no debe. EL monstru final El Macho Cabrío / El Brujo del Monte)
+	 
+#########################################################
+Add-Content .env 'ELEVENLABS_API_KEY=[CLAVE REVOCADA]'
+
+
+clave API   [CLAVE REVOCADA]   [CLAVE REVOCADA]
+5egO01tkUjEzu7xSSE8M  id de la voz 	que me gusta
+
+Los texto deben ser narrados por una voz, de narrador masculino con voz grave, que encaje para esta historia de aventuras y misterio. Esto podrías hacerlo tu?
+
+################################################
+
 El rifle ha dejado de rebotar en los márgenes de la pantalla visible.
+El libro de las sombras, el enemigo que se convierte en aliado, ya no podemos matarlos con los personajes. El atacará a los otros enemigos y después de unos segundos explota. Además para saber que está poseido, debe estar recubierto de un halo de color rojo.
+
 
 ############################
 

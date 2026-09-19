@@ -295,6 +295,42 @@ Y cada anillo lleva su **galería circular**: el pasillo que le da la vuelta por
 dentro, como la galería de un centro comercial de verdad. Sin ella, cruzar de un
 brazo al de enfrente obligaría a pasar por el centro, que está cerrado.
 
+### Nada de paredes a medio rematar
+
+Un tabique que se queda a una celda de tocar con el muro de al lado deja un hueco
+de 8 unidades. El jugador ocupa unas 20, así que **no se pasa** — pero se ve el
+hueco, se intenta, y no se pasa. No es zona transitable y tampoco es una pared
+cerrada; queda raro. Lo cazó Sergio jugando.
+
+Salen solos por todas partes: un tabique mal rematado, una galería que corta un
+muro en diagonal y le deja la punta al aire, un túnel de reconexión que pasa
+rozando. Ir tapando los casos de uno en uno es una carrera que no se gana, así
+que el generador lo resuelve de una vez y geométricamente: **se tapia todo el
+suelo por el que no quepa el jugador**.
+
+Formalmente es una apertura morfológica; en claro, una celda de suelo se queda si
+forma parte de algún cuadrado de 4×4 celdas (32 unidades) enteramente libre. Si
+no, era una rendija y pasa a ser pared. El paso más estrecho que el generador
+abre a propósito son 64 unidades —la puerta de una tienda—, así que no hay forma
+de que esto se coma nada que sirva.
+
+Se pasa **cuatro veces** —tras amueblar, tras abrir galerías y cierres, y al
+final con las puertas abiertas y con ellas cerradas—, porque cada corte nuevo
+puede dejar una punta al aire, y porque una hoja de cierre es una pared más: con
+la puerta echada puede pinchar contra otra y dejar su propia rendija justo
+delante, que es el peor sitio para dejar una. El resumen lo verifica en los dos
+estados y tiene que decir 0 y 0.
+
+Y de paso arregla un fallo callado: las comprobaciones de conectividad miran si
+dos celdas **se tocan**, que no es lo mismo que si el jugador puede ir de una a
+otra. El mapa se daba por bien comunicado a través de rendijas que nadie puede
+cruzar. Pasando esto antes de comprobar, las dos cosas vuelven a significar lo
+mismo.
+
+Cada cierre lleva además su **vestíbulo** despejado a los dos lados, saltándose la
+membrana que separa los anillos: sin él, el suelo de delante de una puerta echada
+quedaba pinchado entre la hoja y lo que hubiera enfrente.
+
 ### Ocho, ocho y cuatro
 
 Son **8 cierres grises, 8 azules y 4 salidas**, repartidos por ángulo alrededor

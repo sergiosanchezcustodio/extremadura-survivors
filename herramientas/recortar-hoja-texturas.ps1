@@ -9,10 +9,11 @@
 # supone ninguna medida: se busca el fondo y se sacan las cajas de lo que no es
 # fondo, se descartan las que son texto (bajas) y se ordenan por filas.
 #
-# El tamaño de salida es POR TEXTURA, siempre múltiplo de la celda (8): las que
-# llevan una rejilla dibujada —baldosas, tablones— salen a un tamaño en el que
-# cada baldosa cae en un número entero de píxeles, o el vecino más cercano las
-# deja cojas. sistemas/sueloRejilla.js acepta cualquier múltiplo de 8.
+# NO SE REDUCE. El juego dibuja a 4 píxeles por unidad (ESCALA_ARTE) y una
+# celda de 8 unidades son 32 píxeles de textura, así que un recuadro de ~240 px
+# de la hoja ya está a la densidad del arte: se recorta un cuadrado centrado de
+# LADO píxeles (múltiplo de 32) tal cual, sin escalar, y cubre LADO/4 unidades.
+# sistemas/sueloRejilla.js acepta cualquier múltiplo de 32 píxeles.
 param(
   [Parameter(Mandatory = $true)][string]$Hoja,
   [string]$Salida = 'assets\niveles\lighthouse'
@@ -20,12 +21,11 @@ param(
 Add-Type -AssemblyName System.Drawing
 $ErrorActionPreference = 'Stop'
 
-# Nombre de fichero y lado de salida, en el orden de la hoja (fila a fila).
-$TILES = @(
-  @('pasillo',      96), @('hipermercado', 96), @('muebleria',   96), @('tienda',      64),
-  @('ocio',         64), @('plaza',        96), @('pared',       64), @('estanteria',  64),
-  @('mostrador',    64), @('cierre_gris',  64), @('cierre_azul', 64), @('salida',      64)
-)
+# Nombre de fichero de cada recuadro, en el orden de la hoja (fila a fila).
+$TILES = @('pasillo', 'hipermercado', 'muebleria', 'tienda', 'ocio', 'plaza',
+           'pared', 'estanteria', 'mostrador', 'cierre_gris', 'cierre_azul', 'salida')
+# Lado del recorte en píxeles: 7 celdas. Los recuadros miden unos 240.
+$LADO = 224
 
 $img = [System.Drawing.Bitmap]::FromFile((Resolve-Path $Hoja))
 $w = $img.Width; $h = $img.Height
@@ -73,13 +73,11 @@ if ($cajas.Count -ne $TILES.Count) {
 
 New-Item -ItemType Directory -Force $Salida | Out-Null
 for ($i = 0; $i -lt $TILES.Count; $i++) {
-  $nombre = $TILES[$i][0]; $lado = $TILES[$i][1]
+  $nombre = $TILES[$i]; $lado = $LADO
   $b = $cajas[$i]
-  # Se recorta un CUADRADO centrado —los recuadros de la hoja no suelen serlo
-  # del todo, y estirar una baldosa la deja rectangular— y se come un borde de
-  # 3 px: el recuadro suele llevar un filete o un difuminado contra el fondo, y
-  # eso en un tile que repite es una raya.
-  $lado0 = [Math]::Min($b[2], $b[3]) - 6
+  # Cuadrado de LADO centrado en el recuadro. Si el recuadro es más chico que
+  # eso, se recorta lo que haya y se escala a vecino más cercano hasta LADO.
+  $lado0 = [Math]::Min([Math]::Min($b[2], $b[3]) - 6, $LADO)
   $rect = New-Object System.Drawing.Rectangle ($b[0] + [int](($b[2] - $lado0) / 2)), ($b[1] + [int](($b[3] - $lado0) / 2)), $lado0, $lado0
   $dest = New-Object System.Drawing.Bitmap $lado, $lado
   $g = [System.Drawing.Graphics]::FromImage($dest)

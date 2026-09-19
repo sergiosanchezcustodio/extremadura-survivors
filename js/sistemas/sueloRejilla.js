@@ -1,4 +1,4 @@
-import { ANCHO_LOGICO, ALTO_LOGICO } from '../core/constantes.js';
+import { ANCHO_LOGICO, ALTO_LOGICO, ESCALA_ARTE } from '../core/constantes.js';
 import { Recursos } from '../core/recursos.js';
 import { RejillaMapa } from './rejillaMapa.js';
 
@@ -33,9 +33,18 @@ import { RejillaMapa } from './rejillaMapa.js';
 // Cuando el trozo que hay en la ranura no es el que se pide, se vuelve a
 // componer. Es un caché de correspondencia directa, como el de una CPU.
 
-// Lado de la textura, en unidades. Cuatro celdas: lo bastante para que un
-// dibujo respire y lo bastante poco para que repita sin que se note el patrón.
+// Lado de la textura de relleno, en unidades. Cuatro celdas: lo bastante para
+// que un dibujo respire y lo bastante poco para que repita sin que se note.
 export const TEXTURA = 32;
+
+// A LA DENSIDAD DEL ARTE. El mundo se dibuja a ESCALA_ARTE píxeles por unidad
+// (4: los personajes y el suelo de Mérida vienen así de finos), y una textura
+// tiene que venir igual o se ve cuatro veces más basta que lo que pisa. Así que
+// una celda de 8 unidades son 8 * PX = 32 píxeles de textura, y un PNG de 224
+// píxeles cubre 56 unidades (7 celdas). Los lienzos de los trozos se reservan
+// también a esta densidad y se pintan a su tamaño en unidades: el blit sale 1:1
+// con el píxel del monitor, que es la regla de rendimiento de todo el motor.
+const PX = ESCALA_ARTE;
 
 const TROZO_CELDAS = 16;
 const RANURAS_X = 8, RANURAS_Y = 4;     // 5x4 visibles caben en 8x4 sin chocar
@@ -194,8 +203,12 @@ function dibujoDe(def) {
   return (def && DIBUJOS[def.nombre]) || DIBUJOS.tienda;
 }
 
+// El dibujo de relleno se traza en unidades y se AMPLÍA a la densidad del
+// arte: un píxel del dibujo son PX píxeles de textura, que es lo que lo deja
+// con el mismo grano gordo que un sprite a 1:1.
 function texturaDeRelleno(def, color) {
-  const { c, ctx } = lienzo(TEXTURA, TEXTURA);
+  const { c, ctx } = lienzo(TEXTURA * PX, TEXTURA * PX);
+  ctx.scale(PX, PX);
   dibujoDe(def)(ctx, hexARgb(color));
   return c;
 }
@@ -207,7 +220,8 @@ function texturaDeRelleno(def, color) {
 // múltiplo más cercano por abajo, recortándola; si es más chica que una celda,
 // a la textura de relleno no llega: se repite hasta llenar 32.
 function normalizar(img, celda) {
-  const lado = Math.max(TEXTURA, Math.floor(Math.min(img.width, img.height) / celda) * celda);
+  const paso = celda * PX;                                  // píxeles por celda
+  const lado = Math.max(TEXTURA * PX, Math.floor(Math.min(img.width, img.height) / paso) * paso);
   if (img.width === lado && img.height === lado) return img;
   const { c, ctx } = lienzo(lado, lado);
   for (let y = 0; y < lado; y += img.height) {
@@ -247,7 +261,7 @@ export const SueloRejilla = {
 
     if (!this.ranuras) {
       this.ranuras = [];
-      const lado = TROZO_CELDAS * RejillaMapa.celda;
+      const lado = TROZO_CELDAS * RejillaMapa.celda * PX;
       for (let i = 0; i < RANURAS_X * RANURAS_Y; i++) {
         const { c, ctx } = lienzo(lado, lado);
         this.ranuras.push({ c, ctx, tx: -1, ty: -1, version: -1 });
@@ -278,11 +292,13 @@ export const SueloRejilla = {
         let t = R.tipo[idx];
         // Puerta ya abierta: se pinta como el hueco que es.
         if (R.grupoDe[t] >= 0 && R.solido[idx] === 0) t = this.abiertaComo;
-        // Cada textura repite a su tamaño: celdas por textura = ancho / celda.
-        const porTextura = tex[t].width / c;
-        const sx = (cx % porTextura) * c;
-        const sy = (cy % porTextura) * c;
-        ctx.drawImage(tex[t], sx, sy, c, c, i * c, j * c, c, c);
+        // Cada textura repite a su tamaño: celdas por textura = ancho / celda,
+        // todo en píxeles de textura (una celda son c * PX).
+        const cp = c * PX;
+        const porTextura = tex[t].width / cp;
+        const sx = (cx % porTextura) * cp;
+        const sy = (cy % porTextura) * cp;
+        ctx.drawImage(tex[t], sx, sy, cp, cp, i * cp, j * cp, cp, cp);
       }
     }
     r.tx = tx; r.ty = ty; r.version = R.versionSuelo;
@@ -302,7 +318,9 @@ export const SueloRejilla = {
       for (let tx = tx0; tx <= tx1; tx++) {
         const r = this.ranuras[(ty % RANURAS_Y) * RANURAS_X + (tx % RANURAS_X)];
         if (r.tx !== tx || r.ty !== ty || r.version !== R.versionSuelo) this._componer(r, tx, ty);
-        ctx.drawImage(r.c, tx * lado, ty * lado);
+        // El lienzo del trozo mide lado * PX píxeles y se pinta en `lado`
+        // unidades: bajo la transformación de ESCALA_ARTE eso es 1:1.
+        ctx.drawImage(r.c, tx * lado, ty * lado, lado, lado);
         blits++;
       }
     }

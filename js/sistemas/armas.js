@@ -1055,6 +1055,9 @@ export class Armas {
     this.nTajos = 0;
 
     // Rayos dibujados, mismo esquema de buffer circular que los tajos.
+    // Qué escudos de un orbital quedan tras una pared este fotograma. Ver
+    // `dibujarOrbitales`. Dieciséis es más de lo que lleva ningún arma.
+    this._escudoOculto = new Uint8Array(16);
     this.rayos = new Array(MAX_TAJOS);
     for (let i = 0; i < MAX_TAJOS; i++) {
       this.rayos[i] = { x: 0, y: 0, ang: 0, largo: 0, grosor: 0, vida: 0, vidaMax: 1,
@@ -1285,6 +1288,21 @@ export class Armas {
       const cx = jugador.xVista;
       const cy = jugador.yVista - medioAlto(jugador);
 
+      // DETRÁS DE UNA PARED NO SE DIBUJA. El escudo que orbita pegado a un
+      // muro asoma por la tienda de al lado, y como allí tampoco pega (ver
+      // `actualizarOrbitales`), lo que se veía era un escudo que gira dentro
+      // del escaparate sin hacer nada. Se decide una vez por escudo y
+      // fotograma con la misma línea de visión que decide el daño, y las
+      // cuatro pasadas de abajo —aura, hoja, halo y aro— se lo saltan.
+      const oculto = this._escudoOculto;
+      const paredes = RejillaMapa.activa && !arma.def.atraviesaParedes;
+      for (let k = 0; k < s.escudos && k < oculto.length; k++) {
+        const a = arma.anguloOrbital + k * paso;
+        oculto[k] = paredes && !RejillaMapa.lineaLibre(jugador.x, jugador.y,
+                                                       cx + cos(a) * radio,
+                                                       cy + sen(a) * radio) ? 1 : 0;
+      }
+
       // CON HOJA PROPIA: el dibujo y nada más. Ni halo ni aro, por el mismo
       // motivo que en las zonas — el sprite está horneado para llenar su cuadro
       // hasta el radio del escudo, así que ya dice dónde está y hasta dónde
@@ -1319,6 +1337,7 @@ export class Armas {
           ctx.globalCompositeOperation = 'lighter';
           for (let k = 0; k < s.escudos; k++) {
             const a = arma.anguloOrbital + k * paso;
+        if (oculto[k]) continue;
             ctx.drawImage(imgAura, 0, 0, metaAura.w, metaAura.h,
                           cx + cos(a) * radio - rAura,
                           cy + sen(a) * radio - rAura,
@@ -1357,6 +1376,7 @@ export class Armas {
 
         for (let k = 0; k < s.escudos; k++) {
           const a = arma.anguloOrbital + k * paso;
+        if (oculto[k]) continue;
           let f = 0;
           if (porEscudo) {
             // El módulo es la red de seguridad: si algún día hay más orbitales
@@ -1388,6 +1408,7 @@ export class Armas {
       ctx.fillStyle = arma.def.color;
       for (let k = 0; k < s.escudos; k++) {
         const a = arma.anguloOrbital + k * paso;
+        if (oculto[k]) continue;
         ctx.beginPath();
         ctx.arc(cx + cos(a) * radio, cy + sen(a) * radio,
                 r * 1.35, 0, Math.PI * 2);
@@ -1404,6 +1425,7 @@ export class Armas {
       ctx.lineWidth = 1.4;
       for (let k = 0; k < s.escudos; k++) {
         const a = arma.anguloOrbital + k * paso;
+        if (oculto[k]) continue;
         const ox = cx + cos(a) * radio;
         const oy = cy + sen(a) * radio;
 

@@ -27,6 +27,15 @@ import { RejillaMapa } from './rejillaMapa.js';
 // se mueve lo bastante despacio como para que en un fotograma cambie un trozo
 // como mucho.
 //
+// PERSPECTIVA 3/4, COMO MÉRIDA. Lo que tiene altura —pared, estantería,
+// mostrador, puerta cerrada— se pinta con TAPA y CARA: la tapa es la textura de
+// la celda, y la cara es el frente, que se pinta SOBRE LAS CELDAS DE SUELO que
+// quedan al sur del tramo, `altura` celdas hacia abajo. Va en la capa del suelo
+// a propósito: quien se arrima a una pared por abajo queda delante de su cara,
+// que es exactamente lo que pasa en una vista cenital inclinada. Es autotiling
+// de una regla: una celda de suelo mira hacia arriba y, si a k celdas hay algo
+// con altura y en medio solo hay suelo, pinta la fila k-1 de esa cara.
+//
 // Los lienzos se reservan al cargar el nivel, no durante la partida: es una
 // tabla fija de RANURAS y cada trozo visible va a la suya —(tx % 8, ty % 4)—,
 // así que dos trozos que se ven a la vez nunca se pisan y no hace falta buscar.
@@ -45,6 +54,11 @@ export const TEXTURA = 32;
 // también a esta densidad y se pintan a su tamaño en unidades: el blit sale 1:1
 // con el píxel del monitor, que es la regla de rendimiento de todo el motor.
 const PX = ESCALA_ARTE;
+
+// Cuántas celdas de cara enseña cada cosa con altura, por el `nombre` de la
+// leyenda. Un nivel lo cambia con `alturasMapa` (símbolo → celdas). Lo que no
+// esté aquí ni allí es plano: solo tapa.
+const ALTURA_POR_NOMBRE = { pared: 2, 'estantería': 3, mostrador: 2, puerta: 2 };
 
 const TROZO_CELDAS = 16;
 const RANURAS_X = 8, RANURAS_Y = 4;     // 5x4 visibles caben en 8x4 sin chocar
@@ -157,23 +171,13 @@ const DIBUJOS = {
     motear(ctx, base, 0.08, 1.10, 0, 10);
     embaldosar(ctx, base, 16, 1.18);
   },
-  // Estantería vista desde arriba: el bastidor oscuro por fuera y el género
-  // dentro, en bloques de cuatro colores. Repite cada celda en los dos ejes
-  // para que un lineal de una celda de grueso se lea igual tumbado o de pie.
-  estantería(ctx, base) {
+  // Tapa de estantería: chapa oscura lisa con un poco de grano. El género se
+  // ve en la CARA (ver CARAS), no en la tapa: desde arriba una estantería es
+  // su techo, y un techo lleno de cajitas de colores compite con el frente.
+  'estantería'(ctx, base) {
     ctx.fillStyle = rgb(base, 0.55); ctx.fillRect(0, 0, TEXTURA, TEXTURA);
-    const generos = ['#c94a3a', '#3a7fc9', '#e0c34a', '#4aa85e', '#e08a3a', '#d6d6d6'];
-    for (let y = 0; y < TEXTURA; y += 8) {
-      for (let x = 0; x < TEXTURA; x += 8) {
-        ctx.fillStyle = rgb(base, 1.15); ctx.fillRect(x + 1, y + 1, 6, 6);     // la balda
-        for (let k = 0; k < 2; k++) {
-          for (let m = 0; m < 2; m++) {
-            const g = generos[Math.floor(hash(x + k, y + m, 11) * generos.length)];
-            ctx.fillStyle = g; ctx.fillRect(x + 2 + k * 3, y + 2 + m * 3, 2, 2);
-          }
-        }
-      }
-    }
+    motear(ctx, base, 0.10, 0.65, 0, 11);
+    motear(ctx, base, 0.06, 0.48, 0, 12);
   },
   // Mostrador: tablero de madera con el canto claro arriba y la sombra abajo.
   mostrador(ctx, base) {
@@ -195,6 +199,74 @@ const DIBUJOS = {
     }
   }
 };
+
+// LAS CARAS DE RELLENO. Se trazan en unidades sobre un lienzo de TEXTURA de
+// ancho y `alto` unidades de alto, y repiten solo en horizontal.
+const CARAS = {
+  // Hormigón visto de frente: más oscuro que la tapa, una arista clara arriba
+  // y una sombra al pie.
+  pared(ctx, base, alto) {
+    ctx.fillStyle = rgb(base, 0.72); ctx.fillRect(0, 0, TEXTURA, alto);
+    for (let y = 0; y < alto; y++) {
+      for (let x = 0; x < TEXTURA; x++) if (hash(x, y, 21) < 0.08) { ctx.fillStyle = rgb(base, 0.6); ctx.fillRect(x, y, 1, 1); }
+    }
+    ctx.fillStyle = rgb(base, 1.15, 10); ctx.fillRect(0, 0, TEXTURA, 1);
+    ctx.fillStyle = rgb(base, 0.45); ctx.fillRect(0, alto - 2, TEXTURA, 2);
+  },
+  // Estantería de frente: baldas claras cada 8 unidades y el género encima.
+  'estantería'(ctx, base, alto) {
+    ctx.fillStyle = rgb(base, 0.5); ctx.fillRect(0, 0, TEXTURA, alto);
+    const generos = ['#c94a3a', '#3a7fc9', '#e0c34a', '#4aa85e', '#e08a3a', '#d6d6d6'];
+    for (let y = 0; y < alto; y += 8) {
+      for (let x = 0; x < TEXTURA; x += 4) {
+        const g = generos[Math.floor(hash(x, y, 22) * generos.length)];
+        ctx.fillStyle = g; ctx.fillRect(x + 1, y + 2, 2, 5);
+        ctx.fillStyle = rgb(hexARgb(g), 0.7); ctx.fillRect(x + 1, y + 5, 2, 2);
+      }
+      ctx.fillStyle = rgb(base, 1.3, 20); ctx.fillRect(0, y + 7, TEXTURA, 1);   // la balda
+    }
+    ctx.fillStyle = rgb(base, 0.4); ctx.fillRect(0, alto - 1, TEXTURA, 1);
+  },
+  // Frente de mostrador: tablas verticales con el canto del tablero arriba.
+  mostrador(ctx, base, alto) {
+    ctx.fillStyle = rgb(base, 0.8); ctx.fillRect(0, 0, TEXTURA, alto);
+    ctx.fillStyle = rgb(base, 0.62);
+    for (let x = 0; x < TEXTURA; x += 8) ctx.fillRect(x, 0, 1, alto);
+    for (let y = 0; y < alto; y++) for (let x = 0; x < TEXTURA; x++) if (hash(x, y, 23) < 0.15) ctx.fillRect(x, y, 1, 1);
+    ctx.fillStyle = rgb(base, 1.3, 20); ctx.fillRect(0, 0, TEXTURA, 2);
+    ctx.fillStyle = rgb(base, 0.4); ctx.fillRect(0, alto - 2, TEXTURA, 2);
+  },
+  // Persiana de frente: lamas horizontales de su color.
+  puerta(ctx, base, alto) {
+    ctx.fillStyle = rgb(base, 0.85); ctx.fillRect(0, 0, TEXTURA, alto);
+    ctx.fillStyle = rgb(base, 0.6);
+    for (let y = 3; y < alto; y += 4) ctx.fillRect(0, y, TEXTURA, 1);
+    ctx.fillStyle = rgb(base, 1.15, 10);
+    for (let y = 0; y < alto; y += 4) ctx.fillRect(0, y, TEXTURA, 1);
+  }
+};
+
+function caraDeRelleno(def, color, altoUnidades) {
+  const { c, ctx } = lienzo(TEXTURA * PX, altoUnidades * PX);
+  ctx.scale(PX, PX);
+  const f = (def && def.puerta) ? CARAS.puerta : (def && CARAS[def.nombre]) || CARAS.pared;
+  f(ctx, hexARgb(color), altoUnidades);
+  return c;
+}
+
+// Una cara que llega en PNG: se lleva a un lienzo de ancho múltiplo de celda y
+// del alto exacto de la cara, repitiendo en horizontal y recortando por arriba
+// lo que sobre de alto (o repitiendo, si viene más baja).
+function normalizarCara(img, celda, altoUnidades) {
+  const paso = celda * PX;
+  const ancho = Math.max(TEXTURA * PX, Math.floor(img.width / paso) * paso);
+  const alto = altoUnidades * PX;
+  const { c, ctx } = lienzo(ancho, alto);
+  for (let y = 0; y < alto; y += img.height) {
+    for (let x = 0; x < ancho; x += img.width) ctx.drawImage(img, x, y);
+  }
+  return c;
+}
 
 // Qué dibujo de relleno le toca a cada símbolo: por el `nombre` de la leyenda,
 // y si no hay uno con ese nombre, la moqueta lisa (que es un color con grano).
@@ -231,7 +303,10 @@ function normalizar(img, celda) {
 }
 
 export const SueloRejilla = {
-  texturas: null,        // una por índice de tipo de RejillaMapa
+  texturas: null,        // una por índice de tipo de RejillaMapa (la tapa)
+  caras: null,           // la cara de cada tipo, o null si es plano
+  altura: null,          // Uint8Array: celdas de cara por tipo (0 = plano)
+  alturaMax: 0,
   abiertaComo: null,     // índice de tipo con que se pinta una puerta abierta
   ranuras: null,
   version: -1,           // la de RejillaMapa.versionSuelo con que se compuso
@@ -248,12 +323,34 @@ export const SueloRejilla = {
     const rutas = nivel.texturasMapa || {};
     const simbolos = RejillaMapa.simbolos;
 
+    const rutasCara = nivel.carasMapa || {};
+    const alturas = nivel.alturasMapa || {};
+
     const cargas = simbolos.map((ch) => rutas[ch] ? Recursos.cargarSuelta(rutas[ch]) : Promise.resolve(null));
+    const cargasCara = simbolos.map((ch) => rutasCara[ch] ? Recursos.cargarSuelta(rutasCara[ch]) : Promise.resolve(null));
     const imagenes = await Promise.all(cargas);
+    const imagenesCara = await Promise.all(cargasCara);
 
     this.texturas = simbolos.map((ch, k) => imagenes[k]
       ? normalizar(imagenes[k], RejillaMapa.celda)
       : texturaDeRelleno(leyenda[ch], colores[ch] || '#000000'));
+
+    // La altura de cada tipo: lo que diga el nivel, si no lo de su nombre, y
+    // solo para lo sólido — un suelo con cara no tiene sentido.
+    this.altura = new Uint8Array(simbolos.length);
+    this.alturaMax = 0;
+    this.caras = simbolos.map((ch, k) => {
+      const def = leyenda[ch];
+      if (!def || !def.solido) return null;
+      const h = alturas[ch] !== undefined ? alturas[ch]
+        : (def.puerta ? ALTURA_POR_NOMBRE.puerta : (ALTURA_POR_NOMBRE[def.nombre] || 0));
+      this.altura[k] = h;
+      if (h > this.alturaMax) this.alturaMax = h;
+      if (h === 0) return null;
+      const altoU = h * RejillaMapa.celda;
+      return imagenesCara[k] ? normalizarCara(imagenesCara[k], RejillaMapa.celda, altoU)
+                             : caraDeRelleno(def, colores[ch] || '#000000', altoU);
+    });
 
     // Una puerta abierta se pinta como el pasillo: el hueco es pasillo.
     const pasillo = simbolos.indexOf('.');
@@ -291,7 +388,8 @@ export const SueloRejilla = {
         const idx = fila + cx;
         let t = R.tipo[idx];
         // Puerta ya abierta: se pinta como el hueco que es.
-        if (R.grupoDe[t] >= 0 && R.solido[idx] === 0) t = this.abiertaComo;
+        const solido = R.solido[idx] === 1;
+        if (R.grupoDe[t] >= 0 && !solido) t = this.abiertaComo;
         // Cada textura repite a su tamaño: celdas por textura = ancho / celda,
         // todo en píxeles de textura (una celda son c * PX).
         const cp = c * PX;
@@ -299,6 +397,24 @@ export const SueloRejilla = {
         const sx = (cx % porTextura) * cp;
         const sy = (cy % porTextura) * cp;
         ctx.drawImage(tex[t], sx, sy, cp, cp, i * cp, j * cp, cp, cp);
+
+        // LA CARA. Solo sobre suelo: se mira hacia arriba hasta alturaMax
+        // celdas; si en medio hay algo sólido que no llega a esta celda con su
+        // altura, tapa la vista y no se pinta nada.
+        if (solido || this.alturaMax === 0) continue;
+        for (let k = 1; k <= this.alturaMax && cy - k >= 0; k++) {
+          const ia = idx - k * R.ancho;
+          if (R.solido[ia] !== 1) continue;            // suelo: se sigue mirando
+          const ta = R.tipo[ia];
+          const h = this.altura[ta];
+          if (k <= h) {
+            const cara = this.caras[ta];
+            const porCara = cara.width / cp;
+            const fx = (cx % porCara) * cp;
+            ctx.drawImage(cara, fx, (k - 1) * cp, cp, cp, i * cp, j * cp, cp, cp);
+          }
+          break;                                       // lo sólido tapa lo de más arriba
+        }
       }
     }
     r.tx = tx; r.ty = ty; r.version = R.versionSuelo;

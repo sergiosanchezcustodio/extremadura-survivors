@@ -93,12 +93,24 @@ export const NIVEL = {
     'd': 'assets/niveles/lighthouse/ocio.png',
     'f': 'assets/niveles/lighthouse/plaza.png',
     '#': 'assets/niveles/lighthouse/pared.png',
-    'E': 'assets/niveles/lighthouse/estanteria.png',
     'M': 'assets/niveles/lighthouse/mostrador.png',
     'G': 'assets/niveles/lighthouse/cierre_gris.png',
     'Z': 'assets/niveles/lighthouse/cierre_azul.png',
     'S': 'assets/niveles/lighthouse/salida.png'
   },
+
+  // LAS CARAS de lo que tiene altura (perspectiva 3/4, ver sueloRejilla.js):
+  // símbolo → PNG del frente, que repite en horizontal y se recorta al alto de
+  // la cara. La estantería y el mostrador de la hoja son frontales, así que
+  // sirven de cara; la tapa de la estantería es de relleno. Lo que no esté
+  // aquí lleva una cara de relleno por su nombre.
+  carasMapa: {
+    'E': 'assets/niveles/lighthouse/estanteria.png',
+    'M': 'assets/niveles/lighthouse/mostrador.png'
+  },
+  // Celdas de cara por símbolo; lo que no esté usa lo de su nombre (pared 2,
+  // estantería 3, mostrador 2, puertas 2).
+  alturasMapa: {},
 
   // Paleta del suelo procedural. Aquí no se usa —el mapa manda—, pero
   // Recursos.cargarNivel la pide y ui/tema.js se apoya en ella.

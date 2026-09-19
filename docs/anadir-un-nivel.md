@@ -255,12 +255,24 @@ celdas. El caché se invalida solo cuando cambia lo que se ve, que hoy es abrir
 o cerrar puertas (`RejillaMapa.versionSuelo`); una puerta abierta se pinta como
 pasillo.
 
+### Perspectiva 3/4: tapa y cara
+
+Lo que tiene altura —pared, estantería, mostrador, puerta cerrada— se pinta
+con **tapa** (su textura de `texturasMapa`) y **cara**: el frente, que se
+pinta sobre las celdas de suelo al sur del tramo, tantas como diga su altura
+(`alturasMapa`, símbolo → celdas; por defecto pared 2, estantería 3,
+mostrador 2, puertas 2). La cara va en la capa del suelo a propósito: quien
+se arrima por abajo queda delante, como en Mérida. Los PNG de cara van en
+`carasMapa` (repiten en horizontal, se recortan al alto); sin PNG hay una
+cara de relleno por nombre. Cambiar el arte no toca código.
+
 ### El mobiliario: estanterías y mostradores
 
 Dos símbolos más, `E` (estantería) y `M` (mostrador), sólidos como la pared
 pero con dibujo propio. Los pone el generador (`amueblar` en
 `herramientas/mapa-lighthouse.js`): los lineales del hipermercado son
-estanterías; las tiendas llevan una o dos estanterías cortas; y todo local
+estanterías de un módulo de grueso (32, para que quepa un frente); las
+tiendas llevan una o dos estanterías cortas; y todo local
 lleva mostradores —uno si es pequeño, dos o más si pasa de 200 módulos, que es
 el mismo corte que le da dos puertas—. En el híper y la mueblería las cajas
 van en la franja de salida. Ningún mueble se pone sin dos módulos de aire

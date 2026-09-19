@@ -94,6 +94,10 @@ const SALIDA      = 'S';
 // mostradores —uno en las tiendas pequeñas, dos o más en las grandes—.
 const ESTANTERIA = 'E';
 const MOSTRADOR  = 'M';
+// Lo que mide de grueso una estantería: UN MÓDULO (32 unidades), no una celda
+// como un tabique. En perspectiva 3/4 una estantería enseña su frente, y en 8
+// unidades no cabe un frente: era una raya con tapas de cajas.
+const GRUESO_ESTANTE = F;
 
 // Lo que cuenta como muro para la excavadora y para las comprobaciones. El
 // mobiliario va aquí: un túnel de reconexión que pase por una estantería se la
@@ -304,19 +308,20 @@ function amueblar(g, local, rng) {
     // acepta suelo del local alrededor, y así la franja se reparte entre las
     // cajas sin que ninguna pise un lineal.
     const vertical = h >= w;
-    const paso = 3 * F;                        // estantería, y dos módulos de paso
+    const paso = GRUESO_ESTANTE + 2 * F;       // estantería, y dos módulos de paso
     const franja = vertical ? { x, y: y + h - 3 * F, w, h: 3 * F, tipo }
                             : { x: x + w - 3 * F, y, w: 3 * F, h, tipo };
     ponerMostradores(g, franja, (w * h) / (F * F), rng, 0);
+    // Lineal de un módulo de grueso y dos de paso entre lineales (`paso`).
     if (vertical) {
-      for (let cx = x + 2 * F; cx < x + w - 2 * F; cx += paso) {
-        for (let k = 0; k < TABIQUE; k++) {
+      for (let cx = x + 2 * F; cx + GRUESO_ESTANTE <= x + w - 2 * F; cx += paso) {
+        for (let k = 0; k < GRUESO_ESTANTE; k++) {
           for (let cy = y + 2 * F; cy < y + h - 3 * F; cy++) g[cy][cx + k] = ESTANTERIA;
         }
       }
     } else {
-      for (let cy = y + 2 * F; cy < y + h - 2 * F; cy += paso) {
-        for (let k = 0; k < TABIQUE; k++) {
+      for (let cy = y + 2 * F; cy + GRUESO_ESTANTE <= y + h - 2 * F; cy += paso) {
+        for (let k = 0; k < GRUESO_ESTANTE; k++) {
           for (let cx = x + 2 * F; cx < x + w - 3 * F; cx++) g[cy + k][cx] = ESTANTERIA;
         }
       }
@@ -374,8 +379,8 @@ function amueblar(g, local, rng) {
   const estantes = largoMax >= 3 * F ? rnd(rng, 1, 2) : 0;
   for (let i = 0; i < estantes; i++) {
     const largo = rnd(rng, 3 * F, Math.min(largoMax, 6 * F));
-    if (w >= h) ponerMueble(g, local, largo, TABIQUE, ESTANTERIA, rng);
-    else        ponerMueble(g, local, TABIQUE, largo, ESTANTERIA, rng);
+    if (w >= h) ponerMueble(g, local, largo, GRUESO_ESTANTE, ESTANTERIA, rng);
+    else        ponerMueble(g, local, GRUESO_ESTANTE, largo, ESTANTERIA, rng);
   }
   ponerMostradores(g, local, (w * h) / (F * F), rng);
 }

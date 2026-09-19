@@ -180,13 +180,27 @@ export function dibujarMapa(ctx, jugadores, enemigos, cofres, camara) {
 // encogiendo el plano habría filas de píxeles que se pierden por el camino y
 // paredes que desaparecen a trozos. Un plano con agujeros que no existen es peor
 // que un plano pequeño.
-const ZOOMS = [1, 2, 3, 4, 6];
-const ZOOM_INICIAL = 0;              // el índice, no el valor: ZOOMS[0] = 1
+const ZOOMS = [0.5, 1, 2, 3, 4];
+const ZOOM_INICIAL = 0;              // el índice, no el valor: ZOOMS[0] = 0,5
+
+// LO TRANSPARENTE QUE ES EL PLANO. No tapa la partida del todo a propósito: es
+// una consulta, y ver la horda moverse por debajo mientras se mira dice bastante
+// —hacia dónde viene— sin tener que cerrarlo.
+const OPACIDAD = 0.82;
 
 let iZoom = ZOOM_INICIAL;
 let lienzo = null;
 let ctxLienzo = null;
 let imagen = null;
+// Y el mismo plano a MEDIA RESOLUCIÓN, que es lo que se enseña al alejar.
+//
+// No vale con dibujar el grande a la mitad: un tabique mide una celda, o sea un
+// píxel, y al encoger se pierde una fila de cada dos — el plano sale con paredes
+// agujereadas que no existen, que es peor que no tener plano. En el pequeño, una
+// celda es pared si lo es CUALQUIERA de las cuatro que la forman, así que los
+// tabiques sobreviven (engordados, que en un plano es lo correcto).
+let lienzoMitad = null;
+let imagenMitad = null;
 let selloPintado = -1;               // `celdasVistas` con el que se pintó
 
 // El mando de zoom, que maneja main.js. `d` es +1 acercar, -1 alejar.
@@ -222,27 +236,44 @@ const COLOR_SALIDA = COLOR_PUERTA.verde;
 
 function prepararLienzo() {
   const w = RejillaMapa.navAncho, h = RejillaMapa.navAlto;
+  const wm = Math.ceil(w / 2), hm = Math.ceil(h / 2);
   if (!lienzo || lienzo.width !== w || lienzo.height !== h) {
     lienzo = document.createElement('canvas');
     lienzo.width = w; lienzo.height = h;
     ctxLienzo = lienzo.getContext('2d');
     imagen = ctxLienzo.createImageData(w, h);
+    lienzoMitad = document.createElement('canvas');
+    lienzoMitad.width = wm; lienzoMitad.height = hm;
+    imagenMitad = lienzoMitad.getContext('2d').createImageData(wm, hm);
     selloPintado = -1;
   }
-  // Nada nuevo que enseñar desde la última vez: se reutiliza lo pintado.
+  // Nada nuevo que enseñar desde la última vez: se reutiliza lo pintado. Con el
+  // mundo congelado mientras el plano está abierto, esto es casi siempre.
   if (selloPintado === RejillaMapa.celdasVistas) return;
 
   const datos = imagen.data;
+  const mitad = imagenMitad.data;
   const visto = RejillaMapa.visto;
   const solido = RejillaMapa.navSolido;
-  const n = w * h;
-  for (let i = 0; i < n; i++) {
-    const p = i << 2;
-    if (!visto[i]) { datos[p + 3] = 0; continue; }       // sin descubrir: nada
-    const c = solido[i] ? COLOR_PARED : COLOR_SUELO;
-    datos[p] = c[0]; datos[p + 1] = c[1]; datos[p + 2] = c[2]; datos[p + 3] = 255;
+  mitad.fill(0);
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      const p = i << 2;
+      if (!visto[i]) { datos[p + 3] = 0; continue; }     // sin descubrir: nada
+      const esPared = solido[i];
+      const c = esPared ? COLOR_PARED : COLOR_SUELO;
+      datos[p] = c[0]; datos[p + 1] = c[1]; datos[p + 2] = c[2]; datos[p + 3] = 255;
+
+      // Y la misma celda en el plano pequeño. Pared gana a suelo, siempre.
+      const pm = (((y >> 1) * wm) + (x >> 1)) << 2;
+      if (mitad[pm + 3] === 255 && mitad[pm] === COLOR_PARED[0]) continue;
+      mitad[pm] = c[0]; mitad[pm + 1] = c[1]; mitad[pm + 2] = c[2]; mitad[pm + 3] = 255;
+    }
   }
   ctxLienzo.putImageData(imagen, 0, 0);
+  lienzoMitad.getContext('2d').putImageData(imagenMitad, 0, 0);
   selloPintado = RejillaMapa.celdasVistas;
 }
 
@@ -303,12 +334,17 @@ function prepararIconos() {
 function dibujarPlano(ctx, jugadores, camara) {
   const t = Tema.actual;
   const relleno = 12;
-  // Casi toda la pantalla de interfaz (960x540): el plano del centro comercial
-  // entero son 632x408 píxeles y tienen que caber sin encogerlo.
-  const ANCHO = 916, ALTO = 512;
+  // La mitad, más o menos, de lo que llegó a ocupar: el plano entero cabe en él
+  // gracias al aumento de 0,5 y así no se come la pantalla. Lo pidió Sergio.
+  const ANCHO = 640, ALTO = 360;
   const px = (ANCHO_UI - ANCHO) / 2;
   const py = (ALTO_UI - ALTO) / 2;
 
+  // TODO EL PLANO VA TRANSLÚCIDO, marco incluido: si solo se atenuara el fondo,
+  // el marco y los rótulos flotarían opacos sobre él y se leería como un fallo
+  // de dibujo en vez de como una ventana que deja ver lo de detrás.
+  ctx.save();
+  ctx.globalAlpha = OPACIDAD;
   panel(ctx, px, py, ANCHO, ALTO, t.filo);
 
   ctx.textAlign = 'center';
@@ -336,6 +372,9 @@ function dibujarPlano(ctx, jugadores, camara) {
   const z = ZOOMS[iZoom];
   const planoW = RejillaMapa.navAncho * z;
   const planoH = RejillaMapa.navAlto * z;
+  // Por debajo de 1 se estampa el plano pequeño a tamaño natural; de 1 para
+  // arriba, el grande. Ver el comentario de `lienzoMitad`.
+  const fuente = z < 1 ? lienzoMitad : lienzo;
 
   // Dónde cae la esquina del plano dentro del hueco. Si cabe entero va centrado;
   // si no cabe, se centra en el jugador y se sujeta a los bordes, que es lo
@@ -354,7 +393,7 @@ function dibujarPlano(ctx, jugadores, camara) {
   // una mancha interpolada.
   const suave = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(lienzo, ox, oy, planoW, planoH);
+  ctx.drawImage(fuente, ox, oy, planoW, planoH);
   ctx.imageSmoothingEnabled = suave;
 
   // TODAS LAS PUERTAS, SIEMPRE, aunque no se haya pisado nunca esa esquina del
@@ -395,7 +434,8 @@ function dibujarPlano(ctx, jugadores, camara) {
                           Math.max(1, RejillaMapa.navTransitables)) * 100);
   textoBorde(ctx, `EXPLORADO ${Math.min(100, pct)}%`, vx, py + ALTO - 7, t.apagado, 2.5);
   ctx.textAlign = 'right';
-  textoBorde(ctx, `+ / -  ACERCAR (x${z})     BLOQ MAYÚS O Y  CERRAR`,
+  textoBorde(ctx, `+ / -  ACERCAR (x${z})     ESC O B  CERRAR`,
              vx + vw, py + ALTO - 7, t.apagado, 2.5);
   ctx.textAlign = 'center';
+  ctx.restore();
 }

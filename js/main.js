@@ -360,6 +360,10 @@ async function usarNivel(nivel) {
   // comparar un ajuste de balance con el anterior.
   Director.iniciar(nivel, rng);
   Obstaculos.iniciar(nivel);
+  // Y LA MÚSICA DEL SITIO. Cada nivel trae la suya en su archivo de datos: un
+  // centro comercial no puede sonar como las ruinas de Mérida. Ver `musica` en
+  // js/datos/niveles/<nivel>.js.
+  GestorAudio.usarPistas(nivel.musica);
   // LA REJILLA DEL NIVEL, si la trae. Se llama SIEMPRE, también para los que no
   // la traen: sin el `apagar`, volver a Mérida después del centro comercial
   // dejaría sus paredes puestas en mitad de la calzada.
@@ -2991,18 +2995,30 @@ function actualizar(dt) {
   }
 
   if (entrada.consumirFlanco('F3')) verDepuracion = !verDepuracion;
-  // EL MAPA: Bloq Mayús en el teclado, Y en cualquier mando. F4 se queda como
-  // atajo de siempre para no romperle la costumbre a nadie.
-  if (entrada.consumirFlanco('CapsLock') || entrada.consumirFlanco('F4')) {
-    mapaAbierto = !mapaAbierto;
-  }
-  for (let i = 0; i < jugadores.length; i++) {
-    const c = entrada.controles[i];
-    if (c && c.consumirBoton(3)) mapaAbierto = !mapaAbierto;
-  }
-  // Y el zoom, mientras está abierto. En el teclado los dos signos, con sus
-  // gemelos del teclado numérico; en el mando, los gatillos de arriba.
+  // --- EL MAPA DEL NIVEL ----------------------------------------------------
+  //
+  // Se abre con Bloq Mayús o con Y, y F4 se queda como atajo de siempre para no
+  // romperle la costumbre a nadie.
+  //
+  // MIENTRAS ESTÁ ABIERTO NO SE ATIENDE NADA MÁS, igual que hace la ficha: se
+  // sale por aquí. No es solo orden — la Y con la pausa puesta abre los ajustes,
+  // y sin este corte una misma pulsación haría las dos cosas.
   if (mapaAbierto) {
+    // ESC EN EL TECLADO O B EN CUALQUIER MANDO, que es lo que se intenta por
+    // instinto para cerrar cualquier ventana del juego. Va ANTES que la pausa: si
+    // no, el ESC que cierra el mapa abriría el menú de pausa detrás.
+    if (entrada.consumirFlanco('Escape') || entrada.consumirAtras() ||
+        entrada.consumirFlanco('CapsLock') || entrada.consumirFlanco('F4')) {
+      mapaAbierto = false;
+      entrada.limpiarFlanco();
+      return;
+    }
+    for (let i = 0; i < jugadores.length; i++) {
+      const c = entrada.controles[i];
+      if (c && c.consumirBoton(3)) { mapaAbierto = false; entrada.limpiarFlanco(); return; }
+    }
+    // El zoom: en el teclado los dos signos, con sus gemelos del teclado
+    // numérico; en el mando, los gatillos de arriba.
     let z = 0;
     if (entrada.consumirFlanco('Equal') || entrada.consumirFlanco('NumpadAdd')) z = 1;
     if (entrada.consumirFlanco('Minus') || entrada.consumirFlanco('NumpadSubtract')) z = -1;
@@ -3013,6 +3029,22 @@ function actualizar(dt) {
       if (c.consumirBoton(4)) z = -1;
     }
     if (z !== 0) acercarMapa(z);
+    entrada.limpiarFlanco();
+    return;
+  }
+
+  // Y para ABRIRLO, solo si no hay otra ventana puesta: con la pausa echada, la
+  // Y son los ajustes.
+  if (!pausado && !configEnPartida) {
+    if (entrada.consumirFlanco('CapsLock') || entrada.consumirFlanco('F4')) {
+      mapaAbierto = true;
+    } else {
+      for (let i = 0; i < jugadores.length; i++) {
+        const c = entrada.controles[i];
+        if (c && c.consumirBoton(3)) { mapaAbierto = true; break; }
+      }
+    }
+    if (mapaAbierto) { entrada.limpiarFlanco(); return; }
   }
   // LA CONFIGURACIÓN, DESDE DENTRO DE LA PARTIDA. Se abre con la pausa puesta y
   // se cierra volviendo a ella, no al menú: quien la abre está jugando y quiere
@@ -4223,6 +4255,12 @@ async function arrancar() {
     // sin pasar por el menú, que es la única forma de probar la tienda o la
     // selección desde la consola cuando el navegador no está dando el foco.
     puestos, get pantalla() { return pantalla; }, irA, volverAlMenu,
+    // Qué ventana de la partida está puesta. Se exponen por lo mismo que
+    // `pantalla`: poder comprobar desde fuera que una tecla ha hecho lo que
+    // tenía que hacer, sin juzgarlo en una captura.
+    get mapaAbierto() { return mapaAbierto; },
+    get pausado() { return pausado; },
+    get fichaAbierta() { return fichaAbierta; },
     // ENTRAR EN UN NIVEL SIN PASAR POR LOS MENÚS. Es el equivalente de `irA`
     // para el sitio en vez de para la pantalla: `usarNivel` carga el mapa, el
     // tema y las oleadas, y `empezarPartida` monta el mundo. Sirve para probar

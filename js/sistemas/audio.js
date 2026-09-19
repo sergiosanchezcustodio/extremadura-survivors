@@ -176,14 +176,25 @@ let _dronOsc = null, _dronGain = null;
 
 // --- Música de fichero -------------------------------------------------------
 //
-// Las dos pistas de Emerita, en el orden en que suenan. Al acabar la última se
-// vuelve a la primera, así que la partida entera va encadenando las dos sin
-// silencio en medio.
+// LAS PISTAS DE LA PARTIDA LAS PONE EL NIVEL, no este archivo.
+//
+// Cada sitio suena distinto —Mérida no puede sonar como un centro comercial— y
+// eso es una decisión del nivel, así que viaja en su archivo de datos (campo
+// `musica`, ver js/datos/niveles/<nivel>.js) y llega aquí por `usarPistas`.
+// Antes había una lista fija aquí con las dos canciones de Mérida, y con eso
+// añadir un sitio obligaba a tocar el motor de audio.
+//
+// Éstas son el REPLIEGUE, para el caso de un nivel que no declare ninguna: mejor
+// la música de Mérida que el silencio.
+const PISTAS_POR_DEFECTO = ['assets/musica/emerita-1.mp3', 'assets/musica/emerita-2.mp3'];
+let PISTAS = PISTAS_POR_DEFECTO;
+
+// Al acabar la última se vuelve a la primera, así que la partida entera va
+// encadenando las dos sin silencio en medio.
 //
 // El bucle NO se hace con `loop = true` en cada elemento: eso repetiría la
 // misma canción para siempre. Se encadena con el evento `ended`, que es lo que
 // permite pasar de una a la otra y volver a empezar.
-const PISTAS = ['assets/musica/emerita-1.mp3', 'assets/musica/emerita-2.mp3'];
 
 // Las de ANTES DE JUGAR van aparte y sueltas: no entran en la lista de arriba
 // porque no se encadenan con las otras ni entre sí, sino que cada una se repite
@@ -487,6 +498,30 @@ export const GestorAudio = {
       arrancarDron();
       const duracion = programarBucle(Math.max(_horizonte, ctx.currentTime));
       _horizonte = Math.max(_horizonte, ctx.currentTime) + duracion;
+    }
+  },
+
+  // QUÉ SUENA EN ESTE NIVEL. Lo llama main.js al cargar uno, con lo que traiga su
+  // archivo de datos. Un nivel sin `musica` se queda con las de Mérida.
+  //
+  // Si la lista es la misma que ya estaba no se toca nada: cambiar de nivel y
+  // volver no tiene por qué tirar los elementos <audio> ya descargados. Y si
+  // cambia, se desmontan los de antes —pararlos no basta, se quedarían colgados
+  // del grafo sonando en la siguiente partida— y se montan los nuevos a la
+  // primera que haga falta.
+  usarPistas(lista) {
+    const nueva = (lista && lista.length) ? lista.slice() : PISTAS_POR_DEFECTO;
+    if (nueva.length === PISTAS.length && nueva.every((r, i) => r === PISTAS[i])) return;
+    PISTAS = nueva;
+    if (_pistas) {
+      pararPistas();
+      for (const a of _pistas) {
+        a.removeEventListener('ended', siguientePista);
+        if (a.parentNode) a.parentNode.removeChild(a);
+      }
+      _pistas = null;
+      _pistaActual = -1;
+      _musicaFichero = false;
     }
   },
 

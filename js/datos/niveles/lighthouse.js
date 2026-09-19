@@ -108,6 +108,14 @@ export const NIVEL = {
   },
 
   // --- Curva de oleadas -----------------------------------------------------
+  //
+  // EL BESTIARIO ES EL DE MÉRIDA, A PROPÓSITO Y DE MOMENTO. El centro comercial
+  // tendrá sus propios enemigos —los tiene pendientes Sergio—, pero hasta que
+  // existan se juega con los del nivel 1: es la única forma de ajustar la curva,
+  // los cierres y el laberinto sin esperar al arte. Cuando lleguen, esto es
+  // cambiar los `tipos` de cada línea; el catálogo está en datos/enemigos.js y es
+  // global y compartido.
+  //
   // Copiada de la forma de Mérida y condensada. MENOS MASA que allí y más cosas
   // que estorban de una en una: en un pasillo de cuatro celdas, veinte
   // serpientes son un tapón, y un tapón no es dificultad, es una pared que se
@@ -187,5 +195,9 @@ export const NIVEL = {
   // vencerla es lo que abre la salida. Un jefe propio del centro comercial es
   // trabajo aparte — necesita su `actualizarX` en sistemas/jefes.js.
   jefes: { intermedio: 'cerbero', segundo: 'hidra', final: 'loba', escolta: 'gemelo',
-           avisoFinal: 'LO QUE VIVE EN EL CENTRO' }
+           avisoFinal: 'LO QUE VIVE EN EL CENTRO' },
+
+  // La música del centro comercial, las dos que pasó Sergio. Se encadenan y
+  // vuelven a empezar, igual que las de Mérida.
+  musica: ['assets/musica/lighthouse-1.mp3', 'assets/musica/lighthouse-2.mp3']
 };

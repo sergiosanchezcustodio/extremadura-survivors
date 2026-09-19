@@ -547,8 +547,16 @@ export const NIVEL = {
   // del todo: con la partida ampliada a 30 minutos recupera su papel, ahora
   // como jefe SEGUNDO (minuto 20), entre Cerbero y la Loba.
   jefes:      { intermedio: 'cerbero', segundo: 'hidra', final: 'loba', escolta: 'gemelo',
-                avisoFinal: 'LA LOBA CAPITOLINA' }
-  // Sin campo `musica`: la Fase 7 sustituyó los ficheros de audio previstos en
-  // el plan por síntesis procedural (ver sistemas/audio.js) — no hay pistas
-  // que referenciar desde aquí, ni para este nivel ni para los siguientes.
+                avisoFinal: 'LA LOBA CAPITOLINA' },
+
+  // LA MÚSICA DEL SITIO, en el orden en que suena. Al acabar la última vuelve a
+  // la primera, así que la partida entera las va encadenando sin silencio en
+  // medio (lo hace sistemas/audio.js con el evento `ended`, no con `loop`: eso
+  // repetiría la misma canción para siempre).
+  //
+  // Estas dos rutas estuvieron escritas dentro de sistemas/audio.js mientras
+  // Mérida era el único sitio que había. Con el segundo nivel dejó de valer:
+  // cada sitio suena distinto y eso es una decisión del nivel, no del motor de
+  // audio. Los .mp3 los hornea herramientas/procesar-assets.ps1.
+  musica: ['assets/musica/emerita-1.mp3', 'assets/musica/emerita-2.mp3']
 };

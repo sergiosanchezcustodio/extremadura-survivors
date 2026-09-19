@@ -92,10 +92,16 @@ export const NIVEL = {
   // que apuntan a entradas de datos/jefes.js — ver el aviso importante más
   // abajo sobre qué significa reutilizar una de esas tres claves.
   jefes: { intermedio: 'cerbero', segundo: 'hidra', final: 'loba',
-           escolta: 'gemelo', avisoFinal: 'LA LOBA CAPITOLINA' }
-  // Sin campo `musica`: la Fase 7 sustituyó los ficheros de audio previstos
-  // originalmente por síntesis procedural (sistemas/audio.js). No hay nada
-  // que referenciar desde un nivel — el audio no depende del nivel en curso.
+           escolta: 'gemelo', avisoFinal: 'LA LOBA CAPITOLINA' },
+
+  // LA MÚSICA DEL SITIO, en el orden en que suena. Al acabar la última vuelve a
+  // la primera, así que la partida entera las encadena sin silencio en medio
+  // (con el evento `ended`, no con `loop`: eso repetiría la misma canción para
+  // siempre). Un nivel sin `musica` se queda con las de Mérida.
+  //
+  // Los .mp3 los hornea herramientas/procesar-assets.ps1 desde resources/musica/
+  // (tabla `$MUSICA`), a 128 kbps y sin carátula incrustada.
+  musica: ['assets/musica/emerita-1.mp3', 'assets/musica/emerita-2.mp3']
 };
 ```
 
@@ -310,9 +316,18 @@ A este tamaño no queda más remedio, y las dos compresiones son distintas:
 
 Un recinto trae plano, y es otra cosa que el radar de Mérida: se abre con **Bloq
 Mayús** o con el botón **Y**, congela la partida y se aleja y acerca con **+** y
-**-** (o con los gatillos de arriba del mando). El aumento de entrada enseña el
-centro comercial entero, que es lo primero que hay que ver en un sitio de 509
-pantallas: dónde estás dentro del conjunto.
+**-** (o con los gatillos de arriba del mando). Se cierra con **ESC** o con **B**,
+que es lo que se intenta por instinto, además de con la tecla que lo abrió.
+
+El aumento de entrada (x0,5) enseña el centro comercial **entero**, que es lo
+primero que hay que ver en un sitio de 509 pantallas: dónde estás dentro del
+conjunto. Ese aumento usa un **plano a media resolución aparte**, no el grande
+encogido: un tabique mide una celda, o sea un píxel, y al reducir se perdería una
+fila de cada dos — el plano saldría con paredes agujereadas que no existen. En el
+pequeño, una celda es pared si lo es cualquiera de las cuatro que la forman.
+
+El panel va **translúcido**: es una consulta, y ver la horda moverse por debajo
+mientras se mira dice bastante sin tener que cerrarlo.
 
 Lo importante es lo que NO enseña. El plano arranca **en blanco** y se descubre
 andando: `RejillaMapa.visto` marca un disco de 19 celdas de navegación alrededor

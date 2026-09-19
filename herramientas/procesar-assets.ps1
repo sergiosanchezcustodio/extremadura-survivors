@@ -4779,9 +4779,14 @@ if (Test-Path $rutaRuleta) {
 # El ORDEN de esta lista es el orden en que suenan, y de ahi vuelven a empezar.
 # Lo lee sistemas/audio.js por las rutas de assets/musica/.
 #
+# El orden dentro de CADA NIVEL es el orden en que suenan, y de ahi vuelven a
+# empezar. Que pistas usa cada uno lo dice su archivo de datos, en el campo
+# `musica` (ver js/datos/niveles/<nivel>.js): aqui solo se hornean.
 $MUSICA = @(
-    @{ src='musica\Musica_emerita_1.mp3'; dst='musica\emerita-1.mp3' }
-    @{ src='musica\Musica_emerita_2.mp3'; dst='musica\emerita-2.mp3' }
+    @{ src='musica\Musica_emerita_1.mp3';         dst='musica\emerita-1.mp3' }
+    @{ src='musica\Musica_emerita_2.mp3';         dst='musica\emerita-2.mp3' }
+    @{ src='musica\Musica_The_Lighthouse_1.mp3';  dst='musica\lighthouse-1.mp3' }
+    @{ src='musica\Musica_The_Lighthouse_2.mp3';  dst='musica\lighthouse-2.mp3' }
 )
 
 # Y aparte de esas dos van las SUELTAS: las de antes de jugar, que no se

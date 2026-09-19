@@ -545,85 +545,90 @@ function abrirSalidas(g, zona, rng) {
 // queda un paso suelto por descuido: cualquier camino de uno a otro tiene que
 // cruzar por donde nosotros decimos.
 
-// Cuántos cierres hay por frontera. Cuatro repartidos por los cuatro puntos
-// cardinales: uno solo convierte el mapa en un embudo y diez no se notan.
-const CIERRES_POR_FRONTERA = 4;
+// Cuántos cierres hay por frontera. Ocho repartidos por el contorno: con menos,
+// el anillo tiene una sola boca y el mapa es un embudo; con muchos más dejan de
+// significar nada. Lo fijó Sergio.
+const CIERRES_POR_FRONTERA = 8;
 
 // Lo ancho que es un cierre, en celdas a cada lado del punto elegido. 4 celdas
 // de radio son 64 unidades de hueco, igual que una puerta de tienda.
 const RADIO_CIERRE = 4;
 
-// Distancias andando desde una celda, sobre lo transitable. Devuelve un
-// Int32Array con -1 en lo que no se alcanza.
-function distanciasDesde(g, x0, y0) {
-  const n = ANCHO * ALTO;
-  const dist = new Int32Array(n).fill(-1);
-  const cola = new Int32Array(n);
-  let fin = 0, ini = 0;
-  const raiz = y0 * ANCHO + x0;
-  dist[raiz] = 0; cola[fin++] = raiz;
-  while (ini < fin) {
-    const c = cola[ini++];
-    const cx = c % ANCHO, cy = (c / ANCHO) | 0;
-    const d = dist[c] + 1;
-    for (let k = 0; k < 4; k++) {
-      const nx = cx + [1, -1, 0, 0][k], ny = cy + [0, 0, 1, -1][k];
-      if (nx < 0 || ny < 0 || nx >= ANCHO || ny >= ALTO) continue;
-      const ni = ny * ANCHO + nx;
-      if (g[ny][nx] === PARED || dist[ni] !== -1) continue;
-      dist[ni] = d;
-      cola[fin++] = ni;
+// LA GALERÍA CIRCULAR DE UN ANILLO: el pasillo que le da la vuelta por dentro.
+//
+// Es lo que hace un centro comercial de verdad —la galería que recorre la planta
+// entera— y aquí además es lo que garantiza que se pueda ir de un lado a otro del
+// anillo sin salir de él. Sin ella, para cruzar de un brazo al de enfrente habría
+// que pasar por el centro, que está cerrado hasta que caiga el jefe de turno.
+//
+// Como los anillos son círculos de verdad (ver `zonificar`), la galería es un
+// anillo geométrico: se abre todo lo que caiga entre dos radios.
+function galeria(g, dist, zona, anillo, desde, hasta, protegidas) {
+  let abiertas = 0;
+  for (let y = FACHADA; y < ALTO - FACHADA; y++) {
+    for (let x = FACHADA; x < ANCHO - FACHADA; x++) {
+      const i = y * ANCHO + x;
+      if (zona[i] !== anillo) continue;
+      if (protegidas && protegidas[i]) continue;
+      const d = dist[i];
+      if (d < desde || d > hasta) continue;
+      if (g[y][x] !== PARED) continue;
+      g[y][x] = PASILLO;
+      abiertas++;
     }
   }
-  return dist;
+  return abiertas;
 }
 
+// LOS TRES ANILLOS, POR DISTANCIA GEOMÉTRICA AL PUNTO DE PARTIDA.
+//
+// Es decir: círculos concéntricos de verdad, que es como lo quiere Sergio y
+// además lo único que funciona.
+//
+// El primer intento los repartía por distancia ANDANDO, que parece más fino —"lo
+// que tienes a tres minutos"— y es una trampa: en un laberinto la curva de nivel
+// de la distancia andando no es un círculo ni nada que se le parezca, y el anillo
+// de fuera salía roto en lóbulos que solo se comunicaban pasando por el centro.
+// O sea, por el anillo de en medio, que está cerrado. Había que darle una puerta
+// propia a cada lóbulo —cuarenta y dos puertas— o tapiarlo, y se tapiaban 57.000
+// celdas de centro comercial de una sentada.
+//
+// Con círculos de verdad, cada anillo es una REGIÓN CONEXA del rectángulo por
+// definición: un disco, una corona y lo que queda fuera. Y entonces cosen sin
+// problema, ocho puertas bastan, y no hay que tapiar nada.
+//
+// Los radios no se reparten a ojo: se eligen para que cada anillo tenga UN TERCIO
+// de la superficie jugable. Con el punto de partida en el centro del mapa, los
+// tercios en área no caen ni mucho menos en los tercios del radio.
 function zonificar(g, inicio) {
-  const dist = distanciasDesde(g, inicio.x, inicio.y);
-
-  // Los dos cortes, en los tercios de lo TRANSITABLE alcanzado. Se ordena una
-  // copia de las distancias en vez de buscar el máximo y partirlo en tres: los
-  // anillos tienen que tener el mismo tamaño en superficie jugable, y con un
-  // mapa irregular el tercio de la distancia máxima no es el tercio del área.
-  const alcanzadas = [];
-  for (let i = 0; i < dist.length; i++) if (dist[i] >= 0) alcanzadas.push(dist[i]);
-  alcanzadas.sort((a, b) => a - b);
-  const u1 = alcanzadas[(alcanzadas.length / 3) | 0];
-  const u2 = alcanzadas[((alcanzadas.length * 2) / 3) | 0];
-
-  const zona = new Int8Array(ANCHO * ALTO).fill(-1);
-  const cola = new Int32Array(ANCHO * ALTO);
-  let fin = 0, ini = 0;
-  for (let i = 0; i < dist.length; i++) {
-    if (dist[i] < 0) continue;
-    zona[i] = dist[i] <= u1 ? 0 : (dist[i] <= u2 ? 1 : 2);
-    cola[fin++] = i;
-  }
-
-  // Y AHORA EL ANILLO SE METE TAMBIÉN EN LA PARED, que es lo que de verdad
-  // separa. Con los anillos definidos solo sobre el suelo, la frontera es una
-  // curva que empieza y acaba en un muro, y cualquier pasadizo nuevo excavado
-  // por dentro de ese muro la rodea por detrás: la barrera queda preciosa y no
-  // separa nada. Pasó, y el mapa entero se recorría con todos los cierres
-  // echados.
-  //
-  // Dándole a CADA celda —suelo o muro— el anillo de la celda de suelo más
-  // cercana, los anillos embaldosan el mapa completo y la frontera pasa a ser
-  // una curva cerrada de verdad. Es la misma transformada que usa
-  // sistemas/rejillaMapa.js para sacar de la pared a quien aparece dentro.
-  while (ini < fin) {
-    const c = cola[ini++];
-    const cx = c % ANCHO, cy = (c / ANCHO) | 0;
-    for (let k = 0; k < 4; k++) {
-      const nx = cx + [1, -1, 0, 0][k], ny = cy + [0, 0, 1, -1][k];
-      if (nx < 0 || ny < 0 || nx >= ANCHO || ny >= ALTO) continue;
-      const ni = ny * ANCHO + nx;
-      if (zona[ni] !== -1) continue;
-      zona[ni] = zona[c];
-      cola[fin++] = ni;
+  const n = ANCHO * ALTO;
+  const radios = [];
+  for (let y = 0; y < ALTO; y++) {
+    for (let x = 0; x < ANCHO; x++) {
+      if (g[y][x] === PARED) continue;
+      const dx = x - inicio.x, dy = y - inicio.y;
+      radios.push(Math.sqrt(dx * dx + dy * dy));
     }
   }
-  return { zona, dist };
+  radios.sort((a, b) => a - b);
+  const r1 = radios[(radios.length / 3) | 0];
+  const r2 = radios[((radios.length * 2) / 3) | 0];
+
+  // El anillo de CADA celda, muro incluido: la frontera tiene que ser una curva
+  // cerrada que cruce también la pared, o cualquier pasadizo excavado por dentro
+  // del muro la rodea por detrás y no separa nada.
+  const zona = new Int8Array(n);
+  const dist = new Float64Array(n);
+  for (let y = 0; y < ALTO; y++) {
+    for (let x = 0; x < ANCHO; x++) {
+      const i = y * ANCHO + x;
+      const dx = x - inicio.x, dy = y - inicio.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      dist[i] = d;
+      zona[i] = d <= r1 ? 0 : (d <= r2 ? 1 : 2);
+    }
+  }
+  return { zona, dist, u1: r1, u2: r2 };
 }
 
 // Tapiar la frontera entre el anillo `k` y los de fuera. Devuelve las celdas
@@ -665,93 +670,175 @@ function abrirCierre(g, frontera, centro, simbolo) {
   }
 }
 
-// LOS CUATRO CIERRES CARDINALES de una frontera.
+// UNIR UN ANILLO CONSIGO MISMO.
 //
-// La frontera de un anillo es una curva cerrada alrededor del punto de partida,
-// así que repartir los cierres es repartirlos POR ÁNGULO. Un primer intento los
-// elegía por orden de barrido de la rejilla y salían los cuatro en la mitad
-// norte: quien estuviera en el sur tenía que cruzarse el anillo entero para
-// encontrar una puerta.
-function cierresCardinales(g, frontera, simbolo, inicio) {
-  let puestos = 0;
-  for (let q = 0; q < CIERRES_POR_FRONTERA; q++) {
-    const objetivo = (q / CIERRES_POR_FRONTERA) * Math.PI * 2 - Math.PI;
-    let mejor = -1, mejorDif = Infinity;
-    for (const i of frontera) {
-      if (g[(i / ANCHO) | 0][i % ANCHO] !== PARED) continue;   // ya es puerta
-      const cx = i % ANCHO, cy = (i / ANCHO) | 0;
-      const ang = Math.atan2(cy - inicio.y, cx - inicio.x);
-      let dif = Math.abs(ang - objetivo);
-      if (dif > Math.PI) dif = Math.PI * 2 - dif;
-      if (dif < mejorDif) { mejorDif = dif; mejor = i; }
-    }
-    if (mejor < 0) break;
-    abrirCierre(g, frontera, mejor, simbolo);
-    puestos++;
-  }
-  return puestos;
-}
-
-// UN CIERRE POR CADA LÓBULO, y esta es la parte que de verdad hacía falta.
+// Ésta es la pieza que permite que haya OCHO puertas por frontera y no cuarenta.
 //
-// El anillo de fuera NO es una pieza. Un centro comercial tiene brazos que solo
-// se comunican por el centro, así que al tapiar la frontera el anillo exterior se
-// parte en varios trozos, y un trozo sin cierre propio es un trozo al que no se
-// llega NUNCA, ni al final de la partida.
+// El problema: un anillo repartido por distancia no tiene por qué ser una sola
+// pieza. Un centro comercial tiene brazos que solo se comunican por el centro,
+// así que al tapiar la frontera el anillo de fuera se parte en lóbulos sueltos.
+// La primera versión lo resolvía dándole una puerta propia a cada lóbulo, y
+// salían cuarenta y dos: el mapa parecía un panal.
 //
-// El primer intento los tapiaba —57.000 celdas de golpe, el 6% del centro
-// comercial, y una de las cuatro salidas con ellas—. Lo correcto es lo contrario:
-// a cada trozo suelto se le abre su propia puerta, en la frontera que lo separa
-// de lo ya alcanzable. Así el mapa entero se recorre al final y cada lóbulo tiene
-// su cierre, que además se lee muy bien jugando.
-function cierresPorLobulo(g, fronteras, inicio) {
-  let abiertos = 0;
-  for (let vuelta = 0; vuelta < 60; vuelta++) {
-    const { etiqueta, trozos } = componentes(g, true);
-    const principal = etiqueta[inicio.y * ANCHO + inicio.x];
-    if (principal < 0) throw new Error('el punto de partida no es transitable');
-    if (trozos.length <= 1) return abiertos;
-
-    let algo = false;
-    for (let t = 0; t < trozos.length; t++) {
-      if (t === principal) continue;
-      // Una celda de frontera todavía tapiada que toque a este trozo. Se prefiere
-      // la que además toque a lo ya alcanzable: esa une de una vez.
-      let elegida = -1, suplente = -1, simbolo = null, suSimbolo = null;
-      for (const fr of fronteras) {
-        for (const i of fr.celdas) {
-          const cx = i % ANCHO, cy = (i / ANCHO) | 0;
-          if (g[cy][cx] !== PARED) continue;
-          let tocaTrozo = false, tocaPrincipal = false;
+// Lo correcto es lo contrario: unir los lóbulos ENTRE SÍ, por dentro del propio
+// anillo, abriendo pasillos a través del muro. Entonces el anillo es una pieza,
+// y con una sola puerta ya se entra en él entero. Las ocho que hay son por
+// comodidad y por reparto, no por obligación.
+//
+// La excavación no puede salirse del anillo ni tocar la membrana que lo separa
+// del siguiente (`protegidas`), así que no hay forma de que esto abra un paso
+// que el jugador no se haya ganado.
+function unirAnillo(g, zona, k, protegidas) {
+  let tuneles = 0;
+  // Lóbulos que ya se ha intentado coser y no se ha podido. Se apuntan porque las
+  // piezas se recalculan en cada vuelta y, sin esto, se reintentaría el mismo
+  // para siempre.
+  const rendidos = new Set();
+  for (let vuelta = 0; vuelta < 40; vuelta++) {
+    // Piezas transitables DE ESTE ANILLO. Las puertas cuentan como paso: lo que
+    // se mira es si el anillo se recorre entero una vez dentro de él.
+    const etiqueta = new Int32Array(ANCHO * ALTO).fill(-1);
+    const cola = new Int32Array(ANCHO * ALTO);
+    const trozos = [];
+    for (let y = 0; y < ALTO; y++) {
+      for (let x = 0; x < ANCHO; x++) {
+        const i = y * ANCHO + x;
+        if (zona[i] !== k || etiqueta[i] !== -1) continue;
+        if (esSolido(g[y][x], true)) continue;
+        const id = trozos.length;
+        let fin = 0, ini = 0;
+        cola[fin++] = i; etiqueta[i] = id;
+        const celdas = [];
+        while (ini < fin) {
+          const c = cola[ini++];
+          celdas.push(c);
+          const cx = c % ANCHO, cy = (c / ANCHO) | 0;
           for (let v = 0; v < 4; v++) {
             const nx = cx + [1, -1, 0, 0][v], ny = cy + [0, 0, 1, -1][v];
             if (!dentro(nx, ny)) continue;
-            const e = etiqueta[ny * ANCHO + nx];
-            if (e === t) tocaTrozo = true;
-            else if (e === principal) tocaPrincipal = true;
+            const ni = ny * ANCHO + nx;
+            if (zona[ni] !== k || etiqueta[ni] !== -1) continue;
+            if (esSolido(g[ny][nx], true)) continue;
+            etiqueta[ni] = id; cola[fin++] = ni;
           }
-          if (!tocaTrozo) continue;
-          if (tocaPrincipal) { elegida = i; simbolo = fr.simbolo; break; }
-          if (suplente < 0) { suplente = i; suSimbolo = fr.simbolo; }
         }
-        if (elegida >= 0) break;
+        trozos.push(celdas);
       }
-      if (elegida < 0) { elegida = suplente; simbolo = suSimbolo; }
-      if (elegida < 0) continue;      // este trozo no toca ninguna frontera
+    }
+    if (trozos.length <= 1) return tuneles;
 
-      const fr = fronteras.find((f) => f.simbolo === simbolo);
-      abrirCierre(g, fr.celdas, elegida, simbolo);
-      abiertos++;
-      algo = true;
+    let principal = 0;
+    for (let i = 1; i < trozos.length; i++) {
+      if (trozos[i].length > trozos[principal].length) principal = i;
     }
-    if (!algo) {
-      console.warn('  AVISO: quedan ' + (trozos.length - 1) +
-                   ' trozos sueltos que no tocan ninguna frontera');
-      return abiertos;
+    const suelto = trozos.findIndex((t, i) => i !== principal && !rendidos.has(t[0]));
+    if (suelto < 0) return tuneles;      // lo que queda son lóbulos por geometría
+
+    // Camino más corto desde el lóbulo suelto hasta el grande, atravesando muro
+    // pero SIN salirse del anillo ni tocar la membrana.
+    const previo = new Int32Array(ANCHO * ALTO).fill(-2);
+    let fin = 0, ini = 0;
+    for (const c of trozos[suelto]) { previo[c] = -1; cola[fin++] = c; }
+
+    let destino = -1;
+    while (ini < fin && destino === -1) {
+      const c = cola[ini++];
+      const cx = c % ANCHO, cy = (c / ANCHO) | 0;
+      for (let v = 0; v < 4; v++) {
+        const nx = cx + [1, -1, 0, 0][v], ny = cy + [0, 0, 1, -1][v];
+        if (nx < FACHADA || ny < FACHADA ||
+            nx >= ANCHO - FACHADA || ny >= ALTO - FACHADA) continue;
+        const ni = ny * ANCHO + nx;
+        if (previo[ni] !== -2) continue;
+        if (zona[ni] !== k) continue;              // no se sale del anillo
+        if (protegidas[ni]) continue;              // ni toca la membrana
+        previo[ni] = c;
+        if (etiqueta[ni] === principal) { destino = ni; break; }
+        cola[fin++] = ni;
+      }
     }
+
+    if (destino === -1) {
+      // UN LÓBULO QUE NO SE PUEDE COSER POR DENTRO DE SU ANILLO, y no es un fallo:
+      // es geometría. Con el punto de partida descentrado, el círculo exterior
+      // corta el borde del mapa y lo que queda fuera son DOS trozos separados por
+      // una cuña del anillo de dentro. No hay forma de ir de uno al otro sin
+      // cruzar esa cuña, que está cerrada.
+      //
+      // No se tapia —eran 109.000 celdas de centro comercial, el 12% del mapa—:
+      // se deja, y el reparto de cierres se encarga de que cada lóbulo tenga los
+      // suyos. Se entra en cada uno por su propia puerta, que jugando se lee
+      // perfectamente.
+      rendidos.add(trozos[suelto][0]);
+      continue;
+    }
+
+    // Y a abrir el pasillo, ancho como una puerta.
+    const radio = PUERTA >> 1;
+    for (let c = destino; c !== -1; c = previo[c]) {
+      const cx = c % ANCHO, cy = (c / ANCHO) | 0;
+      for (let oy = -radio; oy <= radio; oy++) {
+        for (let ox = -radio; ox <= radio; ox++) {
+          const nx = cx + ox, ny = cy + oy;
+          if (nx < FACHADA || ny < FACHADA ||
+              nx >= ANCHO - FACHADA || ny >= ALTO - FACHADA) continue;
+          const ni = ny * ANCHO + nx;
+          if (protegidas[ni] || zona[ni] !== k) continue;
+          if (g[ny][nx] === PARED) g[ny][nx] = PASILLO;
+        }
+      }
+    }
+    tuneles++;
   }
-  console.warn('  AVISO: el reparto de cierres no ha convergido');
-  return abiertos;
+  console.warn('  AVISO: el anillo ' + k + ' no ha terminado de unirse');
+  return tuneles;
+}
+
+// LOS CIERRES DE UNA FRONTERA: `cuantos`, repartidos por ángulo alrededor del
+// punto de partida y SIN SOLAPARSE.
+//
+// Repartir por ángulo es lo natural porque la frontera de un anillo es una curva
+// cerrada alrededor del inicio. Un primer intento los elegía por orden de barrido
+// de la rejilla y salían todos en la mitad norte: quien estuviera en el sur tenía
+// que cruzarse el anillo entero para encontrar una puerta.
+//
+// Y con distancia mínima entre ellos: dos cierres pegados son, a efectos de
+// juego, un cierre ancho, y en el plano se pintan uno encima de otro.
+function cierresRepartidos(g, frontera, simbolo, inicio, cuantos) {
+  const elegidos = [];
+
+  // Separaciones mínimas a probar, de más exigente a menos (en celdas: 150 son
+  // 1200 unidades, dos pantallas y media). Se empieza por la buena y solo se
+  // afloja si con ella no caben los ocho — más vale un par de cierres algo
+  // juntos que quedarse en seis. Con la frontera que sale hoy, la primera basta.
+  const SEPARACIONES = [150, 110, 80, 55, 40, 0];
+
+  for (const separacion of SEPARACIONES) {
+    for (let q = 0; q < cuantos && elegidos.length < cuantos; q++) {
+      const objetivo = (q / cuantos) * Math.PI * 2 - Math.PI;
+      let mejor = -1, mejorDif = Infinity;
+      for (const i of frontera) {
+        const cx = i % ANCHO, cy = (i / ANCHO) | 0;
+        if (g[cy][cx] !== PARED) continue;               // ya es puerta
+        let pegado = false;
+        for (const e of elegidos) {
+          const ex = e % ANCHO, ey = (e / ANCHO) | 0;
+          const dx = ex - cx, dy = ey - cy;
+          if (dx * dx + dy * dy < separacion * separacion) { pegado = true; break; }
+        }
+        if (pegado) continue;
+        const ang = Math.atan2(cy - inicio.y, cx - inicio.x);
+        let dif = Math.abs(ang - objetivo);
+        if (dif > Math.PI) dif = Math.PI * 2 - dif;
+        if (dif < mejorDif) { mejorDif = dif; mejor = i; }
+      }
+      if (mejor < 0) continue;      // a este ángulo no queda sitio
+      elegidos.push(mejor);
+      abrirCierre(g, frontera, mejor, simbolo);
+    }
+    if (elegidos.length >= cuantos) break;
+  }
+  return elegidos.length;
 }
 
 // --- El trazado completo ------------------------------------------------------
@@ -798,7 +885,7 @@ function trazar(semilla) {
   const inicio = celdaLibreCerca(g, cx, cy);
 
   // --- Los tres anillos y sus cierres ---------------------------------------
-  const { zona } = zonificar(g, inicio);
+  const { zona, dist, u1, u2 } = zonificar(g, inicio);
   // LAS BARRERAS NO SE TOCAN a partir de aquí: la excavadora que reconecta
   // rincones sueltos abriría un boquete sin enterarse, y con eso el jefe del
   // minuto 10 dejaría de servir para nada.
@@ -807,11 +894,31 @@ function trazar(semilla) {
     { celdas: tapiarFrontera(g, zona, 0, protegidas), simbolo: PUERTA_GRIS },
     { celdas: tapiarFrontera(g, zona, 1, protegidas), simbolo: PUERTA_AZUL }
   ];
-  // Primero los cuatro cardinales de cada frontera, que son los que dan forma a
-  // la partida; después, uno por cada lóbulo que se haya quedado suelto.
-  let cierresGrises = cierresCardinales(g, fronteras[0].celdas, PUERTA_GRIS, inicio);
-  let cierresAzules = cierresCardinales(g, fronteras[1].celdas, PUERTA_AZUL, inicio);
-  const cierresExtra = cierresPorLobulo(g, fronteras, inicio);
+
+  // LAS TRES GALERÍAS CIRCULARES, una por anillo, justo por dentro de su
+  // frontera. Son lo que cose cada anillo consigo mismo y lo que permite que los
+  // cierres sean ocho y no cuarenta: con el anillo recorrible entero, una sola
+  // puerta ya mete en él.
+  //
+  // El ancho es el de una puerta, que es el de un pasillo estrecho: lo justo para
+  // que se lea como una galería y no como una autopista que parte el mapa.
+  const W = PUERTA;
+  const galerias =
+    galeria(g, dist, zona, 0, u1 - W * 2, u1 - W, protegidas) +   // borde del anillo 0
+    galeria(g, dist, zona, 1, u1 + W, u1 + W * 2, protegidas) +   // cara interior del 1
+    galeria(g, dist, zona, 1, u2 - W * 2, u2 - W, protegidas) +   // cara exterior del 1
+    galeria(g, dist, zona, 2, u2 + W, u2 + W * 2, protegidas);    // cara interior del 2
+
+  // Y la red por debajo: si aun así queda algún lóbulo suelto, se une por dentro
+  // del propio anillo. Con las galerías puestas esto casi nunca hace nada.
+  const tunelesAnillo = unirAnillo(g, zona, 0, protegidas) +
+                        unirAnillo(g, zona, 1, protegidas) +
+                        unirAnillo(g, zona, 2, protegidas);
+
+  const cierresGrises = cierresRepartidos(g, fronteras[0].celdas, PUERTA_GRIS,
+                                          inicio, CIERRES_POR_FRONTERA);
+  const cierresAzules = cierresRepartidos(g, fronteras[1].celdas, PUERTA_AZUL,
+                                          inicio, CIERRES_POR_FRONTERA);
 
   // Y las salidas de la calle, que van en el anillo de fuera.
   const salidas = abrirSalidas(g, zona, rng);
@@ -861,7 +968,7 @@ function trazar(semilla) {
     }
   }
 
-  return { g, locales, salidas, inicio, zona, cierresExtra,
+  return { g, locales, salidas, inicio, zona, tunelesAnillo, galerias,
            taladros: taladros + taladros2, cierresGrises, cierresAzules };
 }
 
@@ -1076,9 +1183,10 @@ function resumen(g, locales, salidas, taladros, zona, trazado) {
   console.log('  transitable: ' + (libre / total * 100).toFixed(1) + '%  (' + libre + ' celdas)');
   console.log('  locales: ' + locales.length + ' ' + JSON.stringify(tipos));
   console.log('  salidas: ' + salidas.length + '   taladros de conexión: ' + taladros);
-  console.log('  cierres: ' + trazado.cierresGrises + ' grises (min 10) y ' +
-              trazado.cierresAzules + ' azules (min 20), más ' + trazado.cierresExtra +
-              ' abiertos para que ningún lóbulo se quede sin puerta');
+  console.log('  cierres: ' + trazado.cierresGrises + ' grises (min 10), ' +
+              trazado.cierresAzules + ' azules (min 20) y ' + salidas.length + ' salidas');
+  console.log('  galerías circulares: ' + trazado.galerias + ' celdas abiertas; ' +
+              'túneles de repaso: ' + trazado.tunelesAnillo);
 
   // Lo que ocupa cada anillo, que es lo que de verdad se juega en cada tramo.
   const porZona = [0, 0, 0];

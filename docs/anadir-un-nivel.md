@@ -274,17 +274,41 @@ ganarse:
 | azul | el jefe del minuto 20 | 66% a 100% |
 | verde (la calle) | el jefe final | y con él **se acaba la fase** |
 
-Los anillos se reparten **por distancia andando** desde el punto de partida, no
-por coordenadas, y se meten también **dentro de la pared**: con la frontera
+Los anillos son **círculos concéntricos de verdad**, por distancia geométrica al
+punto de partida, y cubren **todas las celdas, muro incluido**: con la frontera
 definida solo sobre el suelo, cualquier pasadizo excavado por dentro del muro la
 rodea por detrás y la barrera no separa nada. Pasó, y el mapa entero se recorría
 con todos los cierres echados.
 
-Y hay **un cierre por cada lóbulo**, además de los cuatro cardinales. El anillo
-de fuera no es una pieza —un centro comercial tiene brazos que solo se comunican
-por el centro—, así que al tapiar la frontera se parte en varios trozos, y un
-trozo sin puerta propia es un trozo al que no se llega nunca. El generador lo
-comprueba e imprime el recorrido tramo a tramo:
+Repartirlos **por distancia andando** parece más fino —"lo que tienes a tres
+minutos"— y es una trampa: en un laberinto la curva de nivel de la distancia
+andando no se parece a un círculo, y el anillo de fuera salía roto en lóbulos que
+solo se comunicaban pasando por el centro, que está cerrado. Había que darle una
+puerta a cada lóbulo —cuarenta y dos— o tapiarlo, y se tapiaban 57.000 celdas de
+golpe. Con círculos, cada anillo es una región conexa por definición.
+
+Los radios no se reparten a ojo: se eligen para que **cada anillo tenga un tercio
+de la superficie jugable**. Con el inicio cerca del centro, los tercios en área no
+caen ni de lejos en los tercios del radio.
+
+Y cada anillo lleva su **galería circular**: el pasillo que le da la vuelta por
+dentro, como la galería de un centro comercial de verdad. Sin ella, cruzar de un
+brazo al de enfrente obligaría a pasar por el centro, que está cerrado.
+
+### Ocho, ocho y cuatro
+
+Son **8 cierres grises, 8 azules y 4 salidas**, repartidos por ángulo alrededor
+del inicio y con una separación mínima entre ellos (se prueban varias, de 150
+celdas hacia abajo, y se para en cuanto caben los ocho). Elegirlos por orden de
+barrido de la rejilla los amontonaba todos en la mitad norte.
+
+Una cosa que NO es un fallo: con el inicio descentrado, el círculo exterior corta
+el borde del mapa y el anillo de fuera queda partido en dos lóbulos por pura
+geometría — no hay forma de ir de uno al otro sin cruzar el anillo de en medio.
+No se tapian (eran 109.000 celdas): se entra en cada uno por sus propias puertas,
+y con ocho repartidas por ángulo siempre les tocan varias.
+
+El generador comprueba e imprime el recorrido tramo a tramo:
 
 ```
   al empezar        : 33.3% del mapa, 0/4 salidas
@@ -319,15 +343,18 @@ Mayús** o con el botón **Y**, congela la partida y se aleja y acerca con **+**
 **-** (o con los gatillos de arriba del mando). Se cierra con **ESC** o con **B**,
 que es lo que se intenta por instinto, además de con la tecla que lo abrió.
 
-El aumento de entrada (x0,5) enseña el centro comercial **entero**, que es lo
-primero que hay que ver en un sitio de 509 pantallas: dónde estás dentro del
-conjunto. Ese aumento usa un **plano a media resolución aparte**, no el grande
-encogido: un tabique mide una celda, o sea un píxel, y al reducir se perdería una
-fila de cada dos — el plano saldría con paredes agujereadas que no existen. En el
-pequeño, una celda es pared si lo es cualquiera de las cuatro que la forman.
+El aumento de entrada **se elige solo**: el mayor con el que quepa el centro
+comercial entero en el panel. Es lo primero que hay que ver en un sitio de 509
+pantallas: dónde estás dentro del conjunto.
 
-El panel va **translúcido**: es una consulta, y ver la horda moverse por debajo
-mientras se mira dice bastante sin tener que cerrarlo.
+Los aumentos por debajo de 1 usan **lienzos reducidos aparte**, no el grande
+encogido: un tabique mide una celda, o sea un píxel, y al reducir se perdería una
+fila de cada dos — el plano saldría con paredes agujereadas que no existen. En los
+reducidos, una celda es pared si lo es cualquiera de las que la forman, así que
+los tabiques sobreviven engordados, que en un plano es lo correcto.
+
+El panel va **translúcido** (57%): es una consulta, y ver la horda moverse por
+debajo mientras se mira dice bastante sin tener que cerrarlo.
 
 Lo importante es lo que NO enseña. El plano arranca **en blanco** y se descubre
 andando: `RejillaMapa.visto` marca un disco de 19 celdas de navegación alrededor

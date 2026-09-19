@@ -60,12 +60,44 @@ export const NIVEL = {
     'c': '#b0a2b3',    // tienda
     'd': '#9c95bd',    // ocio
     'f': '#c4ab8c',    // plaza de los food trucks
+    'E': '#8a5a3a',    // estantería
+    'M': '#b8864e',    // mostrador
 
     // Las puertas. Se pintan del color de su juego para que, al verlas de lejos
     // en el suelo, se lean igual que en el plano.
     'G': '#8d949f',    // cierre gris   — lo abre el jefe del minuto 10
     'Z': '#3f7ec0',    // cierre azul   — el del minuto 20
     'S': '#2f8f42'     // puerta de la calle — el jefe final, y se acaba la fase
+  },
+
+  // LAS TEXTURAS DEL SUELO, símbolo → PNG. Cada una es una imagen que REPITE,
+  // de 32x32 (cuatro celdas; otro tamaño se repite o se recorta a ese), que el
+  // motor trocea por celdas: ver sistemas/sueloRejilla.js. Las que no estén
+  // —hoy ninguna— se sustituyen por un dibujo de relleno hecho en código a
+  // partir del color de arriba, para que el mapa ya se lea: terrazo en el
+  // pasillo, baldosa en el híper, tablones en la mueblería, moqueta en las
+  // tiendas, terracota en la plaza, y estanterías y mostradores con su dibujo.
+  //
+  // Cuando Sergio dibuje una, es dejar el PNG en assets/niveles/lighthouse/ y
+  // apuntarlo aquí: `'.': 'assets/niveles/lighthouse/pasillo.png'`.
+  //
+  // LAS DE HOY salen de la hoja que devolvió una IA con ese prompt
+  // (resources/stages/2/imagenes_nivel2.png), recortada con
+  // herramientas/recortar-hoja-texturas.ps1. Son PROVISIONALES hasta que
+  // Sergio las dé por buenas o las dibuje.
+  texturasMapa: {
+    '.': 'assets/niveles/lighthouse/pasillo.png',
+    'a': 'assets/niveles/lighthouse/hipermercado.png',
+    'b': 'assets/niveles/lighthouse/muebleria.png',
+    'c': 'assets/niveles/lighthouse/tienda.png',
+    'd': 'assets/niveles/lighthouse/ocio.png',
+    'f': 'assets/niveles/lighthouse/plaza.png',
+    '#': 'assets/niveles/lighthouse/pared.png',
+    'E': 'assets/niveles/lighthouse/estanteria.png',
+    'M': 'assets/niveles/lighthouse/mostrador.png',
+    'G': 'assets/niveles/lighthouse/cierre_gris.png',
+    'Z': 'assets/niveles/lighthouse/cierre_azul.png',
+    'S': 'assets/niveles/lighthouse/salida.png'
   },
 
   // Paleta del suelo procedural. Aquí no se usa —el mapa manda—, pero

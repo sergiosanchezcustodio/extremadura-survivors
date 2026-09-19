@@ -90,7 +90,10 @@ const PUERTO = 8143;
 // borde de verdad de la calzada -el carril derecho estaba 28 unidades dentro de
 // la piedra- y las dos armas de sierra pegan un 25% menos. Cajas solidas en
 // otro sitio y otros numeros de dano: el mundo cambia desde el primer paso.
-const HUELLA_ESPERADA = '36c604ca b5203cee 5c51f439 168399ed 4505c61b 661e82ed 44ac70a2';
+// Y otra vez (septiembre de 2026): estaba caducada de alguna tanda anterior
+// sobre Merida -salia la misma huella nueva con y sin los cambios de paredes
+// del nivel 2, que en Merida no tocan nada-, y se copio la que daba.
+const HUELLA_ESPERADA = '6c8a0fbd 63ddbfbb 40479eff e2b62fb7 1fed1f40 921629ab fa0aab49';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

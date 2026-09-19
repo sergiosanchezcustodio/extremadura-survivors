@@ -9,6 +9,7 @@ import { Particulas, COLOR_CHISPA, COLOR_POLVO } from './particulas.js';
 // que lanzan —un proyectil, una zona, un tajo— y esta no lanza nada.
 import { VFX } from './vfx.js';
 import { sen, cos, atan2, hipot } from '../core/mate.js';
+import { RejillaMapa } from './rejillaMapa.js';
 
 // Motor genérico de armas.
 //
@@ -634,7 +635,8 @@ const COMPORTAMIENTOS = {
         duenyo: ctx.jugador, arma, arma,
         x, y, radio, radioIni: radio * 0.15, duracion: duracionDe(s.duracion, j),
         danyo, empuje: s.empuje, modo: 'onda', color: arma.def.color,
-        relleno: 0.3, sprite: arma.def.spriteOnda
+        relleno: 0.3, sprite: arma.def.spriteOnda,
+        atraviesaParedes: arma.def.atraviesaParedes
       });
     }
     return true;
@@ -655,7 +657,8 @@ const COMPORTAMIENTOS = {
       sprite: arma.def.spriteOnda,
       // Por el suelo o por el aire. El Sismo abre la tierra y va por debajo de
       // todo; una onda de choque o un grito pasan por encima.
-      enSuelo: arma.def.ondaEnSuelo
+      enSuelo: arma.def.ondaEnSuelo,
+      atraviesaParedes: arma.def.atraviesaParedes
     });
     return true;
   },
@@ -668,9 +671,17 @@ const COMPORTAMIENTOS = {
     for (let i = 0; i < s.charcos; i++) {
       const a = ctx.rng() * Math.PI * 2;
       const d = i === 0 ? 0 : 20 + ctx.rng() * 45;
+      let x = j.x + cos(a) * d, y = j.y + sen(a) * d;
+      // Un charco no se vierte al otro lado de una pared: si el punto sorteado
+      // queda tras un muro, cae a los pies de quien lo suelta. Se sortea igual
+      // —los dos `rng()` de arriba se gastan siempre— para que el lockstep no
+      // se desfase por dónde esté cada uno.
+      if (RejillaMapa.activa && !arma.def.atraviesaParedes &&
+          !RejillaMapa.lineaLibre(j.x, j.y, x, y)) { x = j.x; y = j.y; }
       ctx.zonas.crear({
         duenyo: ctx.jugador, arma, arma,
-        x: j.x + cos(a) * d, y: j.y + sen(a) * d,
+        x, y,
+        atraviesaParedes: arma.def.atraviesaParedes,
         radio: areaDe(s.radio, j), duracion: duracionDe(s.duracion, j),
         danyo: danyoDe(s, j), intervalo: s.intervalo,
         empuje: s.empuje, ralentiza: s.ralentiza || 0,
@@ -770,7 +781,8 @@ const COMPORTAMIENTOS = {
         // campo paraba flechas sin que nada en pantalla lo explicara.
         bloquea: arma.def.bloqueaDisparos,
         // Con qué se dibuja el reventón cuando la pisen.
-        spriteOnda: arma.def.spriteOnda
+        spriteOnda: arma.def.spriteOnda,
+        atraviesaParedes: arma.def.atraviesaParedes
       });
     }
     return true;
@@ -849,13 +861,30 @@ const COMPORTAMIENTOS = {
       // pegado al jugador por el lado contrario entraría por `proy < 0` en uno
       // y no en el otro.
       const b = bocaDe(j, a);
-      const bx = b.x, by = b.y;
+      let bx = b.x, by = b.y;
+      // EL HAZ SE PARA EN LA PARED. Su largo es el alcance o la distancia al
+      // primer muro, lo que llegue antes, y así se dibuja y así se cobra: nada
+      // más allá de ese largo. Con barrido el haz gira, y ahí el recorte se
+      // mide sobre el ángulo de salida —aproximado, pero un aspa que gira no
+      // suele girar hacia dentro de una tienda— y a cada enemigo se le pide
+      // además la línea de visión, que es lo que de verdad decide.
+      // Y si la propia boca ya queda al otro lado del muro —pegado por debajo
+      // a una pared de una celda pasa, ver `lanzar` en entidades/proyectil.js—
+      // el haz sale de los pies, por lo mismo que allí.
+      const paredes = RejillaMapa.activa && !arma.def.atraviesaParedes;
+      let largo = s.alcance;
+      if (paredes) {
+        if (!RejillaMapa.lineaLibre(j.x, j.y, bx, by)) { bx = j.x; by = j.y; }
+        largo = RejillaMapa.alcanceLibre(bx, by, ux0, uy0, s.alcance);
+        if (largo <= 0) continue;
+      }
       // Se busca en un radio igual al alcance y se filtra por distancia a la
       // recta: mucho más barato que marchar el rayo paso a paso.
       const n = enemigosEnRadio(ctx.enemigos, j.x, j.y, s.alcance, sis._alcanzados);
       for (let i = 0; i < n; i++) {
         const e = items[sis._alcanzados[i]];
         const dx = e.x - bx, dy = e.y - by;
+        if (paredes && !RejillaMapa.lineaLibre(bx, by, e.x, e.y)) continue;
 
         // SIN BARRIDO es una sola recta, y esta es la rama de siempre.
         //
@@ -879,11 +908,12 @@ const COMPORTAMIENTOS = {
 
         const proy = dx * ux + dy * uy;
         if (proy < 0) continue;                       // detrás del jugador
+        if (proy > largo + e.radioCuerpo) continue;   // más allá de la pared
         const perp = Math.abs(dx * uy - dy * ux);     // distancia a la recta
         if (perp > s.grosor + e.radioCuerpo) continue;
         ctx.enemigos.danyar(e, danyo, ux, uy, s.empuje, ctx.jugador, arma);
       }
-      sis._anotarRayo(bx, by, a, s.alcance, s.grosor, arma.def.color, giro,
+      sis._anotarRayo(bx, by, a, largo, s.grosor, arma.def.color, giro,
                       arma.def.duracionRayo);
     }
     return true;
@@ -1093,6 +1123,9 @@ export class Armas {
     // es una propiedad del arma, no algo que suba con el nivel — lo que sube
     // con el nivel son los rebotes, y cada uno vale lo mismo.
     d.aceleraRebote = arma.def.aceleraRebote || 0;
+    // Si pasa por encima de las paredes del nivel. De la definición: lo dicen
+    // las armas que caen del cielo, y el resto se para en el muro.
+    d.atraviesaParedes = !!arma.def.atraviesaParedes;
     // Y a cero lo del OSITO, por lo mismo que todo lo demás de aquí: este
     // descriptor es COMPARTIDO, y lo que no se escriba se queda con lo que dejó
     // el disparo anterior — de otra arma. Sin esto, llevar el Osito hacía que
@@ -1135,7 +1168,8 @@ export class Armas {
       color: arma.def.color, relleno: 0.34,
       // El chispazo dibujado, si el arma lo trae. Era la última onda del
       // arsenal que seguía cayendo al círculo trazado.
-      sprite: arma.def.spriteOnda
+      sprite: arma.def.spriteOnda,
+      atraviesaParedes: arma.def.atraviesaParedes
     });
 
     // Y el haz cayendo a plomo sobre el punto: se traza desde `caida` unidades
@@ -1200,6 +1234,10 @@ export class Armas {
       const danyo = danyoDe(s, j);
       const items = ctx.enemigos.pool.items;
       const cy = j.y - medioAlto(j);       // centro visual, no la línea de pies
+      // Un escudo que orbita pegado a una pared asoma al otro lado, pero no
+      // pega ahí: se pide línea de visión desde el jugador, que es de quien
+      // cuelga. Antes del sello, por lo mismo que en entidades/zonaDanyo.js.
+      const paredes = RejillaMapa.activa && !arma.def.atraviesaParedes;
 
       for (let k = 0; k < s.escudos; k++) {
         const a = arma.anguloOrbital + (k / s.escudos) * Math.PI * 2;
@@ -1208,6 +1246,7 @@ export class Armas {
         const n = enemigosEnRadio(ctx.enemigos, ox, oy, s.radioEscudo, this._alcanzados);
         for (let q = 0; q < n; q++) {
           const e = items[this._alcanzados[q]];
+          if (paredes && !RejillaMapa.lineaLibre(j.x, j.y, e.x, e.y)) continue;
           if (e.ultimoSello === arma.selloOrbital) continue;
           e.ultimoSello = arma.selloOrbital;
           const dx = e.x - j.x, dy = e.y - j.y;
@@ -1548,6 +1587,10 @@ export class Armas {
 
     const n = enemigosEnRadio(ctx.enemigos, j.x, j.y, alcance, this._alcanzados);
     const items = ctx.enemigos.pool.items;
+    // Un tajo no cruza paredes: al que está al otro lado del muro no se le da.
+    // Se pregunta DESPUÉS del filtro del arco, que descarta a la mayoría sin
+    // marchar celdas.
+    const paredes = RejillaMapa.activa && !arma.def.atraviesaParedes;
     for (let i = 0; i < n; i++) {
       const e = items[this._alcanzados[i]];
       const dx = e.x - j.x;
@@ -1557,6 +1600,7 @@ export class Armas {
       while (d > Math.PI) d -= Math.PI * 2;
       while (d < -Math.PI) d += Math.PI * 2;
       if (Math.abs(d) > semi) continue;
+      if (paredes && !RejillaMapa.lineaLibre(j.x, j.y, e.x, e.y)) continue;
 
       const m = hipot(dx, dy) || 1;
       ctx.enemigos.danyar(e, danyo, dx / m, dy / m, s.empuje, ctx.jugador, arma);

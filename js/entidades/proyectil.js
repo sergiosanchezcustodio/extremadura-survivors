@@ -2,6 +2,7 @@ import { ANCHO_LOGICO, ALTO_LOGICO, ESCALA_ARTE } from '../core/constantes.js';
 import { Pool } from '../core/pool.js';
 import { Recursos } from '../core/recursos.js';
 import { sen, cos, atan2, hipot } from '../core/mate.js';
+import { RejillaMapa } from '../sistemas/rejillaMapa.js';
 
 // Proyectiles. Mismo patrón que los enemigos: pool preasignado, activos
 // contiguos, cero `new` en partida.
@@ -26,6 +27,43 @@ import { sen, cos, atan2, hipot } from '../core/mate.js';
 // su hueco al pool; da igual, porque de todas formas muere solo al agotar su
 // `vida`, que es su alcance partido por su velocidad.
 const MARGEN = 200;
+
+// LO QUE PASA EN CADA REBOTE, sea contra el margen de la cámara o contra una
+// pared del nivel: se gasta un rebote y la bala vuelve a ser una bala nueva.
+function recargarTrasRebote(p) {
+  p.rebotesPared--;
+  // Se le devuelve el alcance. El `vida` de un proyectil es su alcance
+  // partido por su velocidad, o sea la distancia que le queda: sin
+  // reponerlo, la bala llega al margen ya agotada y el rebote se ve
+  // apagarse a los dos palmos en vez de volver.
+  p.vida = p.vidaMax;
+  // Y vuelve a poder golpear a quien ya golpeó: el sello es lo que
+  // impide que un proyectil dañe dos veces al mismo, y una bala que
+  // vuelve del margen es un golpe nuevo.
+  p.sello = contadorSello++;
+  // Con la perforación entera otra vez, que es lo que hace que el
+  // rebote SIRVA. Una bala que vuelve gastada rebota de adorno: cruza
+  // la horda sin tocar a nadie y lo único que se ve es una raya. Y es
+  // coherente con las otras dos líneas: si el margen la deja como un
+  // disparo nuevo, lo es entera. El daño sigue acotado, porque cada
+  // tramo entre paredes gasta como mucho su perforación.
+  p.perforacion = p.perforacionMax;
+
+  // Y SALE MÁS RÁPIDA DE LO QUE ENTRÓ. Es lo que convierte los rebotes
+  // de un recurso a una amenaza que crece: la primera vuelta es una
+  // bala y la décima es un latigazo cruzando la pantalla.
+  //
+  // Se multiplica la velocidad y NO se toca `vida`, que se acaba de
+  // reponer entera: como `vida` es tiempo y no distancia, una bala más
+  // rápida recorre más en ese mismo tiempo. O sea que cada rebote alarga
+  // también el tramo siguiente, que es justo lo que hace falta para que
+  // le dé tiempo a llegar a la pared de enfrente.
+  if (p.aceleraRebote > 0) {
+    const k = 1 + p.aceleraRebote;
+    p.vx *= k;
+    p.vy *= k;
+  }
+}
 
 function crearProyectil() {
   return {
@@ -71,6 +109,12 @@ function crearProyectil() {
     // salta al más cercano que no haya tocado ya. Es la Honda: una piedra que
     // va haciendo cabriolas entre la horda.
     rebotesEnemigo: 0,
+    // SI PASA POR ENCIMA DE LAS PAREDES del nivel. Lo normal es que no: un
+    // proyectil que toca pared muere ahí —o rebota, si le quedan rebotes—. Lo
+    // llevan a true los que caen del cielo (Bombardeo, Lluvia de flechas,
+    // Cayado): una flecha que cae a plomo no tiene pared que la pare. Ver
+    // `atraviesaParedes` en datos/armas.js.
+    atraviesaParedes: false,
     color: '#fff', estela: null,
     largo: 8,                // longitud del trazo al dibujar
     // Cómo se dibuja: dardo, bala, bola, rayo o el trazo de siempre. Sale del
@@ -270,6 +314,18 @@ export class Proyectiles {
   get activos() { return this.pool.activos; }
 
   lanzar(x, y, vx, vy, def) {
+    // LA BOCA NO PUEDE ESTAR AL OTRO LADO DE UNA PARED. Está en el contorno del
+    // dibujo, hasta 28 unidades por encima de los pies; pegado por debajo a un
+    // muro de una celda (8), queda del otro lado y el proyectil nacía ya en la
+    // tienda de al lado sin haber tocado pared. Se mira el tramo de los pies de
+    // quien dispara a la boca y, si cruza muro, el disparo sale DE LOS PIES: así
+    // pegado a un muro se sigue disparando a lo largo de él, y lo que vaya
+    // hacia el muro muere contra él al primer paso, como debe.
+    if (def.duenyo && RejillaMapa.activa && !def.atraviesaParedes &&
+        !RejillaMapa.lineaLibre(def.duenyo.x, def.duenyo.y, x, y)) {
+      x = def.duenyo.x;
+      y = def.duenyo.y;
+    }
     const p = this.pool.obtener();
     if (!p) return null;
     p.x = p.xPrev = x;
@@ -303,6 +359,7 @@ export class Proyectiles {
     p.rebotesPared = def.rebotesPared || 0;
     p.aceleraRebote = def.aceleraRebote || 0;
     p.rebotesEnemigo = def.rebotesEnemigo || 0;
+    p.atraviesaParedes = !!def.atraviesaParedes;
     p.persigue = def.persigue || 0;
     p.zigzag = def.zigzag || 0;
     p.zigFrec = def.zigFrec || 0;
@@ -499,38 +556,45 @@ export class Proyectiles {
         else if (p.x > der && p.vx > 0) { p.x = der; p.vx = -p.vx; reboto = true; }
         else if (p.y < arr && p.vy < 0) { p.y = arr; p.vy = -p.vy; reboto = true; }
         else if (p.y > aba && p.vy > 0) { p.y = aba; p.vy = -p.vy; reboto = true; }
-        if (reboto) {
-          p.rebotesPared--;
-          // Se le devuelve el alcance. El `vida` de un proyectil es su alcance
-          // partido por su velocidad, o sea la distancia que le queda: sin
-          // reponerlo, la bala llega al margen ya agotada y el rebote se ve
-          // apagarse a los dos palmos en vez de volver.
-          p.vida = p.vidaMax;
-          // Y vuelve a poder golpear a quien ya golpeó: el sello es lo que
-          // impide que un proyectil dañe dos veces al mismo, y una bala que
-          // vuelve del margen es un golpe nuevo.
-          p.sello = contadorSello++;
-          // Con la perforación entera otra vez, que es lo que hace que el
-          // rebote SIRVA. Una bala que vuelve gastada rebota de adorno: cruza
-          // la horda sin tocar a nadie y lo único que se ve es una raya. Y es
-          // coherente con las otras dos líneas: si el margen la deja como un
-          // disparo nuevo, lo es entera. El daño sigue acotado, porque cada
-          // tramo entre paredes gasta como mucho su perforación.
-          p.perforacion = p.perforacionMax;
+        if (reboto) recargarTrasRebote(p);
+      }
 
-          // Y SALE MÁS RÁPIDA DE LO QUE ENTRÓ. Es lo que convierte los rebotes
-          // de un recurso a una amenaza que crece: la primera vuelta es una
-          // bala y la décima es un latigazo cruzando la pantalla.
-          //
-          // Se multiplica la velocidad y NO se toca `vida`, que se acaba de
-          // reponer entera: como `vida` es tiempo y no distancia, una bala más
-          // rápida recorre más en ese mismo tiempo. O sea que cada rebote alarga
-          // también el tramo siguiente, que es justo lo que hace falta para que
-          // le dé tiempo a llegar a la pared de enfrente.
-          if (p.aceleraRebote > 0) {
-            const k = 1 + p.aceleraRebote;
-            p.vx *= k;
-            p.vy *= k;
+      // LAS PAREDES DEL NIVEL. En un recinto (ver sistemas/rejillaMapa.js) lo
+      // que vuela se para en la pared: es la regla que el jugador lee del mapa
+      // —detrás de un muro se está a salvo— y vale en los dos sentidos, o una
+      // tienda cerrada sería un fuerte desde el que se dispara sin que entre
+      // nadie. Se prueba el TRAMO recorrido y no el punto final, por lo mismo
+      // que los impactos: una bala rápida cruza una pared fina en un paso.
+      //
+      // Tres salidas según lo que sea:
+      //  - los que CORREN por el suelo (el Osito) resbalan por la pared como
+      //    resbala todo el mundo, igual que contra una columna de Mérida;
+      //  - los que tienen rebotes de pared (el Fusil) rebotan de verdad, y aquí
+      //    la pared sí se ve, que era lo que pedía el rebote contra el margen;
+      //  - el resto muere en la pared, y si era una granada revienta en ella.
+      if (RejillaMapa.activa && !p.atraviesaParedes) {
+        if (p.persigue > 0) {
+          RejillaMapa.colisionar(p, p.radio > 0 ? p.radio : 1);
+        } else if (!RejillaMapa.lineaLibre(p.xPrev, p.yPrev, p.x, p.y)) {
+          if (p.rebotesPared > 0) {
+            // Qué eje ha chocado: se prueba cada componente por separado desde
+            // el último punto bueno. Si ninguna sola lo explica es una esquina
+            // y se invierten las dos.
+            const chocaX = !RejillaMapa.lineaLibre(p.xPrev, p.yPrev, p.x, p.yPrev);
+            const chocaY = !RejillaMapa.lineaLibre(p.xPrev, p.yPrev, p.xPrev, p.y);
+            if (chocaX || !chocaY) p.vx = -p.vx;
+            if (chocaY || !chocaX) p.vy = -p.vy;
+            p.x = p.xPrev;
+            p.y = p.yPrev;
+            recargarTrasRebote(p);
+          } else {
+            // Revienta en el último punto que aún era aire, no dentro del muro:
+            // una onda que nace en la pared reparte la mitad al otro lado.
+            p.x = p.xPrev;
+            p.y = p.yPrev;
+            if (p.radioExplosion > 0 && alEstallar) alEstallar(p);
+            this.pool.liberarEn(k);
+            continue;
           }
         }
       }

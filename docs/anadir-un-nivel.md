@@ -231,6 +231,41 @@ calzada no existen:
 Lo que NO cambia: oleadas, densidad, escalado, hitos y jefes son el mismo
 contrato y los lee el mismo director.
 
+### El suelo se dibuja con texturas, una por símbolo
+
+`coloresMapa` sigue mandando en el plano, pero el suelo que se pisa lo pinta
+`sistemas/sueloRejilla.js` con una TEXTURA por símbolo de la leyenda: una
+imagen de 32x32 que repite (cuatro celdas), troceada por celdas al dibujar.
+Se declaran en el nivel:
+
+```js
+texturasMapa: { '.': 'assets/niveles/lighthouse/pasillo.png', /* símbolo → PNG */ }
+```
+
+Las que no estén se sustituyen por un dibujo de relleno hecho en código a
+partir del color de `coloresMapa` —terrazo, baldosa, tablones, moqueta,
+terracota, estantería con género, mostrador de madera, persiana en las
+puertas— elegido por el `nombre` de la leyenda. Así el mapa se lee antes de
+que exista un solo PNG, y cuando Sergio dibuja uno es dejarlo en
+`assets/niveles/<nivel>/` y apuntarlo aquí.
+
+Se pinta por TROZOS de 16x16 celdas cacheados en lienzos fijos (reservados al
+cargar, no en partida): unos veinte blits por fotograma en vez de dos mil
+celdas. El caché se invalida solo cuando cambia lo que se ve, que hoy es abrir
+o cerrar puertas (`RejillaMapa.versionSuelo`); una puerta abierta se pinta como
+pasillo.
+
+### El mobiliario: estanterías y mostradores
+
+Dos símbolos más, `E` (estantería) y `M` (mostrador), sólidos como la pared
+pero con dibujo propio. Los pone el generador (`amueblar` en
+`herramientas/mapa-lighthouse.js`): los lineales del hipermercado son
+estanterías; las tiendas llevan una o dos estanterías cortas; y todo local
+lleva mostradores —uno si es pequeño, dos o más si pasa de 200 módulos, que es
+el mismo corte que le da dos puertas—. En el híper y la mueblería las cajas
+van en la franja de salida. Ningún mueble se pone sin dos módulos de aire
+alrededor, ni delante de una puerta: las puertas se abren ANTES de amueblar.
+
 ### El grosor de la pared es el tamaño de la celda
 
 Es la consecuencia que más condiciona el trazado y no es evidente: **una pared

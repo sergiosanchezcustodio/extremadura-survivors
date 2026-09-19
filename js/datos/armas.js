@@ -24,6 +24,16 @@
 // Siguen saliendo en el ciclador de desarrollo (tecla M, ver main.js), que es
 // justo donde hacen falta: para volver a mirar una y decidir si vuelve.
 
+// `atraviesaParedes: true` DEJA A UN ARMA PASAR POR ENCIMA DE LAS PAREDES de un
+// nivel de recinto (ver sistemas/rejillaMapa.js). La regla general es la
+// contraria —nada cruza un muro: los proyectiles mueren o rebotan en él, los
+// tajos, ondas, charcos, rayos y orbitales no alcanzan a quien está al otro
+// lado— y solo se exceptúa lo que por su naturaleza no va por el suelo: lo que
+// cae del cielo (Bombardeo, Lluvia de flechas, Cayado, Rayos de Júpiter), lo
+// que va por debajo (Sismo, Minas), lo que es un campo o un sonido (Aquila,
+// Campo eléctrico, Grito de guerra, Campana del Silencio). Decidido por Sergio
+// en septiembre de 2026.
+
 export const ARMAS = {
   // --- Implementadas en la Fase 3 -----------------------------------------
   pilum: {
@@ -303,6 +313,7 @@ export const ARMAS = {
   },
   bombardeo: {
     nombre: 'Bombardeo',
+    atraviesaParedes: true,
     descripcion: 'Bombas al azar por toda la pantalla. No hay que apuntar.',
     comportamiento: 'bombardeoAleatorio',
     spriteOnda: 'explosionFuego',
@@ -329,6 +340,7 @@ export const ARMAS = {
   },
   aquila: {
     nombre: 'Aquila',
+    atraviesaParedes: true,
     descripcion: 'Aura constante a tu alrededor. Poco daño, sin descanso.',
     comportamiento: 'auraPasiva',
     // El AURA arranca pegada al cuerpo (24) y llega a 71 al nivel 10. Antes
@@ -409,6 +421,7 @@ export const ARMAS = {
   // --- Rayos: alcance largo, daño contenido ------------------------------
   rayoHorizontal: {
     nombre: 'Rayos de Júpiter',
+    atraviesaParedes: true,
     descripcion: 'Cae del cielo a tu alrededor. No apunta: siembra.',
     comportamiento: 'tormentaRayos',
     danyo: 14, recarga: 2.2,
@@ -935,6 +948,7 @@ export const ARMAS = {
   },
   lluviaDeFlechas: {
     nombre: 'Lluvia de flechas',
+    atraviesaParedes: true,
     descripcion: 'Andanada que cae por todas partes. Fina y constante.',
     comportamiento: 'bombardeoAleatorio',
     danyo: 0, danyoExplosion: 11, radioExplosion: 22, duracion: 0.28,
@@ -965,6 +979,7 @@ export const ARMAS = {
   // --- Ondas: castigan estar rodeado, que es donde acabas siempre ---------
   gritoDeGuerra: {
     nombre: 'Grito de guerra',
+    atraviesaParedes: true,
     descripcion: 'Empujón sonoro. Aparta más de lo que mata.',
     comportamiento: 'ondaCircular',
     spriteOnda: 'ondaGrito',
@@ -976,6 +991,7 @@ export const ARMAS = {
   },
   sismo: {
     nombre: 'Sismo',
+    atraviesaParedes: true,
     descripcion: 'La tierra se abre a lo ancho. Tarda, pero llega lejos.',
     comportamiento: 'ondaCircular',
     spriteOnda: 'reventonTierra',
@@ -1019,6 +1035,7 @@ export const ARMAS = {
   },
   minas: {
     nombre: 'Minas',
+    atraviesaParedes: true,
     sprite: 'minaExplosiva',
     // Con qué revienta al pisarla.
     spriteOnda: 'explosionFuego',
@@ -1059,6 +1076,7 @@ export const ARMAS = {
   },
   campoElectrico: {
     nombre: 'Campo eléctrico',
+    atraviesaParedes: true,
     descripcion: 'Chisporroteo pegado a ti. Nadie se acerca gratis.',
     comportamiento: 'auraPasiva',
     danyo: 5, intervalo: 0.3, recarga: 0.5, radio: 34, empuje: 90,
@@ -1235,6 +1253,7 @@ export const ARMAS = {
   // cuartos del ancho de la pantalla (480 lógicas).
   campanaSilencio: {
     nombre: 'Campana del Silencio',
+    atraviesaParedes: true,
     descripcion: 'No hace daño: enmudece. A los callados se los atraviesa.',
     comportamiento: 'conoSilencio',
     // Cada subida mueve LAS CUATRO cosas a la vez —alcance, cadencia, cono y
@@ -1319,6 +1338,7 @@ export const ARMAS = {
   // bombardeo que llega de lejos; en algo que pasa a tus pies solo sería tarde.
   cayadoSanIsidro: {
     nombre: 'Cayado de San Isidro',
+    atraviesaParedes: true,
     descripcion: 'El bastón golpea el suelo a tu lado y abre la tierra.',
     comportamiento: 'bombardeoAleatorio',
     spriteOnda: 'ondaChoque',

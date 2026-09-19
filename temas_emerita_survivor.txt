@@ -1,7 +1,23 @@
 
 
+La campana del silencio debe tener más cadencia, un x2. La duración del congelamiento también se aumenta un x2.
+He actualizado la imagen del icono del mando, para la pantalla de configuración para el icono de la selección de "Controles"
+No me funciona el zoom del mini mapa.
 
 
+###################################################
+casi todas las armas al acercarme mucho desde abajo a una pared horizontal, algunas armas atraviesan las paredes.
+
+El personaje no puede acercarse a las paredes/muros inferiores, se queda a una distancia que resulta anomala, extraña, hay que corregirlo, Los personajes deben poder acercarse hasta toparse con el muro/pared.
+
+Las mascotas no deben atravesar las paredes/muros.
+
+
+
+##################
+
+Física de las armas, paredes, rebotes... como lo hacemos
+El saltar de las intros al pulsar un boton, debe reducirse un 30% de tiempo. Debemos poder pasar algo más rápido.
 
 
 ##################

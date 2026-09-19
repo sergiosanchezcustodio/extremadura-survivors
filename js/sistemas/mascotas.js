@@ -5,6 +5,7 @@ import { ESCALA_ARTE } from '../core/constantes.js';
 import { enemigoMasCercano, enemigosEnRadio } from './colisiones.js';
 import { VFX } from './vfx.js';
 import { sen, cos, hipot } from '../core/mate.js';
+import { RejillaMapa } from './rejillaMapa.js';
 
 // Mascotas: el bicho que acompaña a cada jugador y hace su cosa cada tantos
 // segundos. Ver datos/mascotas.js para el catálogo.
@@ -226,6 +227,23 @@ export const Mascotas = {
       const k = Math.min(1, SUAVIZADO * dt);
       m.despX += (objX - m.despX) * k;
       m.despY += (objY - m.despY) * k;
+      // SIN CRUZAR PAREDES. La órbita es un desplazamiento fijo alrededor del
+      // jugador, y con él pegado a un muro la mitad de la vuelta cae al otro
+      // lado. Se mide hasta dónde llega el tramo del jugador a su sitio y, si
+      // hay pared, se queda a este lado, a un par de unidades del muro. Se
+      // recorta el DESPLAZAMIENTO y no solo la posición, para que el suavizado
+      // no la empuje contra la pared en cada paso.
+      if (RejillaMapa.activa) {
+        const d = hipot(m.despX, m.despY);
+        if (d > 0.001) {
+          const libre = RejillaMapa.alcanceLibre(j.x, j.y, m.despX / d, m.despY / d, d);
+          if (libre < d) {
+            const f = Math.max(0, libre - 2) / d;
+            m.despX *= f;
+            m.despY *= f;
+          }
+        }
+      }
       const antX = m.x;
       m.x = j.x + m.despX;
       m.y = j.y + m.despY;

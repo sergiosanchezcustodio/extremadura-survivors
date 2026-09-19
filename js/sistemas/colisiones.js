@@ -1,6 +1,7 @@
 import { nuevoSello } from '../entidades/proyectil.js';
 import { DT } from '../core/constantes.js';
 import { hipot } from '../core/mate.js';
+import { RejillaMapa } from './rejillaMapa.js';
 
 // Colisiones sobre la rejilla espacial. Dos consumidores:
 //   - separacion()      enemigo <-> enemigo, para que no se apilen en un punto
@@ -942,13 +943,21 @@ export function enemigoMasCercano(enemigos, x, y, alcance, excluir = null) {
   const n = enemigos.pool.activos;
   let mejor = null;
   let mejorD2 = alcance * alcance;
+  // En un recinto, el más cercano A LA VISTA: apuntar a uno que está al otro
+  // lado de una pared es disparar contra el muro una y otra vez mientras el
+  // que sí se ve te muerde. La línea de visión se pregunta solo cuando el
+  // candidato MEJORA al mejor que había, que son unas pocas veces por barrido y
+  // no una por enemigo.
+  const paredes = RejillaMapa.activa;
   for (let k = 0; k < n; k++) {
     const e = items[k];
     if (e.vida <= 0 || e === excluir) continue;
     const dx = e.x - x;
     const dy = e.y - y;
     const d2 = dx * dx + dy * dy;
-    if (d2 < mejorD2) { mejorD2 = d2; mejor = e; }
+    if (d2 >= mejorD2) continue;
+    if (paredes && !RejillaMapa.lineaLibre(x, y, e.x, e.y)) continue;
+    mejorD2 = d2; mejor = e;
   }
   return mejor;
 }

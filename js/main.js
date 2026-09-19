@@ -26,6 +26,7 @@ import {
 } from './sistemas/colisiones.js';
 import { Obstaculos } from './sistemas/obstaculos.js';
 import { RejillaMapa } from './sistemas/rejillaMapa.js';
+import { SueloRejilla } from './sistemas/sueloRejilla.js';
 import { Lockstep } from './core/lockstep.js';
 import { RedConsola, avisoDeConexion, avisoMismaRed } from './red/consola.js';
 import { Sincro } from './red/sincro.js';
@@ -370,8 +371,13 @@ async function usarNivel(nivel) {
   if (nivel.mapa) {
     RejillaMapa.iniciar(nivel.mapa.rejilla, nivel.mapa.leyenda, nivel.mapa.celda);
     prepararColoresRejilla(nivel);
+    // Y sus texturas: los PNG que haya y un dibujo de relleno para el resto.
+    // Ver sistemas/sueloRejilla.js. Los colores planos de arriba se quedan para
+    // el plano y como repliegue si esto no llegara a cargar.
+    await SueloRejilla.cargar(nivel);
   } else {
     RejillaMapa.apagar();
+    SueloRejilla.activo = false;
   }
   // Y la lámina de su historia, si trae una propia. Aquí y no al abrir la
   // pantalla: una imagen que se empieza a pedir cuando ya se está leyendo el
@@ -753,7 +759,11 @@ function estallar(p) {
     x: p.x, y: p.y,
     radio: p.radioExplosion, radioIni: p.radioExplosion * 0.15,
     duracion: 0.32, danyo: p.danyoExplosion, empuje: p.empuje * 1.6,
-    modo: 'onda', color: p.color, relleno: 0.3, sprite: p.spriteOnda
+    modo: 'onda', color: p.color, relleno: 0.3, sprite: p.spriteOnda,
+    // Y si cruza paredes, lo hereda también: la flecha que cae del cielo
+    // revienta donde cae, y la granada que se para en el muro revienta a
+    // este lado.
+    atraviesaParedes: p.atraviesaParedes
   });
   // Y la columna que cae del cielo sobre el punto, para el que la declare (el
   // Pilum de Júpiter). Es SOLO dibujo: el daño entero está en la onda de
@@ -2623,11 +2633,16 @@ function prepararColoresRejilla(nivel) {
 // leer del mapa: que detrás de una pared se está a salvo. Distinguir una
 // estantería —por encima de la que sí tendría sentido volar— de un muro de carga
 // pide un símbolo más en la leyenda, y eso es trabajo de cuando haya arte.
+// Semialto de la caja con que un jugador choca contra las paredes del nivel.
+// Chico a propósito: ver `colisionar` en sistemas/rejillaMapa.js.
+const PIES_CONTRA_PARED = 2;
+
 function colisionarParedes() {
   if (!RejillaMapa.activa) return;
   for (let i = 0; i < jugadores.length; i++) {
     const j = jugadores[i];
-    RejillaMapa.colisionar(j, j.radioCuerpo || j.radio);
+    // Semialto de dos: los pies tocan el muro de abajo. Ver `colisionar`.
+    RejillaMapa.colisionar(j, j.radioCuerpo || j.radio, PIES_CONTRA_PARED);
   }
   const items = enemigos.pool.items;
   const n = enemigos.pool.activos;
@@ -4015,6 +4030,14 @@ function dibujarSuelo(izq, arr) {
   //
   // Solo se pintan las celdas que se ven: unas 15x10, sea el mapa de 64
   // pantallas o de mil.
+  if (RejillaMapa.activa && SueloRejilla.activo) {
+    // Con texturas: el caché por trozos de sistemas/sueloRejilla.js. Lo de
+    // fuera del recinto, del color del vacío, por lo mismo que abajo.
+    ctx.fillStyle = COLOR_VACIO;
+    ctx.fillRect(izq, arr, ANCHO_LOGICO, ALTO_LOGICO);
+    tilesDibujados = SueloRejilla.dibujar(ctx, izq, arr);
+    return;
+  }
   if (RejillaMapa.activa && coloresRejilla) {
     const c = RejillaMapa.celda;
     const cx0 = Math.max(0, (izq / c) | 0);

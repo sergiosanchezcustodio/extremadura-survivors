@@ -3,6 +3,7 @@ import { Pool } from '../core/pool.js';
 import { Recursos } from '../core/recursos.js';
 import { enemigosEnRadio } from '../sistemas/colisiones.js';
 import { sen, cos, hipot } from '../core/mate.js';
+import { RejillaMapa } from '../sistemas/rejillaMapa.js';
 
 // Zonas de daño: charcos, trampas, auras, explosiones y ondas expansivas.
 //
@@ -118,6 +119,13 @@ function crearZona() {
     // Pero un charco es SUELO, y algo que vuela por encima de un charco no lo
     // toca. Ver entidades/disparo.js.
     bloquea: true,
+    // SI DAÑA A TRAVÉS DE LAS PAREDES del nivel. Lo normal es que no: una
+    // explosión o un charco no cruzan un muro, y a cada enemigo dentro del
+    // radio se le pide línea de visión desde el centro de la zona. Lo llevan
+    // a true las que van por debajo o por encima de las paredes —el Sismo, los
+    // rayos que caen, el Grito de guerra, las minas—. Ver `atraviesaParedes`
+    // en datos/armas.js.
+    atraviesaParedes: false,
     // CUÁNTO TAPA su calcomanía, de 0 a 1. Sale de los datos del arma porque no
     // todas piden lo mismo: un charco de aceite y un aura pegada al cuerpo se
     // ven sobre fondos distintos y compiten con cosas distintas. Ver
@@ -254,6 +262,7 @@ export class Zonas {
     z.origenY = def.origenY === undefined ? def.y : def.origenY;
     z.vuelo = def.vuelo || 0;
     z.bloquea = def.bloquea !== false;
+    z.atraviesaParedes = !!def.atraviesaParedes;
     z.opacidad = def.opacidad || OPACIDAD_ZONA;
     z.propaga = def.propaga || 0;
     z.brotes = z.propaga > 0 ? BROTES_MAX : 0;
@@ -366,6 +375,7 @@ export class Zonas {
     h.relleno = padre.relleno;
     h.opacidad = padre.opacidad;
     h.bloquea = padre.bloquea;
+    h.atraviesaParedes = padre.atraviesaParedes;
     h.enSuelo = padre.enSuelo;
     h.hojaPieza = padre.hojaPieza;
     h.piezas = padre.piezas;
@@ -385,8 +395,14 @@ export class Zonas {
   _danyar(z, enemigos, unaVez) {
     const n = enemigosEnRadio(enemigos, z.x, z.y, z.radioActual, this._alcanzados);
     const items = enemigos.pool.items;
+    // Si hay que mirar las paredes: solo en un nivel de recinto y solo para
+    // las zonas que no las cruzan. Se decide una vez por zona, fuera del bucle.
+    const paredes = RejillaMapa.activa && !z.atraviesaParedes;
     for (let i = 0; i < n; i++) {
       const e = items[this._alcanzados[i]];
+      // La pared se mira ANTES del sello: un enemigo tapado hoy puede asomar
+      // mañana, y con el sello ya puesto la onda no le daría al asomar.
+      if (paredes && !RejillaMapa.lineaLibre(z.x, z.y, e.x, e.y)) continue;
       if (unaVez) {
         if (e.ultimoSello === z.sello) continue;
         e.ultimoSello = z.sello;

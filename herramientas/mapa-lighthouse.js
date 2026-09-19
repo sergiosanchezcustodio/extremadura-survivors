@@ -86,9 +86,24 @@ const PUERTA_GRIS = 'G';
 const PUERTA_AZUL = 'Z';
 const SALIDA      = 'S';
 
-// El orden es el del tileset: el gid de Tiled es este índice + 1.
+// EL MOBILIARIO. Sólido como una pared para la simulación —no se pasa por
+// encima de una estantería—, pero con símbolo propio para que se DIBUJE como lo
+// que es: una estantería con género y un mostrador con su tablero, no un trozo
+// de muro de carga en medio de la tienda. Lo pidió Sergio para empezar el
+// escenario del nivel 2: cada tipo de tienda con su suelo, estanterías, y
+// mostradores —uno en las tiendas pequeñas, dos o más en las grandes—.
+const ESTANTERIA = 'E';
+const MOSTRADOR  = 'M';
+
+// Lo que cuenta como muro para la excavadora y para las comprobaciones. El
+// mobiliario va aquí: un túnel de reconexión que pase por una estantería se la
+// lleva por delante igual que a un tabique.
+const esMuro = (ch) => ch === PARED || ch === ESTANTERIA || ch === MOSTRADOR;
+
+// El orden es el del tileset: el gid de Tiled es este índice + 1. Lo nuevo va
+// AL FINAL para que los gids de lo que ya estaba no se muevan.
 const ORDEN = [PARED, PASILLO, HIPER, IKEA, TIENDA, OCIO, PLAZA, SALIDA,
-               PUERTA_GRIS, PUERTA_AZUL];
+               PUERTA_GRIS, PUERTA_AZUL, ESTANTERIA, MOSTRADOR];
 const COLORES = {
   [PARED]:   [0x3a, 0x3f, 0x4a],
   [PASILLO]: [0xd8, 0xd4, 0xcc],
@@ -99,7 +114,9 @@ const COLORES = {
   [PLAZA]:   [0xe8, 0xcf, 0xb0],
   [SALIDA]:      [0x66, 0xd2, 0x78],
   [PUERTA_GRIS]: [0x9b, 0xa2, 0xad],
-  [PUERTA_AZUL]: [0x4f, 0x8f, 0xd8]
+  [PUERTA_AZUL]: [0x4f, 0x8f, 0xd8],
+  [ESTANTERIA]:  [0x8a, 0x5a, 0x3a],
+  [MOSTRADOR]:   [0xb8, 0x86, 0x4e]
 };
 
 // --- Azar reproducible --------------------------------------------------------
@@ -203,6 +220,70 @@ function carvarLocal(g, hoja, rng, locales) {
   locales.push({ x: x0, y: y0, w, h, tipo });
 }
 
+// --- Mobiliario ---------------------------------------------------------------
+//
+// Un mueble se coloca solo si TODO su rectángulo, más un anillo de holgura
+// alrededor, es suelo del local. La holgura es lo que garantiza que entre dos
+// muebles —o entre un mueble y la pared— queda paso de sobra: HOLGURA celdas
+// (32 unidades) es por donde ya cabe el jugador, y aquí se deja el doble.
+const AIRE = 2 * F;
+
+function cabeMueble(g, local, bx, by, bw, bh) {
+  for (let cy = by - AIRE; cy < by + bh + AIRE; cy++) {
+    for (let cx = bx - AIRE; cx < bx + bw + AIRE; cx++) {
+      if (!dentro(cx, cy)) return false;
+      const ch = g[cy][cx];
+      const propio = cx >= bx && cx < bx + bw && cy >= by && cy < by + bh;
+      // El mueble en sí, sobre suelo del local. Su holgura, sobre suelo del
+      // local o contra un muro —un mostrador pegado a la pared del fondo está
+      // bien—, pero nunca sobre otro mueble ni sobre el hueco de una puerta,
+      // que las puertas ya están abiertas cuando se amuebla.
+      if (propio ? ch !== local.tipo : (ch !== local.tipo && ch !== PARED)) return false;
+    }
+  }
+  return true;
+}
+
+// Intenta poner un mueble de bw x bh en un sitio al azar de `zona` —el local
+// entero o una franja de él—, unas cuantas veces. Devuelve si lo consiguió. Se
+// sortea SIEMPRE el mismo número de veces aunque acierte a la primera, para que
+// meter un mueble más no cambie el resto del trazado de la misma semilla.
+function ponerMueble(g, zona, bw, bh, simbolo, rng, margen = AIRE) {
+  const { x, y, w, h } = zona;
+  const INTENTOS = 10;
+  let puesto = false;
+  for (let i = 0; i < INTENTOS; i++) {
+    const bx = rnd(rng, x + margen, x + w - bw - margen);
+    const by = rnd(rng, y + margen, y + h - bh - margen);
+    if (puesto || bx < x + margen || by < y + margen) continue;
+    if (!cabeMueble(g, zona, bx, by, bw, bh)) continue;
+    rellenar(g, bx, by, bw, bh, simbolo);
+    puesto = true;
+  }
+  return puesto;
+}
+
+// MOSTRADORES: uno en las tiendas pequeñas, dos o más en las grandes. El corte
+// entre pequeña y grande es el mismo que el de las puertas (200 módulos): una
+// tienda con dos bocas tiene dos cajas. De ahí para arriba, uno más por cada
+// 400 módulos, que en el hipermercado grande son cuatro o cinco.
+//
+// Tumbado o de pie según la forma del local: un mostrador atravesado en una
+// tienda alargada corta el paso más de lo que amuebla.
+//
+// `zona` es dónde se ponen (el local entero, o su franja de cajas) y `area` en
+// módulos es lo que decide cuántos, que no siempre es el área de la zona.
+function ponerMostradores(g, zona, area, rng, margen = AIRE) {
+  const cuantos = area >= 200 ? 2 + Math.floor((area - 200) / 400) : 1;
+  const tumbado = zona.w >= zona.h;
+  let puestos = 0;
+  for (let i = 0; i < cuantos; i++) {
+    const bw = tumbado ? 3 * F : F, bh = tumbado ? F : 3 * F;
+    if (ponerMueble(g, zona, bw, bh, MOSTRADOR, rng, margen)) puestos++;
+  }
+  return puestos;
+}
+
 // Lo de dentro de cada local. AQUÍ ES DONDE SE DECIDE CUÁNTO ESTORBA EL MAPA, y
 // el encargo era no abusar: las estanterías dejan siempre pasillo a los lados y
 // ninguna cierra el local de lado a lado.
@@ -216,18 +297,27 @@ function amueblar(g, local, rng) {
     // cabecera arriba y abajo (64 unidades) para poder cambiar de pasillo sin
     // recorrerlo entero. Eso es un hueco de paso de verdad, no un descuido — la
     // diferencia con el caso del IKEA es que aquí el hueco se cruza.
+    //
+    // Y LAS CAJAS en la cabecera de salida —abajo si los lineales van de pie,
+    // a la derecha si van tumbados—, que para eso se le deja un módulo más de
+    // cabecera por ese lado. Van ANTES que los lineales: `cabeMueble` solo
+    // acepta suelo del local alrededor, y así la franja se reparte entre las
+    // cajas sin que ninguna pise un lineal.
     const vertical = h >= w;
     const paso = 3 * F;                        // estantería, y dos módulos de paso
+    const franja = vertical ? { x, y: y + h - 3 * F, w, h: 3 * F, tipo }
+                            : { x: x + w - 3 * F, y, w: 3 * F, h, tipo };
+    ponerMostradores(g, franja, (w * h) / (F * F), rng, 0);
     if (vertical) {
       for (let cx = x + 2 * F; cx < x + w - 2 * F; cx += paso) {
         for (let k = 0; k < TABIQUE; k++) {
-          for (let cy = y + 2 * F; cy < y + h - 2 * F; cy++) g[cy][cx + k] = PARED;
+          for (let cy = y + 2 * F; cy < y + h - 3 * F; cy++) g[cy][cx + k] = ESTANTERIA;
         }
       }
     } else {
       for (let cy = y + 2 * F; cy < y + h - 2 * F; cy += paso) {
         for (let k = 0; k < TABIQUE; k++) {
-          for (let cx = x + 2 * F; cx < x + w - 2 * F; cx++) g[cy + k][cx] = PARED;
+          for (let cx = x + 2 * F; cx < x + w - 3 * F; cx++) g[cy + k][cx] = ESTANTERIA;
         }
       }
     }
@@ -257,21 +347,37 @@ function amueblar(g, local, rng) {
       }
       abierto++;
     }
+    // Y las cajas del IKEA, que están al final del recorrido: en el último
+    // tramo de la serpentina, que es el de abajo. Se hace un local ficticio
+    // con solo esa franja para que `ponerMueble` no las ponga en medio.
+    const ultimo = { x, y: y + h - 3 * F, w, h: 3 * F, tipo };
+    if (ultimo.y > y) ponerMostradores(g, ultimo, (w * h) / (F * F), rng, 0);
     return;
   }
 
   if (tipo === OCIO) {
-    // Cines, bolera y restaurantes: cuatro bloques sueltos —una barra, unas
-    // butacas— y nada más. Ocupan poco y no cortan ningún paso.
-    const n = rnd(rng, 2, 4);
+    // Cines, bolera y restaurantes: unos bloques sueltos —las butacas— y la
+    // barra, que es el mostrador. Ocupan poco y no cortan ningún paso.
+    const n = rnd(rng, 2, 3);
     for (let i = 0; i < n; i++) {
       const bw = rnd(rng, 2 * F, 4 * F), bh = rnd(rng, 2 * F, 3 * F);
-      const bx = rnd(rng, x + 2 * F, x + w - bw - 2 * F);
-      const by = rnd(rng, y + 2 * F, y + h - bh - 2 * F);
-      rellenar(g, bx, by, bw, bh, PARED);
+      ponerMueble(g, local, bw, bh, PARED, rng);
     }
+    ponerMostradores(g, local, (w * h) / (F * F), rng);
+    return;
   }
-  // TIENDA: habitación simple, vacía. Es el respiro entre las demás.
+
+  // TIENDA: la habitación simple. Un mostrador —dos si es de las grandes— y
+  // una o dos estanterías cortas contra el fondo, sin cerrar nada: es el
+  // respiro entre las demás y tiene que seguir siéndolo.
+  const largoMax = Math.max(0, (w >= h ? w : h) - 4 * AIRE);
+  const estantes = largoMax >= 3 * F ? rnd(rng, 1, 2) : 0;
+  for (let i = 0; i < estantes; i++) {
+    const largo = rnd(rng, 3 * F, Math.min(largoMax, 6 * F));
+    if (w >= h) ponerMueble(g, local, largo, TABIQUE, ESTANTERIA, rng);
+    else        ponerMueble(g, local, TABIQUE, largo, ESTANTERIA, rng);
+  }
+  ponerMostradores(g, local, (w * h) / (F * F), rng);
 }
 
 // La puerta: se taladra desde el borde del local hacia fuera hasta topar con
@@ -455,7 +561,7 @@ function cerrarHuecosEstrechos(g, soloContar, puertasAbiertas) {
 // puerta ya abiertos, que es lo que hace falta para comprobar el mapa tramo a
 // tramo: tras el jefe del minuto 10 solo están abiertas las grises.
 function esSolido(ch, abiertas) {
-  if (ch === PARED) return true;
+  if (esMuro(ch)) return true;
   if (ch !== PUERTA_GRIS && ch !== PUERTA_AZUL && ch !== SALIDA) return false;
   if (abiertas === true) return false;
   if (!abiertas) return true;
@@ -569,7 +675,7 @@ function conectar(g, puertasAbiertas, protegidas, zona) {
           if (nx < FACHADA || ny < FACHADA ||
               nx >= ANCHO - FACHADA || ny >= ALTO - FACHADA) continue;
           if (protegidas && protegidas[ny * ANCHO + nx]) continue;
-          if (g[ny][nx] === PARED) g[ny][nx] = PASILLO;
+          if (esMuro(g[ny][nx])) g[ny][nx] = PASILLO;
         }
       }
     }
@@ -683,7 +789,7 @@ function galeria(g, dist, zona, anillo, desde, hasta, protegidas) {
       if (protegidas && protegidas[i]) continue;
       const d = dist[i];
       if (d < desde || d > hasta) continue;
-      if (g[y][x] !== PARED) continue;
+      if (!esMuro(g[y][x])) continue;
       g[y][x] = PASILLO;
       abiertas++;
     }
@@ -799,7 +905,7 @@ function abrirCierre(g, frontera, centro, simbolo, protegidas) {
           nx >= ANCHO - FACHADA || ny >= ALTO - FACHADA) continue;
       const ni = ny * ANCHO + nx;
       if (protegidas && protegidas[ni]) continue;    // la membrana no se toca
-      if (g[ny][nx] === PARED) g[ny][nx] = PASILLO;
+      if (esMuro(g[ny][nx])) g[ny][nx] = PASILLO;
     }
   }
 }
@@ -918,7 +1024,7 @@ function unirAnillo(g, zona, k, protegidas) {
               nx >= ANCHO - FACHADA || ny >= ALTO - FACHADA) continue;
           const ni = ny * ANCHO + nx;
           if (protegidas[ni] || zona[ni] !== k) continue;
-          if (g[ny][nx] === PARED) g[ny][nx] = PASILLO;
+          if (esMuro(g[ny][nx])) g[ny][nx] = PASILLO;
         }
       }
     }
@@ -1005,8 +1111,10 @@ function trazar(semilla) {
     rellenar(g, plaza.x, plaza.y, plaza.w, plaza.h, PLAZA);
   }
 
-  for (const l of locales) amueblar(g, l, rng);
+  // Las puertas ANTES que el mobiliario: así un mostrador no se planta nunca
+  // delante de una puerta, porque `cabeMueble` ya la ve abierta y no lo deja.
   for (const l of locales) abrirPuerta(g, l, rng);
+  for (const l of locales) amueblar(g, l, rng);
 
   levantarFachada(g);
   // LAS RENDIJAS, ANTES DE COMPROBAR NADA. Los tabiques y el mobiliario dejan
@@ -1129,7 +1237,7 @@ function celdaLibreCerca(g, cx, cy) {
       for (let x = cx - r; x <= cx + r; x++) {
         if (!dentro(x, y)) continue;
         if (Math.max(Math.abs(x - cx), Math.abs(y - cy)) !== r) continue;
-        if (g[y][x] !== PARED) return { x, y };
+        if (!esMuro(g[y][x])) return { x, y };
       }
     }
   }
@@ -1294,6 +1402,10 @@ function escribirDatos(filas, salidas, inicio, semilla) {
     "  '" + OCIO + "': { nombre: 'ocio',         solido: false },",
     "  '" + PLAZA + "': { nombre: 'plaza',        solido: false },",
     '',
+    '  // EL MOBILIARIO: sólido como la pared, con dibujo propio.',
+    "  '" + ESTANTERIA + "': { nombre: 'estantería',   solido: true  },",
+    "  '" + MOSTRADOR + "': { nombre: 'mostrador',    solido: true  },",
+    '',
     '  // LAS PUERTAS. Empiezan SOLIDAS y las abre quien dice `abre`:',
     "  //   '10min' el jefe intermedio, '20min' el segundo, 'final' el jefe final,",
     '  // y con ese se acaba la fase. Quien avisa de que ha caido es main.js; aqui',
@@ -1325,7 +1437,7 @@ function resumen(g, locales, salidas, taladros, zona, trazado) {
   const cuenta = {};
   for (const fila of g) for (const ch of fila) cuenta[ch] = (cuenta[ch] || 0) + 1;
   const total = ANCHO * ALTO;
-  const libre = total - (cuenta[PARED] || 0);
+  const libre = total - (cuenta[PARED] || 0) - (cuenta[ESTANTERIA] || 0) - (cuenta[MOSTRADOR] || 0);
   const tipos = {};
   for (const l of locales) tipos[l.tipo] = (tipos[l.tipo] || 0) + 1;
   console.log('  ' + ANCHO + 'x' + ALTO + ' celdas de ' + CELDA + ' = ' +
@@ -1333,6 +1445,8 @@ function resumen(g, locales, salidas, taladros, zona, trazado) {
   console.log('  ' + (ANCHO * CELDA * ALTO * CELDA / (480 * 270)).toFixed(0) + ' pantallas de superficie');
   console.log('  transitable: ' + (libre / total * 100).toFixed(1) + '%  (' + libre + ' celdas)');
   console.log('  locales: ' + locales.length + ' ' + JSON.stringify(tipos));
+  console.log('  mobiliario: ' + (cuenta[ESTANTERIA] || 0) + ' celdas de estantería, ' +
+              (cuenta[MOSTRADOR] || 0) + ' de mostrador');
   console.log('  salidas: ' + salidas.length + '   taladros de conexión: ' + taladros);
   console.log('  cierres: ' + trazado.cierresGrises + ' grises (min 10), ' +
               trazado.cierresAzules + ' azules (min 20) y ' + salidas.length + ' salidas');

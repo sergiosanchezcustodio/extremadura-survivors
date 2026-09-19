@@ -114,6 +114,10 @@ export const RejillaMapa = {
   // marcar un disco de veinte celdas de radio cuesta cuatro veces menos.
   visto: null,
   celdasVistas: 0,        // cualquiera: sirve para saber si hay que repintar
+  // Cuántas veces ha cambiado LO QUE SE PINTA del suelo: sube al abrir o cerrar
+  // puertas. Lo mira el caché por trozos de sistemas/sueloRejilla.js para saber
+  // qué trozos tiene que volver a componer.
+  versionSuelo: 0,
   transitablesVistas: 0,  // solo las pisables: es el "explorado" que se enseña
   navTransitables: 0,     // cuántas hay en total, para el porcentaje
 
@@ -216,6 +220,7 @@ export const RejillaMapa = {
       for (const i of p.celdas) this.solido[i] = 1;
       this._rehacerNavegacionDe(p.celdas);
     }
+    this.versionSuelo++;
   },
 
   // ABRIR UN GRUPO DE PUERTAS. `quien` es lo que dice la leyenda en `abre`:
@@ -236,7 +241,7 @@ export const RejillaMapa = {
       this._rehacerNavegacionDe(p.celdas);
       algo = true;
     }
-    if (algo) this.celdasVistas++;      // fuerza el repintado del plano
+    if (algo) { this.celdasVistas++; this.versionSuelo++; }   // repintar plano y suelo
     return algo;
   },
 
@@ -335,11 +340,20 @@ export const RejillaMapa = {
   // EMPUJA. Sin ella, recorrer una pared de diez celdas es tropezar diez veces
   // con los cantos interiores, que no existen —son juntas entre dos bloques del
   // mismo muro—. Con ella, diez celdas de pared se comportan como un muro liso.
-  colisionar(e, r) {
+  //
+  // `ry` es el semialto de la caja, y por defecto es `r`. Los JUGADORES pasan
+  // uno más chico: su `y` es la línea de pies, y con la caja cuadrada de radio
+  // 8 los pies se paraban a ocho unidades del muro de abajo —un hueco de aire
+  // entre las botas y la pared que se leía como un fallo—. Con el semialto en
+  // dos, los pies llegan a tocar el muro. Por arriba el cuerpo se mete en la
+  // pared, pero eso es lo que hace un personaje delante de un muro visto desde
+  // arriba: taparlo. Los enemigos siguen con la caja cuadrada, que es la que
+  // los reparte por los pasillos sin apelotonarse en las esquinas.
+  colisionar(e, r, ry = r) {
     if (!this.activa) return;
     const c = this.celda;
     const cx0 = ((e.x - r) / c) | 0, cx1 = ((e.x + r) / c) | 0;
-    const cy0 = ((e.y - r) / c) | 0, cy1 = ((e.y + r) / c) | 0;
+    const cy0 = ((e.y - ry) / c) | 0, cy1 = ((e.y + ry) / c) | 0;
 
     for (let cy = cy0; cy <= cy1; cy++) {
       for (let cx = cx0; cx <= cx1; cx++) {
@@ -351,7 +365,7 @@ export const RejillaMapa = {
         const dy = e.y - my;
         const px = c / 2 + r - (dx < 0 ? -dx : dx);   // penetración en X
         if (px <= 0) continue;
-        const py = c / 2 + r - (dy < 0 ? -dy : dy);
+        const py = c / 2 + ry - (dy < 0 ? -dy : dy);
         if (py <= 0) continue;
 
         const sx = dx < 0 ? -1 : 1;
@@ -361,9 +375,9 @@ export const RejillaMapa = {
 
         if (px < py) {
           if (libreX) e.x = mx + sx * (c / 2 + r);
-          else if (libreY) e.y = my + sy * (c / 2 + r);
+          else if (libreY) e.y = my + sy * (c / 2 + ry);
         } else {
-          if (libreY) e.y = my + sy * (c / 2 + r);
+          if (libreY) e.y = my + sy * (c / 2 + ry);
           else if (libreX) e.x = mx + sx * (c / 2 + r);
         }
         // Si no queda ninguna cara libre, la entidad está EMPAREDADA y se la
@@ -666,5 +680,41 @@ export const RejillaMapa = {
       if (tMaxX > 1 && tMaxY > 1) return true;    // se pasó del destino
     }
     return false;
+  },
+
+  // HASTA DÓNDE LLEGA UN RAYO. Desde (x0, y0) en la dirección unitaria (ux, uy),
+  // cuántas unidades se recorren antes de tocar pared, con tope en `max`. Sin
+  // rejilla activa —Mérida— es siempre `max`.
+  //
+  // Es la misma marcha por celdas que `lineaLibre`, pero devolviendo la
+  // DISTANCIA en vez de sí/no: la necesitan los rayos perforantes (Láser, Rayo
+  // cruzado, Aspa de luz), que se dibujan de un tirón hasta su alcance y tienen
+  // que quedarse en la pared que los corta, o el haz se vería seguir por dentro
+  // de una tienda mientras el daño se para en la puerta.
+  alcanceLibre(x0, y0, ux, uy, max) {
+    if (!this.activa) return max;
+    const c = this.celda;
+    let cx = (x0 / c) | 0, cy = (y0 / c) | 0;
+    if (this.solidoEnCelda(cx, cy)) return 0;
+
+    const pasoX = ux > 0 ? 1 : -1;
+    const pasoY = uy > 0 ? 1 : -1;
+    const tDeltaX = ux === 0 ? Infinity : Math.abs(c / ux);
+    const tDeltaY = uy === 0 ? Infinity : Math.abs(c / uy);
+    let tMaxX = ux === 0 ? Infinity
+      : ((ux > 0 ? (cx + 1) * c - x0 : x0 - cx * c) / Math.abs(ux));
+    let tMaxY = uy === 0 ? Infinity
+      : ((uy > 0 ? (cy + 1) * c - y0 : y0 - cy * c) / Math.abs(uy));
+
+    const tope = this.ancho + this.alto + 4;
+    for (let k = 0; k < tope; k++) {
+      // `t` es la distancia recorrida al cruzar a la celda siguiente.
+      let t;
+      if (tMaxX < tMaxY) { t = tMaxX; cx += pasoX; tMaxX += tDeltaX; }
+      else { t = tMaxY; cy += pasoY; tMaxY += tDeltaY; }
+      if (t >= max) return max;
+      if (this.solidoEnCelda(cx, cy)) return t;
+    }
+    return max;
   }
 };

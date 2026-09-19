@@ -369,7 +369,7 @@ async function usarNivel(nivel) {
   // la traen: sin el `apagar`, volver a Mérida después del centro comercial
   // dejaría sus paredes puestas en mitad de la calzada.
   if (nivel.mapa) {
-    RejillaMapa.iniciar(nivel.mapa.rejilla, nivel.mapa.leyenda, nivel.mapa.celda);
+    RejillaMapa.iniciar(nivel.mapa.rejilla, nivel.mapa.leyenda, nivel.mapa.celda, nivel.alturasMapa);
     prepararColoresRejilla(nivel);
     // Y sus texturas: los PNG que haya y un dibujo de relleno para el resto.
     // Ver sistemas/sueloRejilla.js. Los colores planos de arriba se quedan para

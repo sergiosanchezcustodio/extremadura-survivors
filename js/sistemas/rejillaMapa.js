@@ -21,6 +21,11 @@
 // cruza un pasillo en una décima— y seis veces más barato que hacerlo cada paso.
 const PASOS_POR_CAMPO = 6;
 
+// Celdas de cara que enseña cada cosa con altura en la perspectiva 3/4, por el
+// `nombre` de la leyenda. Un nivel lo cambia con `alturasMapa`. Lo que no esté
+// aquí ni allí es plano: solo tapa, y su pie no ocupa nada.
+export const ALTURA_POR_NOMBRE = { pared: 2, 'estantería': 3, mostrador: 2, puerta: 2 };
+
 // Distancia "infinita" del campo: una celda a la que no se llega. Cabe en el
 // Uint16Array y ninguna distancia real se le acerca (el mapa entero son 8064
 // celdas, así que el camino más largo posible es mucho menor).
@@ -138,7 +143,9 @@ export const RejillaMapa = {
   },
 
   // `mapa` es el objeto de datos/niveles/<nivel>-mapa.js tal cual.
-  iniciar(mapa, leyenda, celda) {
+  // `alturas` es símbolo → celdas de CARA que enseña lo sólido de ese símbolo
+  // en la perspectiva 3/4 (ver `pie`). Lo que no venga usa lo de su nombre.
+  iniciar(mapa, leyenda, celda, alturas = {}) {
     this.celda = celda;
     this.ancho = mapa.ancho;
     this.alto = mapa.alto;
@@ -149,6 +156,22 @@ export const RejillaMapa = {
     this.solido = new Uint8Array(n);
     this.tipo = new Uint8Array(n);
     this.simbolos = Object.keys(leyenda);
+
+    // LA ALTURA DE CADA SÍMBOLO, en celdas de cara. Es dato de SIMULACIÓN y no
+    // solo de dibujo: la cara de una pared no se pisa (ver `pie`), así que
+    // tiene que salir de la leyenda y del nivel, nunca de una imagen que
+    // pueda no cargar — dos máquinas de un cooperativo han de coincidir.
+    this.altura = new Uint8Array(this.simbolos.length);
+    this.alturaMax = 0;
+    for (let k = 0; k < this.simbolos.length; k++) {
+      const ch = this.simbolos[k];
+      const def = leyenda[ch];
+      if (!def || !def.solido) continue;
+      const h = alturas[ch] !== undefined ? alturas[ch]
+        : (def.puerta ? ALTURA_POR_NOMBRE.puerta : (ALTURA_POR_NOMBRE[def.nombre] || 0));
+      this.altura[k] = h;
+      if (h > this.alturaMax) this.alturaMax = h;
+    }
 
     // Qué grupo de puerta es cada símbolo, resuelto UNA vez a un número por
     // índice de símbolo. Durante la partida se pregunta por celda, y ahí no se
@@ -185,6 +208,29 @@ export const RejillaMapa = {
       }
     }
 
+    // EL PIE DE LO QUE TIENE ALTURA. En 3/4 la cara de una pared se pinta sobre
+    // las celdas de suelo que tiene al sur, y esa franja NO SE PISA: es la
+    // pared vista de frente, no suelo. `pie[i] = 1` marca esas celdas y
+    // `solidoEnCelda` las trata como pared para todo —jugadores, horda,
+    // disparos, apariciones y navegación—, mientras `solido` sigue diciendo
+    // qué es muro de verdad, que es lo que mira el dibujo para poner tapa o
+    // cara. Se calcula una vez aquí y se rehace al abrir o cerrar puertas,
+    // que es lo único que cambia lo sólido en partida.
+    this.pie = new Uint8Array(n);
+    for (let i = 0; i < n; i++) this.pie[i] = this._pieDe(i);
+    // Y, por puerta, las celdas de pie que dependen de ella: las de debajo de
+    // cada una de sus celdas hasta la altura máxima. Se apuntan aquí para no
+    // reservar nada al abrirla.
+    for (const p of this.puertas) {
+      p.celdasPie = [];
+      for (const i of p.celdas) {
+        for (let k = 1; k <= this.alturaMax; k++) {
+          const b = i + k * this.ancho;
+          if (b < n) p.celdasPie.push(b);
+        }
+      }
+    }
+
     this._cola = new Int32Array(n);      // el mayor de los dos usos: los refugios
     this._pasos = 0;
     this._calcularRefugios();
@@ -218,9 +264,34 @@ export const RejillaMapa = {
       if (!p.abierta) continue;
       p.abierta = false;
       for (const i of p.celdas) this.solido[i] = 1;
-      this._rehacerNavegacionDe(p.celdas);
+      this._rehacerPies(p);
     }
     this.versionSuelo++;
+  },
+
+  // Si la celda `i` es pie de algo con altura: se mira hacia arriba hasta
+  // alturaMax celdas y lo primero sólido que hay decide — si su altura llega
+  // hasta aquí, es pie; si no llega, o es suelo hasta el final, no. Es la
+  // misma regla con la que el dibujo decide dónde pinta cara, y tiene que
+  // serlo: lo que se ve como pared es lo que no se pisa.
+  _pieDe(i) {
+    if (this.solido[i] === 1) return 0;
+    for (let k = 1; k <= this.alturaMax; k++) {
+      const a = i - k * this.ancho;
+      if (a < 0) return 0;
+      if (this.solido[a] !== 1) continue;
+      return k <= this.altura[this.tipo[a]] ? 1 : 0;
+    }
+    return 0;
+  },
+
+  // Al abrir o cerrar una puerta cambia su pie: se rehace el de sus celdas y
+  // el de las de debajo, y la navegación de todas ellas.
+  _rehacerPies(p) {
+    for (const i of p.celdas) this.pie[i] = this._pieDe(i);
+    for (const i of p.celdasPie) this.pie[i] = this._pieDe(i);
+    this._rehacerNavegacionDe(p.celdas);
+    this._rehacerNavegacionDe(p.celdasPie);
   },
 
   // ABRIR UN GRUPO DE PUERTAS. `quien` es lo que dice la leyenda en `abre`:
@@ -238,7 +309,7 @@ export const RejillaMapa = {
       if (p.abierta || p.abre !== quien) continue;
       p.abierta = true;
       for (const i of p.celdas) this.solido[i] = 0;
-      this._rehacerNavegacionDe(p.celdas);
+      this._rehacerPies(p);
       algo = true;
     }
     if (algo) { this.celdasVistas++; this.versionSuelo++; }   // repintar plano y suelo
@@ -323,7 +394,8 @@ export const RejillaMapa = {
   // recinto por una salida de la fachada, que está en el borde y es transitable.
   solidoEnCelda(cx, cy) {
     if (cx < 0 || cy < 0 || cx >= this.ancho || cy >= this.alto) return true;
-    return this.solido[cy * this.ancho + cx] === 1;
+    const i = cy * this.ancho + cx;
+    return this.solido[i] === 1 || this.pie[i] === 1;
   },
 
   solidoEn(x, y) {
@@ -415,7 +487,7 @@ export const RejillaMapa = {
     let fin = 0, ini = 0;
 
     for (let i = 0; i < n; i++) {
-      if (this.solido[i] === 0) { refugio[i] = i; cola[fin++] = i; }
+      if (this.solido[i] === 0 && this.pie[i] === 0) { refugio[i] = i; cola[fin++] = i; }
     }
     while (ini < fin) {
       const c = cola[ini++];
@@ -443,7 +515,7 @@ export const RejillaMapa = {
     if (cy < 0) cy = 0; else if (cy >= this.alto) cy = this.alto - 1;
 
     const i = cy * this.ancho + cx;
-    if (this.solido[i] === 0) {
+    if (this.solido[i] === 0 && this.pie[i] === 0) {
       // Ya estaba en sitio bueno: no se le toca la posición, solo se le mete
       // dentro del recinto si andaba justo en el canto.
       this.sujetar(e, this.celda / 2);

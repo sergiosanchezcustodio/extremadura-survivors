@@ -55,11 +55,6 @@ export const TEXTURA = 32;
 // con el píxel del monitor, que es la regla de rendimiento de todo el motor.
 const PX = ESCALA_ARTE;
 
-// Cuántas celdas de cara enseña cada cosa con altura, por el `nombre` de la
-// leyenda. Un nivel lo cambia con `alturasMapa` (símbolo → celdas). Lo que no
-// esté aquí ni allí es plano: solo tapa.
-const ALTURA_POR_NOMBRE = { pared: 2, 'estantería': 3, mostrador: 2, puerta: 2 };
-
 const TROZO_CELDAS = 16;
 const RANURAS_X = 8, RANURAS_Y = 4;     // 5x4 visibles caben en 8x4 sin chocar
 
@@ -305,8 +300,6 @@ function normalizar(img, celda) {
 export const SueloRejilla = {
   texturas: null,        // una por índice de tipo de RejillaMapa (la tapa)
   caras: null,           // la cara de cada tipo, o null si es plano
-  altura: null,          // Uint8Array: celdas de cara por tipo (0 = plano)
-  alturaMax: 0,
   abiertaComo: null,     // índice de tipo con que se pinta una puerta abierta
   ranuras: null,
   version: -1,           // la de RejillaMapa.versionSuelo con que se compuso
@@ -324,7 +317,6 @@ export const SueloRejilla = {
     const simbolos = RejillaMapa.simbolos;
 
     const rutasCara = nivel.carasMapa || {};
-    const alturas = nivel.alturasMapa || {};
 
     const cargas = simbolos.map((ch) => rutas[ch] ? Recursos.cargarSuelta(rutas[ch]) : Promise.resolve(null));
     const cargasCara = simbolos.map((ch) => rutasCara[ch] ? Recursos.cargarSuelta(rutasCara[ch]) : Promise.resolve(null));
@@ -335,17 +327,11 @@ export const SueloRejilla = {
       ? normalizar(imagenes[k], RejillaMapa.celda)
       : texturaDeRelleno(leyenda[ch], colores[ch] || '#000000'));
 
-    // La altura de cada tipo: lo que diga el nivel, si no lo de su nombre, y
-    // solo para lo sólido — un suelo con cara no tiene sentido.
-    this.altura = new Uint8Array(simbolos.length);
-    this.alturaMax = 0;
+    // La altura de cada tipo la tiene RejillaMapa, que es quien decide que la
+    // cara no se pisa: aquí solo se pinta lo que allí se mide.
     this.caras = simbolos.map((ch, k) => {
       const def = leyenda[ch];
-      if (!def || !def.solido) return null;
-      const h = alturas[ch] !== undefined ? alturas[ch]
-        : (def.puerta ? ALTURA_POR_NOMBRE.puerta : (ALTURA_POR_NOMBRE[def.nombre] || 0));
-      this.altura[k] = h;
-      if (h > this.alturaMax) this.alturaMax = h;
+      const h = RejillaMapa.altura[k];
       if (h === 0) return null;
       const altoU = h * RejillaMapa.celda;
       return imagenesCara[k] ? normalizarCara(imagenesCara[k], RejillaMapa.celda, altoU)
@@ -401,12 +387,12 @@ export const SueloRejilla = {
         // LA CARA. Solo sobre suelo: se mira hacia arriba hasta alturaMax
         // celdas; si en medio hay algo sólido que no llega a esta celda con su
         // altura, tapa la vista y no se pinta nada.
-        if (solido || this.alturaMax === 0) continue;
-        for (let k = 1; k <= this.alturaMax && cy - k >= 0; k++) {
+        if (solido || R.alturaMax === 0) continue;
+        for (let k = 1; k <= R.alturaMax && cy - k >= 0; k++) {
           const ia = idx - k * R.ancho;
           if (R.solido[ia] !== 1) continue;            // suelo: se sigue mirando
           const ta = R.tipo[ia];
-          const h = this.altura[ta];
+          const h = R.altura[ta];
           if (k <= h) {
             const cara = this.caras[ta];
             const porCara = cara.width / cp;

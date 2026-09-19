@@ -262,7 +262,10 @@ con **tapa** (su textura de `texturasMapa`) y **cara**: el frente, que se
 pinta sobre las celdas de suelo al sur del tramo, tantas como diga su altura
 (`alturasMapa`, símbolo → celdas; por defecto pared 2, estantería 3,
 mostrador 2, puertas 2). La cara va en la capa del suelo a propósito: quien
-se arrima por abajo queda delante, como en Mérida. Los PNG de cara van en
+se arrima por abajo queda delante, como en Mérida. **Y esa franja no se
+pisa**: `RejillaMapa.pie` marca las celdas de cara y `solidoEnCelda` las trata
+como pared para todo (jugadores, horda, disparos, apariciones, navegación);
+se rehace al abrir y cerrar puertas. Los PNG de cara van en
 `carasMapa` (repiten en horizontal, se recortan al alto); sin PNG hay una
 cara de relleno por nombre. Cambiar el arte no toca código.
 

@@ -238,8 +238,8 @@ rejillas**, que conviene no confundir:
 
 | | Tamaño | Celdas | Para qué |
 |---|---|---|---|
-| **Colisión** | 8 unidades | 448x288 = 129.024 | paredes, dibujo, línea de visión |
-| **Navegación** | 16 unidades | 224x144 = 32.256 | campo de flujo y niebla del plano |
+| **Colisión** | 8 unidades | 1264x816 = 1.031.424 | paredes, dibujo, línea de visión |
+| **Navegación** | 16 unidades | 632x408 = 257.856 | campo de flujo y niebla del plano |
 
 La de navegación se deriva de la otra al cargar el nivel: una celda suya es
 sólida si lo es **cualquiera** de las cuatro finas que la forman. Eso engorda las
@@ -247,25 +247,87 @@ paredes 8 unidades a efectos de ruta —la horda pasa algo despegada del muro, q
 es lo que uno quiere— y no cierra ningún paso, porque la puerta más estrecha del
 mapa mide 64 unidades.
 
-Por qué dos y no una: el campo de flujo recorre el mapa entero cada vez que se
-rehace. Sobre la rejilla fina costaba 7,8 ms —un pico capaz de comerse un
-fotograma cada décima de segundo—; sobre la basta, 0,56.
+Por qué dos y no una: el campo de flujo se rehace diez veces por segundo y sobre
+la rejilla fina costaba 7,8 ms, un pico capaz de comerse un fotograma.
+
+Y aun sobre la basta, **la búsqueda está acotada a 110 celdas** (unas tres
+pantallas y media, medidas ANDANDO y no en línea recta). Con el tope, el coste
+deja de depender del tamaño del mapa **para siempre**: da igual que mañana sean
+mil pantallas. Lo que quede fuera del alcance persigue en línea recta como en
+Mérida, y está a tres pantallas, así que a nadie le importa lo que haga.
+
+### Las puertas que abren los jefes
+
+El CC The Lighthouse **no se abre entero**. Se juega en tres anillos alrededor
+del punto de partida, y de uno al siguiente solo se pasa por cierres que hay que
+ganarse:
+
+| Cierre | Lo abre | Se pasa de |
+|---|---|---|
+| gris | el jefe del minuto 10 | 33% a 66% del mapa |
+| azul | el jefe del minuto 20 | 66% a 100% |
+| verde (la calle) | el jefe final | y con él **se acaba la fase** |
+
+Los anillos se reparten **por distancia andando** desde el punto de partida, no
+por coordenadas, y se meten también **dentro de la pared**: con la frontera
+definida solo sobre el suelo, cualquier pasadizo excavado por dentro del muro la
+rodea por detrás y la barrera no separa nada. Pasó, y el mapa entero se recorría
+con todos los cierres echados.
+
+Y hay **un cierre por cada lóbulo**, además de los cuatro cardinales. El anillo
+de fuera no es una pieza —un centro comercial tiene brazos que solo se comunican
+por el centro—, así que al tapiar la frontera se parte en varios trozos, y un
+trozo sin puerta propia es un trozo al que no se llega nunca. El generador lo
+comprueba e imprime el recorrido tramo a tramo:
+
+```
+  al empezar        : 33.3% del mapa, 0/4 salidas
+  tras el jefe 10min: 66.5% del mapa, 0/4 salidas
+  tras el jefe 20min: 100.0% del mapa, 4/4 salidas
+```
+
+Un tramo que no crezca respecto al anterior es un cierre que no abre nada, y eso
+no se ve jugando hasta que alguien se pasa media hora dando vueltas.
+
+**En un recinto con puertas se gana MATANDO AL JEFE FINAL**, no agotando el
+reloj. Ahí la partida es salir del centro comercial, las puertas de la calle las
+abre él, y terminar por tiempo con el jefe vivo sería ganar habiéndose quedado
+dentro. En una calzada como Mérida no cambia nada: se sigue ganando por reloj.
+
+### Los ficheros van comprimidos
+
+A este tamaño no queda más remedio, y las dos compresiones son distintas:
+
+- **El módulo de datos**, por tramos (`codificacion: 'tramos'`): el símbolo y
+  detrás cuántas celdas iguales van seguidas. `"#4.3#"` son cuatro paredes, tres
+  de pasillo y una pared. De 1 MB a 130 KB, y es un fichero que se regenera cada
+  vez que se toca el trazado. Lo descomprime `iniciar` en `rejillaMapa.js`.
+- **El `.tmj`**, en base64 + zlib, que es el formato propio de Tiled para mapas
+  grandes. En claro son 7,2 MB; comprimido, 80 KB. Tiled lo abre igual sin tocar
+  nada.
 
 ## El plano del nivel
 
 Un recinto trae plano, y es otra cosa que el radar de Mérida: se abre con **Bloq
 Mayús** o con el botón **Y**, congela la partida y se aleja y acerca con **+** y
-**-** (o con los gatillos de arriba del mando).
+**-** (o con los gatillos de arriba del mando). El aumento de entrada enseña el
+centro comercial entero, que es lo primero que hay que ver en un sitio de 509
+pantallas: dónde estás dentro del conjunto.
 
 Lo importante es lo que NO enseña. El plano arranca **en blanco** y se descubre
 andando: `RejillaMapa.visto` marca un disco de 19 celdas de navegación alrededor
 de cada jugador a cada paso. Lo único visible desde el primer segundo son **las
-salidas, y solo como un icono de puerta**, sin nada alrededor. Es la diferencia
-entre enseñar el mapa y dar una referencia: sabes que hay una salida en el muro
-norte y no sabes cómo se llega, que es lo que tiene que sentir quien está dentro.
+puertas, y solo como un icono**, sin nada alrededor: grises, azules y verdes,
+cada juego de su color. Es la diferencia entre enseñar el mapa y dar una
+referencia: sabes que hay una salida en el muro norte y no sabes cómo se llega,
+que es lo que tiene que sentir quien está dentro.
+
+Una puerta **abierta** se pinta hueca, solo el marco. A partir del minuto diez,
+media lectura del plano es distinguir "ahí hay un cierre" de "ese ya lo abriste".
 
 Lo explorado se olvida al empezar cada partida — heredarlo de la anterior le
 quitaría al nivel justo lo que lo hace un laberinto.
+
 
 ## El mapa se dibuja en Tiled
 

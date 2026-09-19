@@ -60,7 +60,12 @@ export const NIVEL = {
     'c': '#b0a2b3',    // tienda
     'd': '#9c95bd',    // ocio
     'f': '#c4ab8c',    // plaza de los food trucks
-    'S': '#4fbf62'     // salida
+
+    // Las puertas. Se pintan del color de su juego para que, al verlas de lejos
+    // en el suelo, se lean igual que en el plano.
+    'G': '#8d949f',    // cierre gris   — lo abre el jefe del minuto 10
+    'Z': '#3f7ec0',    // cierre azul   — el del minuto 20
+    'S': '#2f8f42'     // puerta de la calle — el jefe final, y se acaba la fase
   },
 
   // Paleta del suelo procedural. Aquí no se usa —el mapa manda—, pero

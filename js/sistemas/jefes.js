@@ -200,7 +200,15 @@ function actualizarCerbero(dt, enemigos, jugadores, disparos, rng) {
   // este mismo frame, su hueco puede haber sido reciclado ya para otro
   // enemigo antes de llegar aquí (Enemigos.retirarMuertos corre varias veces
   // por paso). Comprobar solo `vida<=0` leería la vida del intruso, no la suya.
-  if (!e || e.tipo !== 'cerbero' || e.vida <= 0) { est.activo = false; return; }
+  if (!e || e.tipo !== 'cerbero' || e.vida <= 0) {
+    // Si sigue siendo él y se le ha acabado la vida, ha caído. Con el hueco ya
+    // reciclado (`!e` o cambio de tipo) no se apunta nada: no se sabe si murió
+    // o si el pool lo movió, y apuntar una muerte que no fue abriría las
+    // puertas del nivel 2 de balde.
+    if (e && e.tipo === 'cerbero' && e.vida <= 0) Jefes.caidos.cerbero = true;
+    est.activo = false;
+    return;
+  }
 
   const objetivo = masCercano(jugadores, e.x, e.y);
   if (!objetivo) return;
@@ -264,7 +272,15 @@ function actualizarVeneno(dt, e, objetivo, disparos, rng) {
 function actualizarHidra(dt, enemigos, jugadores, disparos, rng) {
   const est = estadoHidra;
   const e = est.entidad;
-  if (!e || e.tipo !== 'hidra' || e.vida <= 0) { est.activo = false; return; }
+  if (!e || e.tipo !== 'hidra' || e.vida <= 0) {
+    // Si sigue siendo él y se le ha acabado la vida, ha caído. Con el hueco ya
+    // reciclado (`!e` o cambio de tipo) no se apunta nada: no se sabe si murió
+    // o si el pool lo movió, y apuntar una muerte que no fue abriría las
+    // puertas del nivel 2 de balde.
+    if (e && e.tipo === 'hidra' && e.vida <= 0) Jefes.caidos.hidra = true;
+    est.activo = false;
+    return;
+  }
 
   const objetivo = masCercano(jugadores, e.x, e.y);
   if (!objetivo) return;
@@ -329,7 +345,15 @@ function actualizarAullido(dt, e, disparos, rng) {
 function actualizarLoba(dt, enemigos, disparos, rng) {
   const est = estadoLoba;
   const e = est.entidad;
-  if (!e || e.tipo !== 'loba' || e.vida <= 0) { est.activo = false; return; }
+  if (!e || e.tipo !== 'loba' || e.vida <= 0) {
+    // Si sigue siendo él y se le ha acabado la vida, ha caído. Con el hueco ya
+    // reciclado (`!e` o cambio de tipo) no se apunta nada: no se sabe si murió
+    // o si el pool lo movió, y apuntar una muerte que no fue abriría las
+    // puertas del nivel 2 de balde.
+    if (e && e.tipo === 'loba' && e.vida <= 0) Jefes.caidos.loba = true;
+    est.activo = false;
+    return;
+  }
 
   const cfg = JEFES.loba;
   const vivos = enemigos.escoltasVivos;
@@ -370,6 +394,21 @@ function actualizarLoba(dt, enemigos, disparos, rng) {
 export const Jefes = {
   _rng: null,
 
+  // QUÉ JEFES HAN CAÍDO en esta partida, por especie. Lo mira main.js: en el CC
+  // The Lighthouse, cada jefe abre un juego de puertas y el último acaba la fase.
+  //
+  // Va por ESPECIE y no por papel ('intermedio', 'final') porque quien registra a
+  // un jefe es el director y ahí lo que hay es la entidad, no su papel. Un nivel
+  // que repitiera especie en dos papeles no podría distinguirlos — hoy ninguno lo
+  // hace, y si algún día hace falta, el sitio de arreglarlo es `registrar`.
+  caidos: { cerbero: false, hidra: false, loba: false },
+
+  // Se pone a false al morir un jefe y lo consume quien lo atienda: así main.js
+  // no tiene que acordarse de lo que ya ha visto.
+  haCaido(especie) {
+    return !!(especie && this.caidos[especie]);
+  },
+
   // Lo consulta el director al repartir una tanda nueva: con un jefe en
   // pantalla, hasta el enemigo recién aparecido tiene que salir corriendo, no
   // solo los que ya estaban cuando huidaGeneral() les dio la vuelta.
@@ -383,6 +422,9 @@ export const Jefes = {
   },
 
   vaciar() {
+    this.caidos.cerbero = false;
+    this.caidos.hidra = false;
+    this.caidos.loba = false;
     estadoCerbero.activo = false;
     estadoCerbero.entidad = null;
     estadoCerbero.nombre = '';

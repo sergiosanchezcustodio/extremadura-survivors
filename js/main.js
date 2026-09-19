@@ -2522,6 +2522,10 @@ function empezarPartida() {
     // también para la segunda partida.
     RejillaMapa.olvidarLoVisto();
     RejillaMapa.mirarAlrededor(jugadores);
+    // Y todos los cierres echados otra vez: son progreso de LA PARTIDA, no del
+    // jugador. La segunda se empieza igual que la primera, en el anillo de
+    // dentro.
+    RejillaMapa.cerrarPuertas();
     reiniciarZoomMapa();
   }
   camara.situar(jugadores[0].x, jugadores[0].y);
@@ -2544,6 +2548,50 @@ function empezarPartida() {
   denariosAlEmpezar = MetaProgreso.denarios;
   GestorAudio.iniciarMusica();
   irA(PANTALLA_JUEGO);
+}
+
+// LOS CIERRES QUE ABREN LOS JEFES. Solo hace algo en un nivel de recinto que
+// traiga puertas (hoy el CC The Lighthouse).
+//
+// Cada jefe abre su juego: el del minuto 10 los cierres grises, el del 20 los
+// azules y el final las puertas de la calle. `abrirPuertas` devuelve true una
+// sola vez por juego, así que esto se puede preguntar cada paso sin llevar
+// ninguna cuenta aquí.
+//
+// Se avisa por el mismo canal que los jefes y las oleadas: si se abre medio
+// centro comercial y no lo dice nadie, el jugador sigue dando vueltas por donde
+// ya estaba.
+function atenderCierres() {
+  if (!RejillaMapa.activa || !nivelActual.jefes) return;
+  const j = nivelActual.jefes;
+  if (Jefes.haCaido(j.intermedio) && RejillaMapa.abrirPuertas('10min')) {
+    Director.anunciar('LOS CIERRES GRISES SE ABREN');
+  }
+  if (Jefes.haCaido(j.segundo) && RejillaMapa.abrirPuertas('20min')) {
+    Director.anunciar('LOS CIERRES AZULES SE ABREN');
+  }
+  if (Jefes.haCaido(j.final) && RejillaMapa.abrirPuertas('final')) {
+    Director.anunciar('LAS PUERTAS DE LA CALLE SE ABREN');
+  }
+}
+
+// ¿SE HA GANADO? Y no se gana igual en los dos tipos de nivel.
+//
+// En una CALZADA (Mérida) se gana llegando al final del reloj, que es lo que ha
+// sido siempre: el jefe final entra un minuto antes y quien aguanta los treinta
+// minutos se lleva la partida aunque siga en pie.
+//
+// En un RECINTO con puertas (The Lighthouse) se gana MATANDO AL JEFE FINAL, y no
+// es un capricho: ahí la partida es salir del centro comercial, las puertas de
+// la calle las abre él, y terminar por reloj con el jefe vivo sería ganar
+// habiéndose quedado dentro. El reloj llega al final y la partida sigue —el
+// director mantiene vivo el último tramo de oleadas mientras haya jefe— hasta
+// que cae.
+function hayVictoria() {
+  if (RejillaMapa.activa && nivelActual.jefes && nivelActual.jefes.final) {
+    return Jefes.haCaido(nivelActual.jefes.final);
+  }
+  return Director.terminado;
 }
 
 // Cuánto se queda cualquiera por dentro del borde del NIVEL (no de la
@@ -3276,6 +3324,10 @@ function actualizar(dt) {
   // paso, sistemas/jefes.js ya lo encuentra registrado y puede empezar a
   // actuar sin esperar a la vuelta siguiente del bucle.
   Jefes.actualizar(dt, enemigos, jugadores, disparos);
+  // Y LO QUE ABRE CADA JEFE AL CAER, que es lo que estructura el nivel 2: el
+  // centro comercial se juega en tres anillos y de uno al siguiente solo se pasa
+  // por unos cierres que hay que ganarse.
+  atenderCierres();
 
   // Último en tocar posiciones este paso: atrapa tanto a los que acaban de
   // aparecer (director/jefes, arriba) como a los que se han movido, antes de
@@ -3304,7 +3356,7 @@ function actualizar(dt) {
   // Fin de la partida: el reloj llega al final ANTES que la derrota, para que
   // un equipo que cae justo cuando expira el tiempo se lleve la victoria y no
   // una derrota de última hora — ver la nota de finalMostrado más arriba.
-  if (!finalMostrado && Director.terminado) {
+  if (!finalMostrado && hayVictoria()) {
     statsFinal = capturarStats();
     finalMostrado = 'victoria';
     refrescarChuleta();

@@ -169,11 +169,19 @@ export function dibujarMapa(ctx, jugadores, enemigos, cofres, camara) {
 // se estampa escalado, que es UNA orden. Y como el mundo está congelado mientras
 // el plano está abierto, ese lienzo solo se rehace cuando cambia lo explorado.
 
-// Los aumentos, en píxeles de pantalla por celda del plano. El 2 es el de
-// entrada y enseña el centro comercial entero: 448x288, que cabe holgado en el
-// panel. De ahí para arriba se acerca sobre el jugador.
+// Los aumentos, en píxeles de pantalla por celda del plano.
+//
+// EL DE ENTRADA ES EL 1, y con él cabe el centro comercial ENTERO —632x408
+// celdas de navegación— dentro del panel. Es lo primero que hay que ver al abrir
+// el plano en un sitio de 509 pantallas: dónde estás dentro del conjunto. De ahí
+// para arriba se acerca sobre el jugador.
+//
+// No hay aumento por debajo de 1 a propósito: un tabique mide una celda, y
+// encogiendo el plano habría filas de píxeles que se pierden por el camino y
+// paredes que desaparecen a trozos. Un plano con agujeros que no existen es peor
+// que un plano pequeño.
 const ZOOMS = [1, 2, 3, 4, 6];
-const ZOOM_INICIAL = 1;              // el índice, no el valor: ZOOMS[1] = 2
+const ZOOM_INICIAL = 0;              // el índice, no el valor: ZOOMS[0] = 1
 
 let iZoom = ZOOM_INICIAL;
 let lienzo = null;
@@ -192,6 +200,7 @@ export function acercarMapa(d) {
 export function reiniciarZoomMapa() {
   iZoom = ZOOM_INICIAL;
   selloPintado = -1;
+  iconosPuerta = null;          // otro nivel puede traer otras puertas
 }
 
 // El color de cada celda del plano. No son los del suelo del juego: un plano se
@@ -200,7 +209,16 @@ export function reiniciarZoomMapa() {
 const COLOR_PARED = [0x1b, 0x1e, 0x24];
 const COLOR_SUELO = [0x9a, 0xa4, 0xb4];
 const COLOR_FONDO = 'rgba(10, 12, 18, 0.92)';
-const COLOR_SALIDA = '#4fbf62';
+// El color de cada juego de puertas, por su nombre en la leyenda del mapa. Es la
+// única información que el plano da de gratis y toda la lectura del nivel
+// depende de que se distingan de un vistazo.
+const COLOR_PUERTA = {
+  gris:  '#b9c0cb',
+  azul:  '#5aa0ea',
+  verde: '#4fbf62'
+};
+const COLOR_SALIDA = COLOR_PUERTA.verde;
+
 
 function prepararLienzo() {
   const w = RejillaMapa.navAncho, h = RejillaMapa.navAlto;
@@ -230,20 +248,64 @@ function prepararLienzo() {
 
 // Una puerta: el marco y la hoja, con su pomo. A este tamaño no cabe más
 // dibujo, y con menos no se lee como una puerta.
-function puerta(ctx, x, y, alto) {
+//
+// ABIERTA se pinta solo el marco, hueca. Es la diferencia entre "hay un cierre
+// ahí" y "ese cierre ya lo abriste", y a partir del minuto diez media lectura
+// del plano es esa.
+function puerta(ctx, x, y, alto, color, abierta) {
   const ancho = alto * 0.68;
   ctx.fillStyle = '#0b0d12';
   ctx.fillRect(x - ancho / 2 - 1, y - alto - 1, ancho + 2, alto + 2);
-  ctx.fillStyle = COLOR_SALIDA;
+  ctx.fillStyle = color;
   ctx.fillRect(x - ancho / 2, y - alto, ancho, alto);
+  if (abierta) {
+    ctx.fillStyle = '#0b0d12';
+    ctx.fillRect(x - ancho / 2 + 1, y - alto + 1, ancho - 2, alto - 2);
+    return;
+  }
   ctx.fillStyle = '#0b0d12';
   ctx.fillRect(x + ancho / 2 - 2.5, y - alto * 0.55, 1.5, 1.5);
+}
+
+// DÓNDE PINTAR CADA JUEGO DE PUERTAS. Un cierre son decenas de celdas seguidas y
+// pintar un icono por celda sería una fila de puertas; lo que se quiere es UNA
+// por cierre. Se agrupan por cercanía en una pasada, y como el mapa no cambia,
+// el resultado se guarda y no se vuelve a calcular.
+//
+// El agrupado es tosco a propósito —la primera celda hace de cabeza y se traga
+// todas las que tenga a menos de un radio—: los cierres de un mismo juego están
+// a cientos de celdas unos de otros, así que no hay caso dudoso que afinar.
+let iconosPuerta = null;
+
+function prepararIconos() {
+  if (iconosPuerta) return iconosPuerta;
+  iconosPuerta = [];
+  const P = RejillaMapa.puertas || [];
+  const SEPARACION = 40;           // en celdas finas
+  for (const grupo of P) {
+    const cabezas = [];
+    for (const i of grupo.celdas) {
+      const cx = i % RejillaMapa.ancho;
+      const cy = (i / RejillaMapa.ancho) | 0;
+      let nueva = true;
+      for (const c of cabezas) {
+        if (Math.abs(c.x - cx) + Math.abs(c.y - cy) < SEPARACION) { nueva = false; break; }
+      }
+      if (nueva) cabezas.push({ x: cx, y: cy });
+    }
+    for (const c of cabezas) {
+      iconosPuerta.push({ grupo, x: c.x * RejillaMapa.celda, y: c.y * RejillaMapa.celda });
+    }
+  }
+  return iconosPuerta;
 }
 
 function dibujarPlano(ctx, jugadores, camara) {
   const t = Tema.actual;
   const relleno = 12;
-  const ANCHO = 780, ALTO = 470;
+  // Casi toda la pantalla de interfaz (960x540): el plano del centro comercial
+  // entero son 632x408 píxeles y tienen que caber sin encogerlo.
+  const ANCHO = 916, ALTO = 512;
   const px = (ANCHO_UI - ANCHO) / 2;
   const py = (ALTO_UI - ALTO) / 2;
 
@@ -295,11 +357,15 @@ function dibujarPlano(ctx, jugadores, camara) {
   ctx.drawImage(lienzo, ox, oy, planoW, planoH);
   ctx.imageSmoothingEnabled = suave;
 
-  // LAS SALIDAS, SIEMPRE. Aunque no se haya pisado nunca esa esquina del mapa.
-  for (const s of RejillaMapa.salidas) {
-    const sx = ox + (s.x / RejillaMapa.navCelda) * z;
-    const sy = oy + (s.y / RejillaMapa.navCelda) * z;
-    puerta(ctx, sx, sy + 5, 11);
+  // TODAS LAS PUERTAS, SIEMPRE, aunque no se haya pisado nunca esa esquina del
+  // mapa. Es lo único que el plano regala, y es lo que convierte el laberinto en
+  // algo con rumbo: los cierres grises marcan hasta dónde llega tu anillo, los
+  // azules el siguiente, y los verdes son la calle.
+  for (const ic of prepararIconos()) {
+    const sx = ox + (ic.x / RejillaMapa.navCelda) * z;
+    const sy = oy + (ic.y / RejillaMapa.navCelda) * z;
+    puerta(ctx, sx, sy + 5, 11, COLOR_PUERTA[ic.grupo.nombre] || COLOR_SALIDA,
+           ic.grupo.abierta);
   }
 
   // Y los jugadores, cada uno de su color, como en el HUD.

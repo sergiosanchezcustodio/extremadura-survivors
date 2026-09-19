@@ -36,6 +36,43 @@ const VY = [0, 0, 1, -1, 1, -1, 1, -1];
 // media diagonal del visor, o sea "lo que da tiempo a ver de pasada".
 const RADIO_VISTA = 19;
 
+// HASTA DÓNDE LLEGA EL CAMPO DE FLUJO, en celdas de navegación. 110 celdas son
+// 1760 unidades: entre tres y cuatro pantallas en todas las direcciones.
+//
+// Sin este tope, la búsqueda recorre el mapa ENTERO cada vez que se rehace, y el
+// mapa ha pasado de 64 pantallas a 509: eran 32.000 celdas y son 258.000. Con el
+// tope, el coste deja de depender del tamaño del mapa para siempre —da igual que
+// mañana sean mil pantallas— y no se pierde nada, porque a más de tres pantallas
+// no hay enemigos: el reciclado por lejanía se los ha llevado antes.
+//
+// A quien quede fuera del alcance le contesta `direccionEn` que no hay camino, y
+// entonces persigue en línea recta como en Mérida. Está a tres pantallas y a
+// nadie le importa lo que haga.
+const ALCANCE_CAMPO = 110;
+
+// DESCOMPRIMIR UNA FILA guardada por tramos (ver `codificacion` en el fichero de
+// datos): el símbolo y detrás cuántas celdas iguales van seguidas, nada si va
+// una sola. Los símbolos nunca son dígitos, así que basta con mirar si lo que
+// viene detrás lo es.
+function descomprimirFila(tramos, ancho) {
+  let fila = '';
+  let i = 0;
+  while (i < tramos.length) {
+    const ch = tramos[i++];
+    let n = 0;
+    while (i < tramos.length && tramos[i] >= '0' && tramos[i] <= '9') {
+      n = n * 10 + (tramos.charCodeAt(i++) - 48);
+    }
+    fila += ch.repeat(n || 1);
+  }
+  // Una fila corta o larga es un fichero de datos corrupto, y es mejor que se
+  // note aquí que tres pantallas más adelante con las paredes descuadradas.
+  if (fila.length !== ancho) {
+    throw new Error(`fila de mapa de ${fila.length} celdas, se esperaban ${ancho}`);
+  }
+  return fila;
+}
+
 export const RejillaMapa = {
   activa: false,
 
@@ -51,6 +88,13 @@ export const RejillaMapa = {
 
   inicio: { x: 0, y: 0 },      // en unidades lógicas
   salidas: [],                 // en unidades lógicas
+
+  // LAS PUERTAS QUE ABREN LOS JEFES. Cada grupo trae su nombre ('gris', 'azul',
+  // 'verde'), quién lo abre ('10min', '20min', 'final'), si ya está abierto y la
+  // lista de celdas que ocupa. Es lo que divide el centro comercial en tres
+  // anillos: al empezar solo se juega el de dentro.
+  puertas: null,
+  grupoDe: null,               // índice de símbolo -> grupo de puerta, o -1
 
   // Campo de flujo hacia los jugadores, sobre la REJILLA DE NAVEGACIÓN (ver
   // `_prepararNavegacion`), que es más basta que la de colisión.
@@ -102,8 +146,25 @@ export const RejillaMapa = {
     this.tipo = new Uint8Array(n);
     this.simbolos = Object.keys(leyenda);
 
+    // Qué grupo de puerta es cada símbolo, resuelto UNA vez a un número por
+    // índice de símbolo. Durante la partida se pregunta por celda, y ahí no se
+    // buscan claves en un objeto.
+    this.grupoDe = new Int8Array(this.simbolos.length).fill(-1);
+    this.puertas = [];
+    for (let k = 0; k < this.simbolos.length; k++) {
+      const def = leyenda[this.simbolos[k]];
+      if (!def || !def.puerta) continue;
+      let g = this.puertas.findIndex((p) => p.nombre === def.puerta);
+      if (g < 0) {
+        g = this.puertas.length;
+        this.puertas.push({ nombre: def.puerta, abre: def.abre || '', abierta: false, celdas: [] });
+      }
+      this.grupoDe[k] = g;
+    }
+
+    const porTramos = mapa.codificacion === 'tramos';
     for (let y = 0; y < this.alto; y++) {
-      const fila = mapa.filas[y];
+      const fila = porTramos ? descomprimirFila(mapa.filas[y], this.ancho) : mapa.filas[y];
       for (let x = 0; x < this.ancho; x++) {
         const ch = fila[x];
         const i = y * this.ancho + x;
@@ -113,6 +174,10 @@ export const RejillaMapa = {
         this.solido[i] = !def || def.solido ? 1 : 0;
         const t = this.simbolos.indexOf(ch);
         this.tipo[i] = t < 0 ? 0 : t;
+        // Las celdas de cada puerta se apuntan al cargar: abrirla es recorrer su
+        // lista, no barrer el millón de celdas del mapa buscándolas.
+        const g = t < 0 ? -1 : this.grupoDe[t];
+        if (g >= 0) this.puertas[g].celdas.push(i);
       }
     }
 
@@ -140,6 +205,63 @@ export const RejillaMapa = {
   //
   // No se vuelve a reservar el array —eso sería asignar memoria al empezar—: se
   // pone a cero el que ya hay.
+  // VOLVER A CERRARLO TODO, al empezar cada partida. Las puertas son progreso de
+  // la partida en curso, no del jugador: la segunda partida se juega otra vez
+  // desde el anillo de dentro.
+  cerrarPuertas() {
+    if (!this.puertas) return;
+    for (const p of this.puertas) {
+      if (!p.abierta) continue;
+      p.abierta = false;
+      for (const i of p.celdas) this.solido[i] = 1;
+      this._rehacerNavegacionDe(p.celdas);
+    }
+  },
+
+  // ABRIR UN GRUPO DE PUERTAS. `quien` es lo que dice la leyenda en `abre`:
+  // '10min', '20min' o 'final'. Devuelve true si ha abierto algo — false si ese
+  // grupo ya estaba abierto o no existe en este mapa.
+  //
+  // Es la única cosa de todo el módulo que cambia el mapa una vez empezada la
+  // partida, y por eso deja detrás dos cosas: la rejilla de navegación al día
+  // —si no, la horda seguiría dando la vuelta por donde ya hay paso— y un sello
+  // nuevo para que el plano se vuelva a pintar.
+  abrirPuertas(quien) {
+    if (!this.activa || !this.puertas) return false;
+    let algo = false;
+    for (const p of this.puertas) {
+      if (p.abierta || p.abre !== quien) continue;
+      p.abierta = true;
+      for (const i of p.celdas) this.solido[i] = 0;
+      this._rehacerNavegacionDe(p.celdas);
+      algo = true;
+    }
+    if (algo) this.celdasVistas++;      // fuerza el repintado del plano
+    return algo;
+  },
+
+  // Rehacer SOLO las celdas de navegación que tocan las celdas dadas. Rehacer la
+  // rejilla entera son 258.000 celdas y un tirón perceptible justo cuando acaba
+  // de caer un jefe, que es el peor momento posible para dar un tirón.
+  _rehacerNavegacionDe(celdas) {
+    if (!this.navSolido) return;
+    const P = 2;
+    for (const i of celdas) {
+      const nx = ((i % this.ancho) / P) | 0;
+      const ny = (((i / this.ancho) | 0) / P) | 0;
+      const ni = ny * this.navAncho + nx;
+      let solido = 0;
+      for (let oy = 0; oy < P && !solido; oy++) {
+        for (let ox = 0; ox < P; ox++) {
+          if (this.solidoEnCelda(nx * P + ox, ny * P + oy)) { solido = 1; break; }
+        }
+      }
+      if (this.navSolido[ni] === solido) continue;
+      this.navSolido[ni] = solido;
+      this.navTransitables += solido ? -1 : 1;
+    }
+  },
+
   olvidarLoVisto() {
     if (!this.visto) return;
     this.visto.fill(0);
@@ -428,6 +550,11 @@ export const RejillaMapa = {
     while (ini < fin) {
       const c = cola[ini++];
       const d = dist[c] + 1;
+      // EL TOPE DE ALCANCE. Se corta por distancia ANDANDO, no por un rectángulo
+      // alrededor del jugador: en un laberinto, "a treinta metros en línea recta"
+      // y "a treinta metros andando" son sitios distintos, y el que importa es el
+      // segundo.
+      if (d > ALCANCE_CAMPO) continue;
       const cx = c % ancho, cy = (c / ancho) | 0;
       // Solo los cuatro rectos: en diagonal se cortarían las esquinas y los
       // enemigos se meterían de canto por juntas de pared que no son huecos.

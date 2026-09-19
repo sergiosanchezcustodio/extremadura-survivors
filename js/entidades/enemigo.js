@@ -6,6 +6,7 @@ import { MetaProgreso } from '../core/metaProgreso.js';
 import { ENEMIGOS } from '../datos/enemigos.js';
 import { VFX } from '../sistemas/vfx.js';
 import { GestorAudio } from '../sistemas/audio.js';
+import { RejillaMapa } from '../sistemas/rejillaMapa.js';
 import {
   Particulas, COLOR_SANGRE, COLOR_POLVO, COLOR_CHISPA, COLOR_CENIZA,
   COLOR_PIEDRA, COLOR_VENENO
@@ -139,6 +140,18 @@ const MOV_REVOLOTEO = 2;
 const MOV_ORBITA = 3;
 const MOV_ACECHO = 4;
 const MOV_HUIDA = 5;
+
+// Adónde tira el campo de flujo, reutilizado por todos los enemigos y todos los
+// pasos. Es un objeto de módulo, creado al cargar: durante la partida no se
+// asigna memoria ni aquí ni en ningún otro sitio.
+const RUMBO = { x: 0, y: 0 };
+
+// Más allá de esto no se comprueba si hay línea de visión: se va por el campo de
+// flujo directamente. Un enemigo a pantalla y media no se ve —ni él ve a nadie—,
+// así que el resultado sería el mismo y el rayo cuesta tanto más cuanto más
+// larga es la tirada. Con este tope, ninguna comprobación pasa de unas veinte
+// celdas por muchos enemigos que haya vivos.
+const DIST_VISION = ANCHO_LOGICO;
 
 // CUÁNTO DURA UNA DESBANDADA. Al entrar un jefe, los comunes salen corriendo a
 // triple marcha y a los tres segundos se esfuman, hayan salido de cuadro o no.
@@ -935,6 +948,30 @@ export class Enemigos {
         dx *= inv; dy *= inv;
       } else {
         dx = 0; dy = 0;
+      }
+
+      // --- POR LOS PASILLOS, no contra la pared -------------------------
+      //
+      // En un nivel de rejilla (el CC The Lighthouse), perseguir en línea recta
+      // es amontonarse contra el escaparate del hipermercado mientras el jugador
+      // mira desde el pasillo de al lado. El campo de flujo de
+      // sistemas/rejillaMapa.js ya sabe, para cada celda del mapa, hacia dónde
+      // hay que ir para acercarse al jugador más cercano POR PASILLOS.
+      //
+      // Pero solo se usa CUANDO HAY UNA PARED DE POR MEDIO. Mientras te ve, el
+      // bicho se te echa encima en línea recta, igual que en Mérida: el campo
+      // describe una curva suave que, a dos metros, se lee como que el enemigo
+      // ha perdido el interés. Lo bonito de la mezcla es que se nota jugando —
+      // doblas una esquina y lo que te seguía tarda un instante en rodearla.
+      //
+      // Los que HUYEN quedan fuera: el campo apunta hacia el jugador y es justo
+      // lo contrario de lo que quieren.
+      if (RejillaMapa.activa && e.mov !== MOV_HUIDA && (dx !== 0 || dy !== 0)) {
+        const aCiegas = dist > DIST_VISION ||
+                        !RejillaMapa.lineaLibre(e.x, e.y, objetivo.x, objetivo.y);
+        if (aCiegas && RejillaMapa.direccionEn(e.x, e.y, RUMBO)) {
+          dx = RUMBO.x; dy = RUMBO.y;
+        }
       }
 
       // --- Personalidad de movimiento ---------------------------------

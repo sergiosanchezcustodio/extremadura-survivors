@@ -71,6 +71,29 @@ export class Camara {
     }
   }
 
+  // EL TOPE CONTRA LA FACHADA, en los niveles que son un recinto cerrado y no
+  // una calzada que sigue de largo (ver sistemas/rejillaMapa.js).
+  //
+  // Es lo contrario de `sujetar`: allí se sujeta a los JUGADORES contra el borde
+  // de la pantalla, y aquí a la PANTALLA contra el borde del mundo. Sin esto, el
+  // grupo pega la espalda a una pared y medio visor se llena del vacío de fuera
+  // del mapa.
+  //
+  // Un mundo más pequeño que el visor —que hoy no existe, pero es un mapa de
+  // pruebas de nada— se centra en vez de sujetarse: sujetarlo por los dos lados
+  // a la vez dejaría la cámara dando saltos entre los dos topes.
+  sujetarAlMundo(anchoMundo, altoMundo) {
+    const mitadX = ANCHO_LOGICO / 2;
+    const mitadY = ALTO_LOGICO / 2;
+    if (anchoMundo <= ANCHO_LOGICO) this.x = anchoMundo / 2;
+    else if (this.x < mitadX) this.x = mitadX;
+    else if (this.x > anchoMundo - mitadX) this.x = anchoMundo - mitadX;
+
+    if (altoMundo <= ALTO_LOGICO) this.y = altoMundo / 2;
+    else if (this.y < mitadY) this.y = mitadY;
+    else if (this.y > altoMundo - mitadY) this.y = altoMundo - mitadY;
+  }
+
   // Esquina superior izquierda del viewport en coordenadas de mundo.
   // LOS BORDES DE LA CÁMARA, EN DOS SABORES, Y NO ES UN CAPRICHO.
   //

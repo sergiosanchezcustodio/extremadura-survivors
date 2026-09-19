@@ -25,6 +25,7 @@ import {
   ajustes, enemigoMasCercano
 } from './sistemas/colisiones.js';
 import { Obstaculos } from './sistemas/obstaculos.js';
+import { RejillaMapa } from './sistemas/rejillaMapa.js';
 import { Lockstep } from './core/lockstep.js';
 import { RedConsola, avisoDeConexion, avisoMismaRed } from './red/consola.js';
 import { Sincro } from './red/sincro.js';
@@ -359,6 +360,15 @@ async function usarNivel(nivel) {
   // comparar un ajuste de balance con el anterior.
   Director.iniciar(nivel, rng);
   Obstaculos.iniciar(nivel);
+  // LA REJILLA DEL NIVEL, si la trae. Se llama SIEMPRE, también para los que no
+  // la traen: sin el `apagar`, volver a Mérida después del centro comercial
+  // dejaría sus paredes puestas en mitad de la calzada.
+  if (nivel.mapa) {
+    RejillaMapa.iniciar(nivel.mapa.rejilla, nivel.mapa.leyenda, nivel.mapa.celda);
+    prepararColoresRejilla(nivel);
+  } else {
+    RejillaMapa.apagar();
+  }
   // Y la lámina de su historia, si trae una propia. Aquí y no al abrir la
   // pantalla: una imagen que se empieza a pedir cuando ya se está leyendo el
   // relato se pone de fondo a media lectura.
@@ -2492,6 +2502,23 @@ function empezarPartida() {
     anyadirJugador(ORDEN_PERSONAJES[puestos[i].personaje], mascotasElegidas[i] || '',
                    metasDeRed ? metasDeRed[jugadores.length] : null);
   }
+  // EN UN NIVEL DE REJILLA MANDA EL MAPA. `anyadirJugador` los pone en abanico
+  // alrededor del centro de la pantalla, que en un recinto con paredes es un
+  // sitio cualquiera — y la mitad de las veces, el interior de una tienda.
+  if (RejillaMapa.activa) {
+    for (let i = 0; i < jugadores.length; i++) {
+      const j = jugadores[i];
+      const ang = (i / jugadores.length) * Math.PI * 2;
+      j.x = RejillaMapa.inicio.x + (i === 0 ? 0 : cos(ang) * 26);
+      j.y = RejillaMapa.inicio.y + (i === 0 ? 0 : sen(ang) * 26);
+      RejillaMapa.sacarDePared(j);
+      j.xPrev = j.xVista = j.x;
+      j.yPrev = j.yVista = j.y;
+    }
+    // El campo de flujo, hecho ya para el primer paso: sin esto, la primera
+    // décima de segundo la horda persigue con el campo de la partida anterior.
+    RejillaMapa.actualizarCampo(jugadores, true);
+  }
   camara.situar(jugadores[0].x, jugadores[0].y);
   // Que mascota lleva cada uno se decide en su pantalla y no cambia en toda la
   // partida: se lee una vez aqui.
@@ -2519,6 +2546,40 @@ function empezarPartida() {
 // hierba llega hasta el borde de la imagen y no hay por qué recortarla.
 const MARGEN_NIVEL = 12;
 
+// Los colores planos del prototipo, uno por símbolo de la leyenda y ya resueltos
+// a un array indexado por `tipo`. Se prepara al cargar el nivel porque dibujar
+// el suelo consulta esto una vez por celda visible y por fotograma: ahí no se
+// buscan claves en un objeto.
+let coloresRejilla = null;
+
+function prepararColoresRejilla(nivel) {
+  const def = nivel.coloresMapa || {};
+  coloresRejilla = RejillaMapa.simbolos.map((ch) => def[ch] || COLOR_VACIO);
+}
+
+// La horda y los jugadores contra las paredes del recinto. Va justo detrás de
+// `colisionarObstaculos` porque es lo mismo con otra estructura de datos: allí
+// una lista de cajas, aquí la rejilla.
+//
+// TAMBIÉN LO QUE VUELA. Un centro comercial tiene techo, y una arpía que
+// atraviesa la fachada se lleva por delante la única regla que el jugador puede
+// leer del mapa: que detrás de una pared se está a salvo. Distinguir una
+// estantería —por encima de la que sí tendría sentido volar— de un muro de carga
+// pide un símbolo más en la leyenda, y eso es trabajo de cuando haya arte.
+function colisionarParedes() {
+  if (!RejillaMapa.activa) return;
+  for (let i = 0; i < jugadores.length; i++) {
+    const j = jugadores[i];
+    RejillaMapa.colisionar(j, j.radioCuerpo || j.radio);
+  }
+  const items = enemigos.pool.items;
+  const n = enemigos.pool.activos;
+  for (let k = 0; k < n; k++) {
+    const e = items[k];
+    RejillaMapa.colisionar(e, e.radioCuerpo || e.radio);
+  }
+}
+
 // Tope duro en X contra el borde del MUNDO, no de la pantalla. Se aplica a
 // jugadores y enemigos por igual: un enemigo generado en el hueco vacío de
 // fuera del mapa (los patrones de aparición reparten en anillo alrededor de
@@ -2526,6 +2587,9 @@ const MARGEN_NIVEL = 12;
 // su gema de XP en un sitio al que nadie puede llegar. En Y no hay tope: el
 // suelo repite sin límite hacia arriba y abajo.
 function clamparXNivel(e) {
+  // En un nivel de REJILLA el mundo está acotado por los cuatro lados, no solo
+  // en X: el tope lo pone el recinto entero.
+  if (RejillaMapa.activa) { RejillaMapa.sujetar(e, MARGEN_NIVEL); return; }
   if (!Recursos.mapaPintado) return;
   const limIzq = MARGEN_NIVEL;
   const limDer = Recursos.anchoSuelo - MARGEN_NIVEL;
@@ -3084,6 +3148,10 @@ function actualizar(dt) {
   reanimar(dt);
   Mascotas.actualizar(dt, jugadores, ctxArmas);
   for (let i = 0; i < jugadores.length; i++) clamparXNivel(jugadores[i]);
+  // EL CAMINO HASTA LOS JUGADORES, recalculado justo antes de que la horda se
+  // mueva. Solo hace trabajo de verdad una vez cada seis pasos (ver
+  // sistemas/rejillaMapa.js) y en Mérida no hace ninguno.
+  RejillaMapa.actualizarCampo(jugadores, false);
   enemigos.mover(dt, jugadores, camara);
   proyectiles.mover(dt, estallar, camara, cazarCercano, jugadores);
 
@@ -3102,6 +3170,7 @@ function actualizar(dt) {
   separacion(enemigos, jugadores);
   Obstaculos.actualizar(camara.y, enemigos);
   colisionarObstaculos(Obstaculos, jugadores, enemigos);
+  colisionarParedes();
   // Y los proyectiles que CORREN por el suelo -hoy el Osito Dinamito- contra
   // esos mismos obstaculos. Va aqui, justo detras y con la plantilla ya
   // colocada por `Obstaculos.actualizar`, porque es el mismo problema: lo que
@@ -3160,6 +3229,9 @@ function actualizar(dt) {
   // pantalla. Sujetar DESPUÉS de mover la cámara: al revés, el rezagado toparía
   // contra un borde que ya no está donde se le sujetó.
   camara.seguirGrupo(jugadores, dt);
+  // En un recinto cerrado la cámara se para en la fachada: sin esto se asoma al
+  // vacío de fuera del mapa en cuanto el grupo pega la espalda a una pared.
+  if (RejillaMapa.activa) camara.sujetarAlMundo(RejillaMapa.anchoMundo, RejillaMapa.altoMundo);
   camara.sujetar(jugadores);
   // Después de la correa: si dos topan contra el mismo borde, hay que volver a
   // separarlos o el tope los dejaría uno dentro del otro.
@@ -3181,6 +3253,14 @@ function actualizar(dt) {
     const items = enemigos.pool.items;
     const n = enemigos.pool.activos;
     for (let k = 0; k < n; k++) clamparXNivel(items[k]);
+    // Y los que hayan aparecido DENTRO de una pared, fuera de ella. Los patrones
+    // del director reparten en anillo alrededor de la cámara sin saber que aquí
+    // hay tiendas, así que en un mapa con 2000 celdas macizas una buena parte de
+    // las apariciones cae en sitio imposible. `sacarDePared` sale en el acto
+    // para quien ya está en suelo bueno, que es el caso normal.
+    if (RejillaMapa.activa) {
+      for (let k = 0; k < n; k++) RejillaMapa.sacarDePared(items[k]);
+    }
   }
 
   // Todos caídos: se guardan los denarios ganados en la partida. Por flanco,
@@ -3814,6 +3894,44 @@ function dibujar(alpha) {
 const COLOR_VACIO = '#0a0c14';
 
 function dibujarSuelo(izq, arr) {
+  // NIVEL DE REJILLA: colores planos, una celda por rectángulo. Es el suelo del
+  // PROTOTIPO y se ve como lo que es — cuando haya tileset dibujado, esta rama
+  // pasa a hacer un drawImage por celda en vez de un fillRect, y ya está.
+  //
+  // Solo se pintan las celdas que se ven: unas 15x10, sea el mapa de 64
+  // pantallas o de mil.
+  if (RejillaMapa.activa && coloresRejilla) {
+    const c = RejillaMapa.celda;
+    const cx0 = Math.max(0, (izq / c) | 0);
+    const cy0 = Math.max(0, (arr / c) | 0);
+    const cx1 = Math.min(RejillaMapa.ancho - 1, ((izq + ANCHO_LOGICO) / c) | 0);
+    const cy1 = Math.min(RejillaMapa.alto - 1, ((arr + ALTO_LOGICO) / c) | 0);
+
+    // Lo de fuera del recinto, del color del vacío: la cámara topa con la
+    // fachada, pero con la interpolación puede asomar medio píxel.
+    ctx.fillStyle = COLOR_VACIO;
+    ctx.fillRect(izq, arr, ANCHO_LOGICO, ALTO_LOGICO);
+
+    tilesDibujados = 0;
+    for (let cy = cy0; cy <= cy1; cy++) {
+      const fila = cy * RejillaMapa.ancho;
+      // Las celdas seguidas del mismo color se pintan de una sola pasada: un
+      // pasillo son quince rectángulos idénticos en fila y el hipermercado
+      // entero, uno.
+      let cx = cx0;
+      while (cx <= cx1) {
+        const t = RejillaMapa.tipo[fila + cx];
+        let fin = cx + 1;
+        while (fin <= cx1 && RejillaMapa.tipo[fila + fin] === t) fin++;
+        ctx.fillStyle = coloresRejilla[t];
+        ctx.fillRect(cx * c, cy * c, (fin - cx) * c, c);
+        tilesDibujados++;
+        cx = fin;
+      }
+    }
+    return;
+  }
+
   const tiles = Recursos.tilesSuelo;
   if (tiles.length === 0) return;
 
@@ -4002,7 +4120,11 @@ async function arrancar() {
   });
 
   window.EMERITA = {
-    jugadores, arsenales, enemigos, proyectiles, recogibles, cofres, disparos, zonas, camara, entrada, bucle,
+    // `jugadores` NO va aquí: está más abajo como función (`jugadores()`) y, en
+    // un objeto literal, la última clave gana. Puesto también aquí como array,
+    // lo único que conseguía era que `EMERITA.jugadores.length` diera 0 —la
+    // aridad de la función— y pareciera que no hay nadie jugando.
+    arsenales, enemigos, proyectiles, recogibles, cofres, disparos, zonas, camara, entrada, bucle,
     // Los obstáculos sólidos del escenario. Se exponen por lo mismo que todo lo
     // de aquí: para poder comprobar desde fuera cosas que sobre el dibujo no se
     // ven —si un osito se está metiendo dentro de una ruina, por ejemplo— sin
@@ -4018,6 +4140,16 @@ async function arrancar() {
     // sin pasar por el menú, que es la única forma de probar la tienda o la
     // selección desde la consola cuando el navegador no está dando el foco.
     puestos, get pantalla() { return pantalla; }, irA, volverAlMenu,
+    // ENTRAR EN UN NIVEL SIN PASAR POR LOS MENÚS. Es el equivalente de `irA`
+    // para el sitio en vez de para la pantalla: `usarNivel` carga el mapa, el
+    // tema y las oleadas, y `empezarPartida` monta el mundo. Sirve para probar
+    // un nivel que todavía está cerrado por progreso, que si no obliga a ganar
+    // el anterior cada vez que se recarga la página.
+    usarNivel, empezarPartida, niveles: Niveles,
+    // La rejilla del nivel, si lo es. Se expone por lo mismo que `obstaculos`:
+    // para poder comprobar desde fuera que un enemigo no está dentro de una
+    // pared sin tener que juzgarlo a ojo en una captura.
+    rejilla: RejillaMapa,
     // Estado de las pantallas de menu, por el mismo motivo que `puestos`:
     // poder reproducir una eleccion sin depender de que llegue la pulsacion.
     mascotasElegidas, mascotasDisponibles,

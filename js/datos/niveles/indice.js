@@ -16,7 +16,8 @@
 // —el suelo pintado, que sí pesa— NO se carga aquí; lo carga Recursos cuando
 // se entra en el nivel.
 const MODULOS = [
-  () => import('./merida.js')
+  () => import('./merida.js'),
+  () => import('./lighthouse.js')
 ];
 
 // LO QUE FALTA DE LA REGIÓN: los sitios anunciados y todavía sin escribir.
@@ -39,7 +40,6 @@ const MODULOS = [
 // docs/niveles.md. Aquí solo van los NOMBRES porque es lo único que la pantalla
 // enseña de un nivel que todavía no existe.
 export const PROXIMOS = [
-  { nombre: 'CC The Lighthouse' },
   { nombre: 'Monfragüe' },
   { nombre: 'Necrópolis' },
   { nombre: 'Casas del Turuñuelo' },

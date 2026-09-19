@@ -134,12 +134,16 @@ gratis:
    línea. Es la única de todo el proyecto fuera de `datos/niveles/`. Ver
    **El índice y el selector**, más abajo.
 
-## Ejemplo comentado: añadir el nivel 2, CC The Lighthouse
+## Ejemplo comentado: un nivel de CALZADA
+
+El nivel 2 —The Lighthouse— ya está escrito y es de RECINTO (ver más abajo), así
+que como ejemplo de "copiar merida.js y cambiar los números" sirve mejor
+cualquiera de los cinco que faltan. El esqueleto es este:
 
 ```js
-// js/datos/niveles/lighthouse.js
+// js/datos/niveles/<sitio>.js
 //
-// Copiado de merida.js y con los números cambiados. Mientras The Lighthouse
+// Copiado de merida.js y con los números cambiados. Mientras el sitio
 // reutilice el bestiario y los tres jefes existentes (solo con otro nombre
 // y otra curva de escalado), esto es TODO lo que hace falta escribir aquí.
 
@@ -181,6 +185,84 @@ export const NIVEL = {
 Para jugarlo: `herramientas/procesar-assets.ps1` necesita sus propias
 entradas para `stages\2\...` (ver el aviso 2 de arriba), y hay que dar de alta
 `lighthouse.js` en el índice.
+
+## Dos clases de nivel: calzada y recinto
+
+Hasta septiembre de 2026 todos los niveles eran de la misma clase. Ahora hay
+dos, y la diferencia está en un solo campo del archivo de datos:
+
+**CALZADA** (Mérida). Sin campo `mapa`. El suelo es una imagen que repite sin
+límite hacia arriba y hacia abajo, el ancho lo pone la propia imagen, y lo
+sólido son las quince piezas de `decoracion` que lleva `sistemas/obstaculos.js`.
+Es lo que había y no ha cambiado ni una línea.
+
+**RECINTO** (CC The Lighthouse). Con campo `mapa`. El mundo es CERRADO y de
+tamaño conocido, con paredes de verdad, y lo lleva `sistemas/rejillaMapa.js`:
+
+```js
+import { MAPA, LEYENDA, CELDA } from './lighthouse-mapa.js';
+
+mapa: { rejilla: MAPA, leyenda: LEYENDA, celda: CELDA },
+coloresMapa: { '#': '#2f333c', '.': '#b9b5ad', /* uno por símbolo */ }
+```
+
+Con ese campo puesto, el motor enciende solo cuatro cosas que en un nivel de
+calzada no existen:
+
+1. **Las paredes frenan.** La posición dice en qué celda estás y mirar si hay
+   pared es un acceso a un array, así que el coste no depende de cuántas paredes
+   tenga el mapa. Un centro comercial tiene unas 2100 celdas macizas; recorrer
+   una lista de cajas como hace `obstaculos.js` no valía aquí.
+2. **La horda persigue POR LOS PASILLOS.** Un campo de flujo —una búsqueda en
+   anchura desde los jugadores, recalculada diez veces por segundo— dice en cada
+   celda hacia dónde hay que ir. Se usa solo cuando hay pared de por medio:
+   mientras te ve, el enemigo va en línea recta como siempre.
+3. **Se aparece donde se puede estar.** Los patrones del director reparten en
+   anillo alrededor de la cámara sin saber que hay tiendas, así que lo que cae
+   dentro de una pared se corre a la celda transitable más cercana.
+4. **La cámara topa con la fachada** en vez de asomarse al vacío.
+
+Lo que NO cambia: oleadas, densidad, escalado, hitos y jefes son el mismo
+contrato y los lee el mismo director.
+
+## El mapa se dibuja en Tiled
+
+La rejilla vive en `js/datos/niveles/<nivel>-mapa.js` y es un fichero
+**GENERADO**: no se edita a mano. Se trabaja con
+[Tiled](https://www.mapeditor.org/), que es un editor externo — **no es una
+dependencia del juego**: no se carga en tiempo de ejecución, solo produce un
+JSON que una herramienta traduce a `datos/`, que sigue siendo datos puros.
+
+```
+node herramientas/mapa-lighthouse.js generar [semilla]
+    Traza un centro comercial entero y escribe:
+      resources/mapas/lighthouse.tmj        <- se abre en Tiled
+      resources/mapas/lighthouse-tiles.png  <- el tileset de colores planos
+      js/datos/niveles/lighthouse-mapa.js   <- lo que lee el juego
+
+node herramientas/mapa-lighthouse.js importar
+    Lee el .tmj ya retocado a mano y reescribe SOLO el módulo de datos.
+```
+
+El ciclo de trabajo es: se genera una vez, se abre el `.tmj` en Tiled, se mueve
+lo que haga falta con el ratón, se importa y se recarga el navegador. Por ahí no
+hay que pasar por el código.
+
+Dos cosas que el importador comprueba y avisa:
+
+- **Que todo lo transitable sea UNA SOLA PIEZA.** Un local sin puerta es suelo
+  al que no se puede llegar, y ahí caen gemas que nadie va a recoger. El
+  generador lo garantiza taladrando; al editar a mano se puede romper, y por eso
+  se avisa.
+- **Que un hueco sin pintar es PARED.** Es lo seguro: tratarlo como suelo abriría
+  un agujero al vacío por un despiste con el borrador.
+
+En Tiled, las salidas y el punto de arranque están en una **capa de objetos**
+(`puntos`), no en la de tiles: se arrastran con el ratón, que es para lo que
+están ahí.
+
+El tileset de hoy son ocho cuadrados de color plano — es el PROTOTIPO. Cuando
+haya arte se sustituye ese PNG por el dibujado y el `.tmj` no se entera.
 
 ## El índice y el selector
 

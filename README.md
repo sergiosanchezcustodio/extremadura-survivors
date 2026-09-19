@@ -545,6 +545,7 @@ Todas offline, en PowerShell y sin dependencias. Ninguna forma parte del juego.
 | `servidor.py` | El servidor que levanta el anterior: `http.server` más `Cache-Control: no-store`, para que el navegador no sirva arte viejo |
 | `procesar-assets.ps1` | Convierte `resources/` en sprites y escribe el atlas |
 | `generar-efectos.ps1` | Hornea por código las 41 hojas de efectos |
+| `mapa-lighthouse.js` | Traza el mapa del CC The Lighthouse y lo lleva a Tiled y de vuelta (`generar` / `importar`) |
 | `montar-galeria.ps1` | Compone las láminas de este README, y con `-Capturas` normaliza las capturas de pantalla |
 | `ver-assets.ps1` | Describe imágenes sin abrirlas |
 | `empaquetar.ps1` | Genera la aplicación de escritorio |

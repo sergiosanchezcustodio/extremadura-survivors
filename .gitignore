@@ -23,3 +23,6 @@ resources/**/OLD/
 
 # Rastros de las sesiones de Playwright: capturas y volcados de consola.
 .playwright-mcp/
+
+# Notas sueltas de Sergio: no se versionan (aqui se colo una clave una vez).
+temas_emerita_survivor.txt

@@ -277,11 +277,11 @@ Se compran una vez con denarios y se quedan desbloqueadas para siempre.
 ## Elegir dónde se juega
 
 Lo último antes de empezar, cuando ya se ha decidido con quién. La pantalla
-enseña **el recorrido entero**: Emerita Augusta arriba y, debajo, los seis
-sitios que quedan por escribir —el CC The Lighthouse, Monfragüe, la Necrópolis,
-Casas del Turuñuelo, Granadilla y Las Hurdes— apagados y con «próximamente». Un
-mapa que solo muestra donde ya puedes ir no es un mapa. Cada nivel se abre al
-**ganar** en el anterior: morir en el minuto 28 no abre nada.
+enseña **el recorrido entero**: Emerita Augusta arriba, el CC The Lighthouse
+debajo y, después, los cinco sitios que quedan por escribir —Monfragüe, la
+Necrópolis, Casas del Turuñuelo, Granadilla y Las Hurdes— apagados y con
+«próximamente». Un mapa que solo muestra donde ya puedes ir no es un mapa. Cada
+nivel se abre al **ganar** en el anterior: morir en el minuto 28 no abre nada.
 
 De qué va cada uno y quién es su jefe —el Jancano en Monfragüe, el Macho Cabrío
 en Las Hurdes— está en **[docs/niveles.md](docs/niveles.md)**.
@@ -299,6 +299,26 @@ primer fotograma, narrada por la misma voz. Cada nivel cuenta la suya y vive en
 su propio archivo de datos; se salta aguantando dos segundos, como la intro.
 
 ![Historia del nivel](docs/capturas/historia_nivel.jpg)
+
+### El CC The Lighthouse
+
+El segundo sitio es otra clase de nivel. Mérida es un campo abierto que repite
+sin límite; el centro comercial es **un recinto cerrado con paredes**, dibujado
+en Tiled sobre una rejilla: tres anillos de pasillos, ocho puertas por anillo,
+estanterías y mostradores que se ven en tres cuartos y **no se atraviesan** —ni
+los jugadores, ni los bichos, ni las armas—. Se empieza encerrado en el centro y
+cada jefe abre un cierre: el del minuto 10 da paso al anillo siguiente, y el
+final abre la puerta de la calle.
+
+Un recinto necesita **plano**. Se abre con Bloq Mayús o con **Y**, congela la
+partida y se dibuja translúcido encima, para ver por dónde viene la horda sin
+cerrarlo. Solo enseña **lo que ya se ha pisado**: el resto del centro comercial
+se descubre andando. Se acerca y aleja con **+** y **-**, o con los gatillos de
+abajo del mando, y entra al aumento mayor con el que cabe entero.
+
+Todavía es un **prototipo**: la geometría es la buena y ya se juega, el suelo y
+el mobiliario llevan una hoja de texturas provisional, y la curva de oleadas
+está copiada de Mérida y se ajustará jugándola.
 
 ---
 
@@ -537,7 +557,9 @@ dentro de ella.
 
 ## Herramientas
 
-Todas offline, en PowerShell y sin dependencias. Ninguna forma parte del juego.
+Todas offline, en PowerShell o Node y sin dependencias. Ninguna forma parte del
+juego. Las dos que llaman a una API leen su clave de `.env`, que está en
+`.gitignore` y no se sube.
 
 | Herramienta | Qué hace |
 |---|---|
@@ -546,6 +568,8 @@ Todas offline, en PowerShell y sin dependencias. Ninguna forma parte del juego.
 | `procesar-assets.ps1` | Convierte `resources/` en sprites y escribe el atlas |
 | `generar-efectos.ps1` | Hornea por código las 41 hojas de efectos |
 | `mapa-lighthouse.js` | Traza el mapa del CC The Lighthouse y lo lleva a Tiled y de vuelta (`generar` / `importar`) |
+| `generar-imagen.js` | Pide un boceto a Replicate. Es referencia, nunca arte final: nada entra en `assets/` sin que Sergio lo haya dibujado |
+| `generar-voz.js` | Narra un texto con ElevenLabs y lo guarda en MP3. Se hornea en desarrollo: el juego no lleva clave ni habla con la API |
 | `montar-galeria.ps1` | Compone las láminas de este README, y con `-Capturas` normaliza las capturas de pantalla |
 | `ver-assets.ps1` | Describe imágenes sin abrirlas |
 | `empaquetar.ps1` | Genera la aplicación de escritorio |
@@ -584,14 +608,18 @@ Cómo se publica una versión —Pages va solo, itch.io va a mano, y el sello de
 atlas es lo que evita que el navegador sirva imágenes viejas— está en
 **[docs/publicar.md](docs/publicar.md)**.
 
-**Lo que viene**: los seis sitios que faltan — el CC The Lighthouse, Monfragüe,
-la Necrópolis, Casas del Turuñuelo, Granadilla y Las Hurdes — añadiendo un nivel
-a la vez. Qué es cada uno está en **[docs/niveles.md](docs/niveles.md)**; el
-contrato para escribirlo, en **[docs/anadir-un-nivel.md](docs/anadir-un-nivel.md)**,
-con lo que es copiar un fichero de datos y lo que todavía obliga a tocar código.
+**En marcha**: el CC The Lighthouse, el primer nivel de rejilla —recinto con
+paredes, plano que se descubre andando, mobiliario sólido—. Se juega ya, con
+arte provisional y una curva de oleadas por ajustar.
+
+**Lo que viene**: los cinco sitios que faltan — Monfragüe, la Necrópolis, Casas
+del Turuñuelo, Granadilla y Las Hurdes — añadiendo un nivel a la vez. Qué es
+cada uno está en **[docs/niveles.md](docs/niveles.md)**; el contrato para
+escribirlo, en **[docs/anadir-un-nivel.md](docs/anadir-un-nivel.md)**, con lo
+que es copiar un fichero de datos y lo que todavía obliga a tocar código.
 
 El juego ya sabe tener más de uno. Después de elegir héroe y mascota se elige
-**dónde**, en una pantalla que enseña el recorrido entero —los seis sitios que
+**dónde**, en una pantalla que enseña el recorrido entero —los cinco sitios que
 faltan salen apagados, con «próximamente»— y donde un nivel se abre al ganar en
 el anterior. Elegido el sitio, **su historia** sube por la placa de piedra antes
 del primer fotograma: cada nivel cuenta la suya, escrita en su propio archivo de

@@ -3033,15 +3033,23 @@ function actualizar(dt) {
       if (c && c.consumirBoton(3)) { mapaAbierto = false; entrada.limpiarFlanco(); return; }
     }
     // El zoom: en el teclado los dos signos, con sus gemelos del teclado
-    // numérico; en el mando, los gatillos de arriba.
+    // numérico; en el mando, los gatillos de abajo (derecho acerca, izquierdo
+    // aleja), que pidió Sergio.
+    //
+    // LOS CÓDIGOS DE TECLA SON FÍSICOS, no del carácter: 'Equal' y 'Minus' son
+    // las teclas del + y el - EN UN TECLADO AMERICANO. En el español, en esas
+    // posiciones están la ¡ y la ', y el + y el - viven en 'BracketRight' y
+    // 'Slash'. Sin estas dos el zoom no respondía en el teclado de Sergio.
     let z = 0;
-    if (entrada.consumirFlanco('Equal') || entrada.consumirFlanco('NumpadAdd')) z = 1;
-    if (entrada.consumirFlanco('Minus') || entrada.consumirFlanco('NumpadSubtract')) z = -1;
+    if (entrada.consumirFlanco('Equal') || entrada.consumirFlanco('BracketRight') ||
+        entrada.consumirFlanco('NumpadAdd')) z = 1;
+    if (entrada.consumirFlanco('Minus') || entrada.consumirFlanco('Slash') ||
+        entrada.consumirFlanco('NumpadSubtract')) z = -1;
     for (let i = 0; i < jugadores.length; i++) {
       const c = entrada.controles[i];
       if (!c) continue;
-      if (c.consumirBoton(5)) z = 1;
-      if (c.consumirBoton(4)) z = -1;
+      if (c.consumirBoton(7)) z = 1;
+      if (c.consumirBoton(6)) z = -1;
     }
     if (z !== 0) acercarMapa(z);
     entrada.limpiarFlanco();

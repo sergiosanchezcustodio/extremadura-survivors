@@ -426,7 +426,7 @@ A este tamaño no queda más remedio, y las dos compresiones son distintas:
 
 Un recinto trae plano, y es otra cosa que el radar de Mérida: se abre con **Bloq
 Mayús** o con el botón **Y**, congela la partida y se aleja y acerca con **+** y
-**-** (o con los gatillos de arriba del mando). Se cierra con **ESC** o con **B**,
+**-** (o con los gatillos de abajo del mando: el derecho acerca, el izquierdo aleja). Se cierra con **ESC** o con **B**,
 que es lo que se intenta por instinto, además de con la tecla que lo abrió.
 
 El aumento de entrada **se elige solo**: el mayor con el que quepa el centro

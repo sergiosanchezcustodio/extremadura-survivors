@@ -70,10 +70,10 @@ function nivel(id) {
 // línea sobre transparente, así que `source-in` pinta exactamente el trazo.
 //
 // Y SE RECORTA A SU CONTENIDO al teñirla: el PNG viene con márgenes generosos
-// —1024x1024 para un dibujo de 831x570— y sin recortar, el mando saldría a la
+// —1024x1024 para un dibujo de 944x684— y sin recortar, el mando saldría a la
 // mitad de tamaño que los demás iconos y descentrado hacia arriba.
 const RUTA_ICONO_MANDO = 'assets/menus/icono-mando.png';
-const RECORTE_MANDO = { x: 97, y: 234, w: 831, h: 570 };
+const RECORTE_MANDO = { x: 41, y: 161, w: 944, h: 684 };
 
 let _mando = null;
 let _pedido = false;

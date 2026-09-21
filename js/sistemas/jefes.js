@@ -94,8 +94,18 @@ function actualizarFuego(dt, e, objetivo, disparos, rng) {
   defCharco.sprite = cfg.sprite || null;
 
   const cx = cos(base), cy = sen(base);
+  // EL CONO LLEGA AL JUGADOR. Empezaba siempre a 26 del jefe, y con tres
+  // pasos de 20 se quedaba a 66: en Mérida daba igual, el jefe siempre estaba
+  // encima, pero en el centro comercial se pasa media pelea con un pasillo o
+  // un mostrador de por medio y el fuego caía a mitad de camino, sin que el
+  // jugador lo viera siquiera. Ahora el cono se corre hacia delante lo que
+  // haga falta para que su ÚLTIMO charco caiga donde está el jugador. Va a
+  // través de paredes, como todo lo que escupe un jefe (lo pidió Sergio).
+  const dist = hipot(dx, dy);
+  const largo = (cfg.pasos - 1) * cfg.paso;
+  const desde = Math.max(26, dist - largo);
   for (let p = 0; p < cfg.pasos; p++) {
-    const d = 26 + p * cfg.paso;
+    const d = desde + p * cfg.paso;
     disparos.charco(e.x + cx * d, e.y + cy * d, defCharco);
   }
   // DIRIGIDO al cono y no un estallido a los cuatro vientos: esto es un
@@ -222,9 +232,14 @@ function actualizarCerbero(dt, enemigos, jugadores, disparos, rng) {
     }
   }
 
-  if (fase === 1) {
-    actualizarFuego(dt, e, objetivo, disparos, rng);
-  } else if (fase === 2) {
+  // EL FUEGO NO SE APAGA NUNCA. Era solo de la fase 1, y en la 2 Cerbero
+  // pasaba a embestidas e invocaciones sin escupir: en un recinto lleno de
+  // paredes una embestida es un carrerón contra un muro, y el jugador veía
+  // a un jefe que "no ataca". Sergio pidió que estén siempre atacando con su
+  // cadencia; la fase 2 SUMA embestida e invocación, no las cambia por el
+  // fuego.
+  actualizarFuego(dt, e, objetivo, disparos, rng);
+  if (fase === 2) {
     actualizarEmbestida(dt, e, objetivo, JEFES.cerbero.embestida, rng);
     actualizarInvocacion(dt, e, enemigos, rng);
   }
@@ -256,8 +271,12 @@ function actualizarVeneno(dt, e, objetivo, disparos, rng) {
   defCharco.sprite = cfg.sprite || null;
 
   const cx = cos(base), cy = sen(base);
+  // Y llega hasta el jugador, como el fuego de Cerbero: ver allí el motivo.
+  const dist = hipot(dx, dy);
+  const largo = (cfg.pasos - 1) * cfg.paso;
+  const desde = Math.max(24, dist - largo);
   for (let p = 0; p < cfg.pasos; p++) {
-    const d = 24 + p * cfg.paso;
+    const d = desde + p * cfg.paso;
     disparos.charco(e.x + cx * d, e.y + cy * d, defCharco);
   }
   // Mismo cambio que el fuego de Cerbero: chorro dirigido al cono, con
@@ -318,7 +337,7 @@ function actualizarHidra(dt, enemigos, jugadores, disparos, rng) {
 // mecanismo del fuego de Cerbero y el veneno de la Hidra, pero como UN solo
 // círculo grande con `duracion`/`intervalo` iguales -un único tic- en vez de
 // una mancha que se queda ardiendo: es fuerza pura, no deja nada en el suelo.
-function actualizarAullido(dt, e, disparos, rng) {
+function actualizarAullido(dt, e, disparos, rng, objetivo) {
   const est = estadoLoba;
   const cfg = JEFES.loba.aullido;
   const cadencia = est.furiaRestante > 0 ? cfg.cadenciaFuria : cfg.cadencia;
@@ -335,14 +354,23 @@ function actualizarAullido(dt, e, disparos, rng) {
   defCharco.spriteReventon = cfg.spriteReventon;
   defCharco.sprite = null;        // fuerza pura: no deja mancha en el suelo
 
-  disparos.charco(e.x, e.y, defCharco);
+  // CENTRADO EN ELLA si el jugador está dentro de su alcance; si está más
+  // lejos —al otro lado de un mostrador, en el pasillo de al lado—, el aullido
+  // cae DONDE ESTÁ EL JUGADOR. Un aullido es sonido: cruza las paredes y llega
+  // a quien lo oye. Sin esto, en el centro comercial la Loba se pasaba la
+  // pelea aullando a su alrededor sin alcanzar a nadie.
+  let ax = e.x, ay = e.y;
+  if (objetivo && hipot(objetivo.x - e.x, objetivo.y - e.y) > cfg.radio * 0.8) {
+    ax = objetivo.x; ay = objetivo.y;
+  }
+  disparos.charco(ax, ay, defCharco);
   if (!Particulas.saturado()) {
     Particulas.estallido(e.x, e.y - 12, 10, 110, 0.35, 2, COLOR_CHISPA, 0.2, rng);
   }
   VFX.sacudir(3.4);
 }
 
-function actualizarLoba(dt, enemigos, disparos, rng) {
+function actualizarLoba(dt, enemigos, jugadores, disparos, rng) {
   const est = estadoLoba;
   const e = est.entidad;
   if (!e || e.tipo !== 'loba' || e.vida <= 0) {
@@ -386,7 +414,7 @@ function actualizarLoba(dt, enemigos, disparos, rng) {
     }
   }
 
-  actualizarAullido(dt, e, disparos, rng);
+  actualizarAullido(dt, e, disparos, rng, masCercano(jugadores, e.x, e.y));
 }
 
 // --- API pública ------------------------------------------------------------
@@ -512,7 +540,7 @@ export const Jefes = {
   actualizar(dt, enemigos, jugadores, disparos) {
     if (estadoCerbero.activo) actualizarCerbero(dt, enemigos, jugadores, disparos, this._rng);
     if (estadoHidra.activo) actualizarHidra(dt, enemigos, jugadores, disparos, this._rng);
-    if (estadoLoba.activo) actualizarLoba(dt, enemigos, disparos, this._rng);
+    if (estadoLoba.activo) actualizarLoba(dt, enemigos, jugadores, disparos, this._rng);
   },
 
   // Info para la barra de jefe (ui/hud.js). Devuelve el mismo objeto siempre

@@ -352,6 +352,11 @@ const MATERIALES = {
   cristal: { color: COLOR_CRISTAL, gravedad: 1.6, velocidad: 90, apertura: 2.6, gotas: 12, tam: 1.5 }
 };
 
+// CUÁNTO SE ILUMINA EL CUERPO al recibir el golpe, en la cima de la curva del
+// halo. Es la silueta roja maciza puesta encima del sprite con este alfa: a
+// 0,28 se ve que se enciende sin que el dibujo se pierda ni el rojo canse.
+const ILUMINACION_GOLPE = 0.28;
+
 // LA CURVA DEL HALO: sube en el primer cuarto y baja en los tres restantes.
 // Sube rápido para que el golpe se sienta al instante, baja despacio para que
 // se lea como que se desvanece, y ninguna de las dos es un escalón.
@@ -1954,6 +1959,16 @@ export class Enemigos {
           e.frame * meta.w, 0, meta.w, meta.h,
           (cxF - (meta.w >> 1)) / ESCALA_ARTE, (cyF - meta.h) / ESCALA_ARTE,
           meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
+        // LA ILUMINACIÓN: la silueta roja encima, con el alfa del halo
+        // rebajado. Van al unísono porque salen de la misma curva.
+        if (conHalo) {
+          ctx.globalAlpha = alfaHalo(e.destello) * ILUMINACION_GOLPE;
+          ctx.drawImage(e.mirandoDerecha ? e.imgTinte : e.imgTinteEspejo,
+            e.frame * meta.w, 0, meta.w, meta.h,
+            (cxF - (meta.w >> 1)) / ESCALA_ARTE, (cyF - meta.h) / ESCALA_ARTE,
+            meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
+          ctx.globalAlpha = 1;
+        }
         continue;
       }
 
@@ -1971,6 +1986,13 @@ export class Enemigos {
       ctx.drawImage(img,
         (cxF - (meta.w >> 1)) / ESCALA_ARTE, dyF / ESCALA_ARTE,
         meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
+      if (conHalo) {
+        ctx.globalAlpha = alfaHalo(e.destello) * ILUMINACION_GOLPE;
+        ctx.drawImage(e.mirandoDerecha ? e.imgTinte : e.imgTinteEspejo,
+          (cxF - (meta.w >> 1)) / ESCALA_ARTE, dyF / ESCALA_ARTE,
+          meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
+        ctx.globalAlpha = 1;
+      }
     }
     // Los que quedan van por delante de todo lo visible (o no había enemigos).
     while (sigJugador < nj) ordenJ[sigJugador++].dibujar(ctx);

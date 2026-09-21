@@ -36,7 +36,7 @@ export const Recursos = {
   atlas: null,
   imagenes: new Map(),      // id -> HTMLImageElement | HTMLCanvasElement
   espejos: new Map(),       // id -> canvas volteado en horizontal
-  tintes: new Map(),        // id -> canvas blanqueado (destello de impacto)
+  tintes: new Map(),        // id -> silueta en rojo (iluminación de golpe, sobre el sprite)
   halos: new Map(),         // id -> halo rojo alrededor de la silueta (golpe)
   halosEspejo: new Map(),   // id -> el mismo, volteado
   tintesEspejo: new Map(),  // id -> el mismo, volteado
@@ -134,8 +134,12 @@ export const Recursos = {
         if (meta.plano) return;
         const espejo = this._espejo(fuente, meta);
         this.espejos.set(id, espejo);
-        this.tintes.set(id, this._tinte(fuente, meta));
-        this.tintesEspejo.set(id, this._tinte(espejo, meta));
+        // El tinte de los enemigos ya no es el blanqueado: es la silueta en
+        // rojo macizo, que Enemigos.dibujar pone ENCIMA del sprite con muy
+        // poco alfa y al compás del halo. Lo pidió Sergio: que el bicho se
+        // ilumine levemente de rojo a la vez que le sale el borde, sin saturar.
+        this.tintes.set(id, this._tinte(fuente, meta, COLOR_HALO));
+        this.tintesEspejo.set(id, this._tinte(espejo, meta, COLOR_HALO));
         this.halos.set(id, this._halo(fuente, meta));
         this.halosEspejo.set(id, this._halo(espejo, meta));
       };

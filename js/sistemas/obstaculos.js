@@ -95,16 +95,30 @@ export const Obstaculos = {
   activos: 0,
   _plantilla: null,
   _filaBase: NaN,     // fuerza el primer cálculo
+  _dePlantilla: 0,    // cuántos `items` son de la plantilla; detrás van los fijos
   _filasConTorchas: null,  // filas cuyo destruible ya está invocado y sigue cerca
+
+  // OBSTÁCULOS FIJOS DE OTRO SISTEMA: hoy, las máquinas expendedoras rotas
+  // del nivel 2 (sistemas/expendedoras.js). Quien los pone rellena `fijos`
+  // con instancias de la misma forma que `crearInstancia` y dice cuántas
+  // valen en `nFijos`; aquí se cuelan al final de `items` en cada repaso, y a
+  // partir de ahí son un obstáculo más: los ordena por profundidad
+  // Enemigos.dibujar y los hace sólidos colisionarObstaculos. Es lo que
+  // permite que otro sistema tenga cosas sólidas sin duplicar nada de esto.
+  fijos: null,
+  nFijos: 0,
+  _capFijos: 80,
 
   iniciar(nivel) {
     this._plantilla = nivel.decoracion || [];
     // Tres filas de tile (la central más un margen arriba y abajo) por
     // entrada de plantilla: de sobra para cubrir el viewport sin recalcular
-    // cada frame según el usuario avanza.
-    const capacidad = Math.max(1, this._plantilla.length) * 3;
+    // cada frame según el usuario avanza. Y sitio para los fijos.
+    const capacidad = Math.max(1, this._plantilla.length) * 3 + this._capFijos;
     this.items = new Array(capacidad);
     for (let i = 0; i < capacidad; i++) this.items[i] = crearInstancia();
+    this.fijos = null;
+    this.nFijos = 0;
     this.activos = 0;
     this._filasConTorchas = new Set();
     this.reiniciar();
@@ -207,15 +221,35 @@ export const Obstaculos = {
     }
   },
 
+  // Los fijos van detrás de lo que haya puesto la plantilla. `desde` es
+  // cuántos hay de plantilla; se llama en cada repaso, también cuando la
+  // fila no ha cambiado, porque una máquina puede romperse sin que la cámara
+  // cambie de fila.
+  _colocarFijos(desde) {
+    let k = desde;
+    const n = this.fijos ? Math.min(this.nFijos, this._capFijos) : 0;
+    // Se COPIAN los campos a las instancias propias en vez de meter la
+    // referencia ajena: `items` es un pool que la plantilla reescribe en el
+    // sitio, y con la referencia dentro acabaría escribiendo en el objeto de
+    // otro sistema.
+    for (let i = 0; i < n && k < this.items.length; i++) {
+      const f = this.fijos[i], o = this.items[k++];
+      o.x = f.x; o.y = f.y; o.yVista = f.yVista;
+      o.cx = f.cx; o.cy = f.cy; o.hx = f.hx; o.hy = f.hy;
+      o.img = f.img; o.w = f.w; o.h = f.h;
+    }
+    this.activos = k;
+  },
+
   actualizar(camaraY, enemigos) {
     const altoTile = Recursos.altoSuelo;
     if (!altoTile || !this._plantilla || this._plantilla.length === 0) {
-      this.activos = 0;
+      this._colocarFijos(0);
       return;
     }
 
     const filaCentro = Math.floor(camaraY / altoTile);
-    if (filaCentro === this._filaBase) return;
+    if (filaCentro === this._filaBase) { this._colocarFijos(this._dePlantilla); return; }
     this._filaBase = filaCentro;
     this._olvidarFilasLejanas(filaCentro);
 
@@ -254,6 +288,7 @@ export const Obstaculos = {
       }
       this._filasConTorchas.add(fila);
     }
-    this.activos = k;
+    this._dePlantilla = k;
+    this._colocarFijos(k);
   }
 };

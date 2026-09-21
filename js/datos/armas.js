@@ -178,7 +178,6 @@ export const ARMAS = {
     empuje: 130,
     color: '#ffd9a0',
     estela: '#a05a2a',
-    spriteProyectil: 'balaEscopeta',
     niveles: [
       {},
       { proyectiles: 2 },
@@ -283,9 +282,12 @@ export const ARMAS = {
     danyo: 6, recarga: 0.45, proyectiles: 2, velocidad: 200, alcance: 150,
     radio: 3, perforacion: 0, empuje: 40,
     color: '#ffcf8a', estela: '#8a5a2a', largoTrazo: 6,
-    // Un casco de hierro roto, con aristas. No hay dos iguales en pantalla
-    // porque salen girados en direcciones al azar, que es lo que hace el arma.
+    // TREINTA CASCOS DISTINTOS, dibujados por Sergio en una lámina de 8x4, y
+    // cada proyectil sortea el suyo (`fotogramaAleatorio`): no hay dos iguales
+    // en pantalla, que es lo que hace el arma. Van orientados al vuelo y sin
+    // voltear, como toda munición de arma de fuego (lo pidió Sergio).
     spriteProyectil: 'proyMetralla',
+    fotogramaAleatorio: true,
     // EL DOBLE DE PIEDRAS AL 10: de 12 a 24, subiendo por el mismo camino de
     // antes (cada nivel suma, y el 8 suma el doble). El daño por impacto no se
     // toca: esta arma no va de pegar fuerte, va de llenar el aire — duplicar la
@@ -320,6 +322,14 @@ export const ARMAS = {
     danyo: 0, danyoExplosion: 26, radioExplosion: 24, duracion: 0.35,
     recarga: 2.6, proyectiles: 2, empuje: 120,
     color: '#ffb14a',
+    // SE VE CAER CADA BOMBA, como las flechas de la lluvia: `caida` son las
+    // unidades por encima del punto de impacto desde las que se suelta, y
+    // `velocidad` lo rápido que baja. 160 a 340 es casi medio segundo de
+    // vuelo, algo más que la flecha —una bomba es más pesada y más lenta— y
+    // suficiente para verla venir y salirse del círculo. La bomba la dibujó
+    // Sergio; cae con la punta abajo porque el motor la orienta al vuelo.
+    caida: 160, velocidad: 340, radio: 5,
+    spriteProyectil: 'proyBomba',
     niveles: [{}, { proyectiles: 1 }, { danyoExplosion: 8 }, { radioExplosion: 8 },
               { proyectiles: 1 }, { danyoExplosion: 10 }, { recarga: -0.5 },
               { proyectiles: 2, radioExplosion: 10 },
@@ -532,6 +542,10 @@ export const ARMAS = {
     // de 3 a 8. La densidad por parcela no cambia; lo que crece es cuánto suelo
     // hay sembrado, que es como debe subir un arma de área.
     piezas: 5,
+    // Y EL DOBLE AL NIVEL 10: un abrojo más por parcela en el 3, el 5, el 7,
+    // el 9 y el 10, de cinco a diez. Lo pidió Sergio. La densidad por parcela
+    // ya no es fija —sube con el nivel, además de las parcelas— y la cuenta
+    // de arriba pasa a ser la del nivel 1.
     vueloPieza: 0.22,
     // NO para los proyectiles enemigos. Cuatro puntas de hierro en el suelo
     // dejan pasar por encima cualquier cosa que vuele; es el mismo criterio que
@@ -542,9 +556,9 @@ export const ARMAS = {
     comportamiento: 'zonaPersistente',
     danyo: 6, intervalo: 0.45, recarga: 2.8, charcos: 3, duracion: 5, radio: 10,
     ralentiza: 0.25, empuje: 30, color: '#c9bda0',
-    niveles: [{}, { charcos: 1 }, { danyo: 2 }, { duracion: 2 },
-              { charcos: 2 }, { danyo: 3 }, { duracion: 2 }, { charcos: 2, danyo: 4 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { charcos: 1 }, { danyo: 2, piezas: 1 }, { duracion: 2 },
+              { charcos: 2, piezas: 1 }, { danyo: 3 }, { duracion: 2, piezas: 1 }, { charcos: 2, danyo: 4 },
+              { danyo: 6, piezas: 1 }, { danyo: 9, recarga: -0.15, piezas: 1 }]
   },
 
   // ==========================================================================
@@ -792,6 +806,9 @@ export const ARMAS = {
     danyo: 11, recarga: 1.6, proyectiles: 9, velocidad: 230, alcance: 82, angulo: 78,
     radio: 3, perforacion: 0, empuje: 220,
     color: '#ffc07a', estela: '#8a4a1a',
+    // El dibujo de Sergio es el CARTUCHO reventando con su fogonazo. Se
+    // orienta al vuelo y va RECTO, sin voltear: lo pidió Sergio, un
+    // proyectil de arma de fuego no gira sobre sí mismo.
     spriteProyectil: 'balaRecortada',
     niveles: [{}, { proyectiles: 3 }, { danyo: 3 }, { empuje: 60 },
               { proyectiles: 3 }, { danyo: 4 }, { recarga: -0.3 }, { proyectiles: 4, danyo: 6 },
@@ -875,9 +892,13 @@ export const ARMAS = {
     danyo: 3, recarga: 0.3, proyectiles: 4, velocidad: 170, alcance: 130,
     radio: 3, perforacion: 0, empuje: 15,
     color: '#e8e07a', estela: '#8a8a2a', largoTrazo: 4,
-    // Cada avispa, una abeja dibujada. Se orienta al vuelo, sin giro propio:
-    // un bicho vuela mirando hacia donde va.
-    spriteProyectil: 'proyAbeja',
+    // Cada avispa, una de las once que dibujó Sergio (ver $AVISPAS_ENJAMBRE en
+    // procesar-assets.ps1), sorteada por avispa para que la nube no repita
+    // postura. Se orienta al vuelo, sin giro propio: un bicho vuela mirando
+    // hacia donde va, y girada al rumbo es la imagen que mejor se adapta a
+    // cada dirección.
+    spriteProyectil: 'proyAvispa',
+    fotogramaAleatorio: true,
     niveles: [{}, { proyectiles: 2 }, { danyo: 1 }, { recarga: -0.05 },
               { proyectiles: 2 }, { danyo: 2 }, { alcance: 40 }, { proyectiles: 3, danyo: 2 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -909,6 +930,8 @@ export const ARMAS = {
     descripcion: 'Un cohete cada mucho. Se lleva media pantalla.',
     comportamiento: 'proyectilExplosivo',
     spriteOnda: 'explosionCohete',
+    // El cohete, dibujado por Sergio. Va orientado al vuelo, como una bala.
+    spriteProyectil: 'proyCohete',
     // CADENCIA A LA MITAD (3.4 -> 6.8 de recarga). Disparaba casi tan a menudo
     // como el lanzagranadas llevándose media pantalla por disparo, así que no
     // había ningún motivo para llevar otra cosa. Ahora es lo que dice su nombre:
@@ -934,13 +957,24 @@ export const ARMAS = {
   },
   artilleria: {
     nombre: 'Artillería',
-    retirada: true,
+    atraviesaParedes: true,
     descripcion: 'Obuses pesados que caen lejos y solos.',
     comportamiento: 'bombardeoAleatorio',
     spriteOnda: 'explosionFuego',
     danyo: 0, danyoExplosion: 40, radioExplosion: 54, duracion: 0.4,
     recarga: 3.2, proyectiles: 1, empuje: 200,
     color: '#ffa06a',
+    // VUELVE AL JUEGO, y con obús a la vista. Estaba retirada porque su onda
+    // aparecía en el suelo de la nada; ahora el obús que dibujó Sergio SALE
+    // DE UN BORDE DE LA PANTALLA (`desdeBorde`) y cruza en parábola hasta el
+    // punto de impacto, donde revienta. `arco` es la altura del vuelo en
+    // unidades lógicas y `velocidad` lo rápido que cruza: una pantalla entera
+    // a 260 es poco más de un segundo y medio, lo justo para verlo venir.
+    // Mientras vuela no toca a nadie —está en el aire— ni se para en las
+    // paredes. Ver `desdeBorde` en sistemas/armas.js y `arco` en
+    // entidades/proyectil.js.
+    desdeBorde: true, arco: 70, velocidad: 260, radio: 5,
+    spriteProyectil: 'proyObus',
     niveles: [{}, { danyoExplosion: 12 }, { proyectiles: 1 }, { radioExplosion: 10 },
               { danyoExplosion: 14 }, { recarga: -0.6 }, { proyectiles: 1 },
               { danyoExplosion: 18, radioExplosion: 12 },
@@ -1004,6 +1038,12 @@ export const ARMAS = {
     // Es la única de las cuatro `ondaCircular` que lo lleva: la Onda expansiva,
     // el Grito de guerra y el Gladius Hispaniensis sí van por el aire.
     ondaEnSuelo: true,
+    // HOJA PROPIA, ya no la del reventón de tierra del cíclope: aquella es
+    // cascotes y chispas gordas, y esto son ondas sísmicas que se abren una
+    // detrás de otra, en tonos tierra interpolados y con el doble de
+    // fotogramas. Lo pidió Sergio y la genera Pirotecnia.Sismo
+    // (herramientas/generar-efectos.ps1).
+    spriteOnda: 'ondaSismo',
     danyo: 22, radio: 140, duracion: 0.7, recarga: 4.0, empuje: 150,
     color: '#c0a070',
     niveles: [{}, { radio: 18 }, { danyo: 7 }, { recarga: -0.5 },

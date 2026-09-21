@@ -224,12 +224,26 @@ const COMPORTAMIENTOS = {
   proyectilDirigido(arma, sis, ctx) {
     const s = arma.stats;
     const objetivo = enemigoMasCercano(ctx.enemigos, ctx.jugador.x, ctx.jugador.y, s.alcance);
-    if (!objetivo) return false;          // sin blanco no se gasta la recarga
 
-    let dx = objetivo.x - ctx.jugador.x;
-    let dy = objetivo.y - ctx.jugador.y;
-    const d = hipot(dx, dy) || 1;
-    dx /= d; dy /= d;
+    // SIN BLANCO SE DISPARA IGUAL, en el rumbo del jugador. Devolvía false
+    // —"sin blanco no se gasta la recarga"— y en un nivel de recinto eso se
+    // notaba: `enemigoMasCercano` descarta a los que están detrás de una
+    // pared, así que con la horda al otro lado del muro la Pistola se quedaba
+    // muda mientras las demás armas seguían a lo suyo. Sergio lo pidió claro:
+    // cada arma con su cadencia haya o no a quién darle. El tiro al rumbo no
+    // suele acertar a nadie, y eso es lo correcto: lo que se pide es que se
+    // vea y se oiga disparar, no que apunte a través de las paredes.
+    let dx, dy;
+    if (objetivo) {
+      dx = objetivo.x - ctx.jugador.x;
+      dy = objetivo.y - ctx.jugador.y;
+      const d = hipot(dx, dy) || 1;
+      dx /= d; dy /= d;
+    } else {
+      dx = ctx.jugador.rumboX; dy = ctx.jugador.rumboY;
+      const d = hipot(dx, dy);
+      if (d > 0.001) { dx /= d; dy /= d; } else { dx = 1; dy = 0; }
+    }
 
     const base = atan2(dy, dx);
     const n = proyectilesDe(arma, s, ctx.jugador);
@@ -480,6 +494,15 @@ const COMPORTAMIENTOS = {
       // AÑADIR UN COLOR, no solo una maza más del montón.
       const porDibujo = arma.def.proyectilesPorFotograma;
       if (porDibujo) sis.defProyectil.fotograma = (i / porDibujo) | 0;
+      // O UNO AL AZAR DE LA HOJA, que es lo contrario y por lo contrario: la
+      // metralla trae treinta cascos y ninguno significa nada —no hay "el
+      // casco 7"—, así que lo que se quiere es justo que se repitan sin orden.
+      // Del rng de la partida, como el ángulo: la misma semilla, los mismos
+      // cascos.
+      if (arma.def.fotogramaAleatorio) {
+        const meta = Recursos.meta(arma.def.spriteProyectil);
+        sis.defProyectil.fotograma = meta ? (ctx.rng() * (meta.frames || 1)) | 0 : 0;
+      }
       const b = bocaDe(j, a);
       ctx.proyectiles.lanzar(b.x, b.y,
         cos(a) * velocidadDe(s, j), sen(a) * velocidadDe(s, j), sis.defProyectil);
@@ -621,6 +644,33 @@ const COMPORTAMIENTOS = {
       // Y el daño va donde el jugador lo ve: no se reparte por el camino —el
       // proyectil no lleva daño de impacto— sino entero en la onda del suelo.
       // Si toca a alguien mientras baja, revienta ahí: le ha caído encima.
+      // DESDE UN BORDE DE LA PANTALLA, en parábola: la Artillería. El obús
+      // sale de un punto al azar del contorno del viewport —centrado en el
+      // jugador, que es lo que se ve— y cruza por el aire hasta el punto de
+      // impacto, donde revienta al expirar. La vida del proyectil es
+      // exactamente la distancia entre la velocidad, así que aterriza donde
+      // se anunció, y `arco` lo levanta por el camino (entidades/proyectil.js).
+      if (arma.def.desdeBorde) {
+        const mx = ANCHO_LOGICO * 0.55, my = ALTO_LOGICO * 0.55;
+        const lado = (ctx.rng() * 4) | 0;
+        let ox, oy;
+        if (lado === 0)      { ox = j.x - mx; oy = j.y + (ctx.rng() - 0.5) * ALTO_LOGICO; }
+        else if (lado === 1) { ox = j.x + mx; oy = j.y + (ctx.rng() - 0.5) * ALTO_LOGICO; }
+        else if (lado === 2) { ox = j.x + (ctx.rng() - 0.5) * ANCHO_LOGICO; oy = j.y - my; }
+        else                 { ox = j.x + (ctx.rng() - 0.5) * ANCHO_LOGICO; oy = j.y + my; }
+        const dx = x - ox, dy = y - oy;
+        const dist = hipot(dx, dy) || 1;
+        const vel = velocidadDe(s, j);
+        sis._rellenarProyectil(arma, s, 0, ctx.jugador);
+        sis.defProyectil.vida = dist / vel;
+        sis.defProyectil.radioExplosion = radio;
+        sis.defProyectil.danyoExplosion = danyo;
+        sis.defProyectil.estallaAlExpirar = true;
+        sis.defProyectil.arco = arma.def.arco || 0;
+        ctx.proyectiles.lanzar(ox, oy, dx / dist * vel, dy / dist * vel, sis.defProyectil);
+        continue;
+      }
+
       if (arma.def.caida > 0) {
         sis._rellenarProyectil(arma, s, 0, ctx.jugador);
         sis.defProyectil.vida = arma.def.caida / velocidadDe(s, j);
@@ -694,7 +744,7 @@ const COMPORTAMIENTOS = {
         // desde el CENTRO del cuerpo, no desde los pies, que es de donde se
         // lanza algo a mano.
         hojaPieza: arma.def.spritePieza,
-        piezas: arma.def.piezas,
+        piezas: s.piezas,     // de las stats: el Tribulus sube de 5 a 10 con el nivel
         vuelo: arma.def.vueloPieza,
         origenX: j.x, origenY: j.y - medioAlto(j),
         // Que el charco prenda donde cae un enemigo. Sale de la DEFINICIÓN y no
@@ -1117,6 +1167,9 @@ export class Armas {
     d.spriteOnda = arma.def.spriteOnda || null;
     // Y la columna de rayo, si el arma la declara. Mismo camino y mismo motivo.
     d.rayoCaida = arma.def.rayoCaida || 0;
+    // En parábola solo si el comportamiento lo pone (ver `desdeBorde`); aquí
+    // se limpia, por lo de siempre: `defProyectil` es compartido.
+    d.arco = 0;
     d.rayoGrosor = arma.def.rayoGrosor || 3;
     // Rebotes. Salen de las STATS y no de la definición porque crecen con el
     // nivel: el Fusil gana uno en el 3 y otro en el 10, la Honda hasta tres.

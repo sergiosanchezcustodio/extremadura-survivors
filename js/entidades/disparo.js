@@ -3,7 +3,8 @@ import { Recursos } from '../core/recursos.js';
 import { Particulas, COLOR_CHISPA } from '../sistemas/particulas.js';
 import { VFX } from '../sistemas/vfx.js';
 import { HOJA_ZONAS, huecoDe } from './zonaDanyo.js';
-import { sen, cos, hipot } from '../core/mate.js';
+import { sen, cos, hipot, atan2 } from '../core/mate.js';
+import { ESCALA_ARTE } from '../core/constantes.js';
 
 // DISPAROS ENEMIGOS. Los sueltan los enemigos que llevan `ataque` en su ficha
 // (medusa y mantícora, de momento): los poderosos, nunca la masa.
@@ -89,7 +90,13 @@ function crearDisparo() {
     // del origen del mapa pasaba por "sin origen" y tiraba su piedra invisible.
     // Una coordenada válida no puede servir de bandera.
     piedra: false,
-    origenX: 0, origenY: 0
+    origenX: 0, origenY: 0,
+    // DIBUJO PROPIO (id de atlas), si el ataque lo declara. Para el proyectil
+    // es `spriteDisparo` y sustituye al disco trazado entero, estela incluida
+    // —el escupitajo de la medusa ya trae sus gotas dibujadas—; para el sismo
+    // es `spritePiedra` y sustituye al polígono de PERFIL_ROCA. Los dos vienen
+    // mirando a la izquierda, como las balas del jugador, y se orientan aquí.
+    dibujo: null
   };
 }
 
@@ -133,6 +140,7 @@ export class Disparos {
     d.hoja = null;
     d.fase = this._rng() * Math.PI * 2;
     d.reventon = def.spriteReventon || null;
+    d.dibujo = def.spriteDisparo || null;
     // El salpicón de un proyectil no es su radio de impacto —que son 4-6 px y
     // no se vería— sino algo mayor: lo que se quiere enseñar es DÓNDE ha caído
     // el veneno de la medusa, no cuánto medía la bola.
@@ -177,6 +185,7 @@ export class Disparos {
     // volteando igual. Del RNG de la partida, que es reproducible.
     d.fase = this._rng() * Math.PI * 2;
     d.reventon = def.spriteReventon || null;
+    d.dibujo = def.spritePiedra || null;
     d.radioReventon = def.radio;   // el sismo revienta exactamente su círculo
     return d;
   }
@@ -201,6 +210,7 @@ export class Disparos {
     d.intervalo = def.intervalo;
     d.relojTic = 0;             // el primer tic entra en cuanto se activa
     d.charco = true;
+    d.dibujo = null;            // campo compartido: solo proyectil y sismo
     d.sismo = false;
     d.estela = null; d.nucleo = null;   // campos compartidos: ver `lanzar`
     d.tonos = null;
@@ -684,6 +694,18 @@ export class Disparos {
           ctx.save();
           ctx.translate(px, py);
           ctx.rotate(giro);
+          // CON DIBUJO: la roca de Sergio, al mismo tamaño que tendría el
+          // polígono (40x37 físicos son 10 lógicos de ancho, o sea el diámetro
+          // de la de radio 4,6), creciendo y encogiendo con el arco igual.
+          const imgP = d.dibujo ? Recursos.imagen(d.dibujo) : null;
+          const metaP = d.dibujo ? Recursos.meta(d.dibujo) : null;
+          if (imgP && metaP) {
+            const esc = r / 4.6;
+            const aw = metaP.w / ESCALA_ARTE * esc, ah = metaP.h / ESCALA_ARTE * esc;
+            ctx.drawImage(imgP, 0, 0, metaP.w, metaP.h, -aw / 2, -ah / 2, aw, ah);
+            ctx.restore();
+            continue;
+          }
           ctx.beginPath();
           for (let v = 0; v < PERFIL_ROCA.length; v++) {
             const a = (v / PERFIL_ROCA.length) * Math.PI * 2;
@@ -741,6 +763,27 @@ export class Disparos {
         }
         ctx.globalAlpha = 1;
         continue;
+      }
+
+      // CON DIBUJO PROPIO: el sprite orientado al vuelo y nada más. Ni gotas ni
+      // halo ni filo: el dibujo ya trae su cola y su contorno negro, que es lo
+      // que lo separa de los efectos del jugador. Mismo convenio que
+      // entidades/proyectil.js —mira a la izquierda, se espeja y se ancla por
+      // la punta— para que una hoja valga en los dos sitios.
+      if (d.dibujo) {
+        const img = Recursos.imagen(d.dibujo);
+        const meta = Recursos.meta(d.dibujo);
+        if (img && meta) {
+          const aw = meta.w / ESCALA_ARTE, ah = meta.h / ESCALA_ARTE;
+          ctx.save();
+          ctx.globalAlpha = 1;
+          ctx.translate(x, y);
+          ctx.rotate(atan2(d.vy, d.vx));
+          ctx.scale(-1, 1);
+          ctx.drawImage(img, 0, 0, meta.w, meta.h, -aw * 0.2, -ah / 2, aw, ah);
+          ctx.restore();
+          continue;
+        }
       }
 
       const late = 1 + sen(d.fase) * 0.12;

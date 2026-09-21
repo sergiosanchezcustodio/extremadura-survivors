@@ -198,7 +198,14 @@ function crearProyectil() {
     // quien lo había soltado: se quedaba dando vueltas a los pies del jugador en
     // vez de salir corriendo, que es lo que promete el arma. Con la carrerilla
     // primero SALE, y en cuanto está fuera empieza a buscar.
-    recto: 0
+    recto: 0,
+    // EN PARÁBOLA: altura máxima del vuelo, en unidades lógicas. 0 = vuela a
+    // ras, que es lo normal. Con él, el proyectil va POR EL AIRE de donde salió
+    // a donde expira: se dibuja levantado por un seno, se orienta a la
+    // tangente del arco y NO toca a nadie por el camino (ver
+    // colisionarProyectiles). Es el obús de la Artillería, que cruza la
+    // pantalla desde un borde y revienta al caer.
+    arco: 0
   };
 }
 
@@ -368,6 +375,7 @@ export class Proyectiles {
     p.animFps = def.animFps || 0;
     p.sinRotar = def.sinRotar ? 1 : 0;
     p.recto = def.recto || 0;
+    p.arco = def.arco || 0;
     p.duenyo = def.duenyo || null;
     p.sello = contadorSello++;
 
@@ -736,8 +744,21 @@ export class Proyectiles {
         const img = Recursos.imagen(p.hoja);
         const meta = Recursos.meta(p.hoja);
         if (img && meta) {
-          const aw = meta.w / ESCALA_ARTE * p.escala;
-          const ah = meta.h / ESCALA_ARTE * p.escala;
+          // EL ARCO: se levanta del suelo con un seno del progreso y se dibuja
+          // algo más grande en lo alto, que es perspectiva barata y lo que
+          // hace legible que sube y baja en vez de cruzar en línea recta. Es
+          // la misma parábola que la roca del cíclope (entidades/disparo.js).
+          let altura = 0, escalaArco = 1, tangente = 0;
+          if (p.arco > 0 && p.vidaMax > 0) {
+            const prog = 1 - p.vida / p.vidaMax;
+            altura = sen(prog * Math.PI) * p.arco;
+            escalaArco = 1 + sen(prog * Math.PI) * 0.35;
+            // Pendiente del arco por segundo, para orientar el dibujo a la
+            // tangente: sube al salir y cae de morro al final.
+            tangente = -cos(prog * Math.PI) * Math.PI * p.arco / p.vidaMax;
+          }
+          const aw = meta.w / ESCALA_ARTE * p.escala * escalaArco;
+          const ah = meta.h / ESCALA_ARTE * p.escala * escalaArco;
           // De qué trozo de la hoja se recorta. Con hojas de un dibujo —que son
           // casi todas— esto es 0 y sale el de siempre.
           const nf = meta.frames || 1;
@@ -769,7 +790,7 @@ export class Proyectiles {
           // para la pistola: el criterio es tener dibujo propio, no ser un
           // arma concreta. Hoy son seis las que comparten esta bala.
           ctx.globalCompositeOperation = 'source-over';
-          ctx.translate(x, y);
+          ctx.translate(x, y - altura);
 
           if (p.sinRotar) {
             // NI ROTA NI SE ANCLA POR LA PUNTA: se planta de pie y solo cambia
@@ -795,7 +816,7 @@ export class Proyectiles {
             ctx.rotate(p.sello * 0.7 + (p.vidaMax - p.vida) * p.giro);
             ctx.drawImage(img, fx, 0, meta.w, meta.h, -aw / 2, -ah / 2, aw, ah);
           } else {
-            ctx.rotate(atan2(p.vy, p.vx));
+            ctx.rotate(atan2(p.vy + tangente, p.vx));
             // ESPEJADO, no girado 180°. El dibujo mira a la izquierda, y aquí
             // hay dos maneras de darle la vuelta que NO son la misma: rotar
             // media vuelta invertiría también el eje vertical —la llama y los

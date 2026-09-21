@@ -2040,6 +2040,18 @@ public class Procesador {
     public static string RecortarIconos(string entrada, string salida, int n,
                                         int lado, string modo, int cols, int filas,
                                         bool huecos) {
+        return RecortarIconos(entrada, salida, n, lado, modo, cols, filas, huecos, null);
+    }
+
+    // celdas: SOLO ESTAS celdas de la rejilla, en este orden (indices en orden
+    // de lectura, base 0, separados por comas). Vacia = todas, en orden. Existe
+    // por la lamina de metralla: de sus 32 cascos hay dos casillas que son
+    // esquirlas sueltas —cuatro o cinco pedacitos de nada— y a 20 px no se
+    // leen como nada; se dejan fuera aqui en vez de pedirle al motor que sepa
+    // que fotogramas no debe sortear.
+    public static string RecortarIconos(string entrada, string salida, int n,
+                                        int lado, string modo, int cols, int filas,
+                                        bool huecos, string celdas) {
         byte[] px; int w, h, stride;
         CargarPx(entrada, out px, out w, out h, out stride);
 
@@ -2090,7 +2102,16 @@ public class Procesador {
                     if (isla[3] > caja[k][3]) caja[k][3] = isla[3];
                 }
             }
-            for (int k = 0; k < cols * filas; k++) {
+            int[] orden;
+            if (string.IsNullOrEmpty(celdas)) {
+                orden = new int[cols * filas];
+                for (int k = 0; k < orden.Length; k++) orden[k] = k;
+            } else {
+                string[] trozos = celdas.Split(',');
+                orden = new int[trozos.Length];
+                for (int k = 0; k < trozos.Length; k++) orden[k] = int.Parse(trozos[k].Trim());
+            }
+            foreach (int k in orden) {
                 // Celda sin isla: se emite su rectángulo entero y CajaSilueta
                 // devolverá "vacía", que es lo que hay que ver en el informe.
                 regiones.Add(caja[k] != null ? caja[k] : new int[] {
@@ -2841,8 +2862,89 @@ public class Procesador {
     // Devuelve: anchoSal|altoSal|siluetaW|siluetaH
     public static string RecortarSuelto(string entrada, string salida,
                                         int anchoSal, int altoSal) {
+        return RecortarSuelto(entrada, salida, anchoSal, altoSal, 0, 0, false);
+    }
+
+    // La misma con tres preparativos, para los dibujos que Sergio entrega tal
+    // cual salen de su editor y no en el convenio del motor:
+    //
+    // umbralBlanco > 0: el dibujo viene SOBRE BLANCO OPACO, sin alfa. Se
+    //   inunda el blanco desde los cuatro bordes y se vuelve transparente, sin
+    //   tocar el blanco de dentro del contorno (el brillo de una bala, el
+    //   corazon de una bola de fuego): solo cae lo que se alcanza sin cruzar
+    //   una linea. Es la misma decision que RecortarCeldas con las laminas de
+    //   efectos, y por lo mismo. Va seguido de una erosion de un pixel del
+    //   halo casi blanco pegado al fondo, que si no se ve como una orla clara.
+    //
+    // rotar: cuartos de vuelta EN SENTIDO HORARIO (0-3). El motor dibuja los
+    //   proyectiles mirando a la IZQUIERDA (ver entidades/proyectil.js) y las
+    //   balas de Sergio miran hacia arriba, asi que se giran aqui, una vez, en
+    //   vez de en cada fotograma. Y en cuartos de vuelta exactos, nunca en
+    //   grados sueltos: girar pixel art 37 grados lo deja hecho papilla.
+    //
+    // espejar: voltea horizontalmente, para lo que viene mirando a la
+    //   derecha. Espejar y no rotar media vuelta: media vuelta pondria la llama
+    //   de una bola de fuego boca abajo.
+    public static string RecortarSuelto(string entrada, string salida,
+                                        int anchoSal, int altoSal,
+                                        int umbralBlanco, int rotar, bool espejar) {
         byte[] px; int w, h, stride;
         CargarPx(entrada, out px, out w, out h, out stride);
+
+        if (umbralBlanco > 0) {
+            bool[] fondo = new bool[w * h];
+            Queue<int> cola = new Queue<int>();
+            for (int x = 0; x < w; x++) {
+                SembrarBlanco(px, stride, w, fondo, cola, x, 0, umbralBlanco);
+                SembrarBlanco(px, stride, w, fondo, cola, x, h - 1, umbralBlanco);
+            }
+            for (int y = 0; y < h; y++) {
+                SembrarBlanco(px, stride, w, fondo, cola, 0, y, umbralBlanco);
+                SembrarBlanco(px, stride, w, fondo, cola, w - 1, y, umbralBlanco);
+            }
+            while (cola.Count > 0) {
+                int p = cola.Dequeue();
+                int x = p % w, y = p / w;
+                if (x + 1 < w) SembrarBlanco(px, stride, w, fondo, cola, x + 1, y, umbralBlanco);
+                if (x > 0)     SembrarBlanco(px, stride, w, fondo, cola, x - 1, y, umbralBlanco);
+                if (y + 1 < h) SembrarBlanco(px, stride, w, fondo, cola, x, y + 1, umbralBlanco);
+                if (y > 0)     SembrarBlanco(px, stride, w, fondo, cola, x, y - 1, umbralBlanco);
+            }
+            // La orla: lo casi blanco que toca fondo. Un pase, que estos PNG
+            // no traen halo de JPG, solo el antialias del borde.
+            List<int> orla = new List<int>();
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++) {
+                    if (fondo[y * w + x]) continue;
+                    if (Lum(px, y * stride + x * 4) <= umbralBlanco - 34) continue;
+                    if (!Vecino(fondo, w, h, x, y)) continue;
+                    orla.Add(y * w + x);
+                }
+            for (int q = 0; q < orla.Count; q++) fondo[orla[q]] = true;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    if (fondo[y * w + x]) px[y * stride + x * 4 + 3] = 0;
+        }
+
+        if (espejar) {
+            byte[] esp = new byte[px.Length];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    Array.Copy(px, y * stride + x * 4, esp, y * stride + (w - 1 - x) * 4, 4);
+            px = esp;
+        }
+
+        rotar = ((rotar % 4) + 4) % 4;
+        for (int q = 0; q < rotar; q++) {
+            // Un cuarto de vuelta horario: (x, y) -> (h - 1 - y, x), y el lienzo
+            // cambia de proporcion.
+            int nw = h, nh = w, nStride = nw * 4;
+            byte[] rot = new byte[nStride * nh];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    Array.Copy(px, y * stride + x * 4, rot, x * nStride + (h - 1 - y) * 4, 4);
+            px = rot; w = nw; h = nh; stride = nStride;
+        }
 
         int minX = w, minY = h, maxX = -1, maxY = -1;
         for (int y = 0; y < h; y++)
@@ -3076,37 +3178,42 @@ $CATALOGO = @(
     # a los cuatro personajes. El radio de colisión de datos/enemigos.js sube en
     # la misma proporción que el alto de cada uno, para que la silueta y el
     # golpe seguido coincidiendo.
-    @{ src='enemies\serpiente.gif';         dst='enemigos\serpiente.png'; id='serpiente'; alto=12;  anchoFijo=0;  tol=0; gif=$true }
+    # TERCERA PASADA (21 de septiembre de 2026), tambien de Sergio: todo el
+    # bestiario un 20% mas pequeno y los jefes un 25%. Los altos de abajo son
+    # los de la segunda pasada por 0,8 (o 0,75 para cerbero, hidra, loba y
+    # gemelo), redondeados; los radios de datos/enemigos.js bajan en la misma
+    # proporcion, como siempre.
+    @{ src='enemies\serpiente.gif';         dst='enemigos\serpiente.png'; id='serpiente'; alto=10;  anchoFijo=0;  tol=0; gif=$true }
     # GIF animado de 7 fotogramas, pixel art nativo de 48x48 ampliado 8x.
     # voltear porque el original mira a la izquierda y el motor asume derecha.
-    @{ src='enemies\gargoyle.gif';         dst='enemigos\gargola.png';   id='gargola';   alto=18;  anchoFijo=0;  tol=0; gif=$true; voltear=$true; deCada=3 }
+    @{ src='enemies\gargoyle.gif';         dst='enemigos\gargola.png';   id='gargola';   alto=14;  anchoFijo=0;  tol=0; gif=$true; voltear=$true; deCada=3 }
     # El legionario tambien pasa a GIF ANIMADO: el esqueleto de legionario.gif
     # sustituye a la ilustracion estatica. No lleva voltear porque ya mira a la
     # derecha, que es lo que asume el motor.
-    @{ src='enemies\legionario.gif';       dst='enemigos\legionario.png';id='legionario';alto=28;  anchoFijo=0;  tol=0; gif=$true }
-    @{ src='enemies\gladiador.gif';        dst='enemigos\gladiador.png'; id='gladiador'; alto=27;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\legionario.gif';       dst='enemigos\legionario.png';id='legionario';alto=22;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\gladiador.gif';        dst='enemigos\gladiador.png'; id='gladiador'; alto=22;  anchoFijo=0;  tol=0; gif=$true }
     # La arpía pasa a GIF ANIMADO: bate las alas, que es lo único que hacía falta
     # para que el rol "rápido" se lea desde lejos. No lleva voltear: la pose es
     # frontal con las dos alas abiertas y no mira a ningún lado.
-    @{ src='enemies\arpia.gif';            dst='enemigos\arpia.png';     id='arpia';     alto=19;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\arpia.gif';            dst='enemigos\arpia.png';     id='arpia';     alto=15;  anchoFijo=0;  tol=0; gif=$true }
     # También en GIF. Frontal —encarada, con las serpientes del pelo moviéndose—
     # así que no lleva voltear.
-    @{ src='enemies\medusa.gif';           dst='enemigos\medusa.png';    id='medusa';    alto=24;  anchoFijo=0;  tol=0; gif=$true }
-    @{ src='enemies\minotauro.gif';        dst='enemigos\minotauro.png'; id='minotauro'; alto=30;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\medusa.gif';           dst='enemigos\medusa.png';    id='medusa';    alto=19;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\minotauro.gif';        dst='enemigos\minotauro.png'; id='minotauro'; alto=24;  anchoFijo=0;  tol=0; gif=$true }
     # El cíclope cierra el bestiario: ya no queda un solo enemigo estático. Su
     # `tol=45` desaparece con la ilustración —era la tolerancia del recorte por
     # color, y un GIF trae su propio alfa, así que no hay fondo que adivinar—.
-    @{ src='enemies\ciclope.gif';          dst='enemigos\ciclope.png';   id='ciclope';   alto=35;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\ciclope.gif';          dst='enemigos\ciclope.png';   id='ciclope';   alto=28;  anchoFijo=0;  tol=0; gif=$true }
     # Animada a mano en GIF (antes era una ilustración estática): mira a la
     # derecha en el original, así que no lleva voltear.
-    @{ src='enemies\masticore.gif';        dst='enemigos\manticora.png'; id='manticora'; alto=43;  anchoFijo=0;  tol=0; gif=$true }
-    @{ src='enemies\cerberus.gif';         dst='enemigos\cerbero.png';   id='cerbero';   alto=70;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\masticore.gif';        dst='enemigos\manticora.png'; id='manticora'; alto=34;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\cerberus.gif';         dst='enemigos\cerbero.png';   id='cerbero';   alto=52;  anchoFijo=0;  tol=0; gif=$true }
     # La hidra deja de ser un sprite huérfano: recupera su papel de jefe, ahora
     # como el segundo de tres (minuto 20), entre Cerbero y la Loba. Ver el
     # bloque de jefes en datos/enemigos.js y datos/jefes.js.
     # Ya en GIF: las cabezas se mueven por su cuenta. Sin voltear, las bocas
     # miran a la derecha en el original.
-    @{ src='enemies\hidra.gif';            dst='enemigos\hidra.png';     id='hidra';     alto=80;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\hidra.gif';            dst='enemigos\hidra.png';     id='hidra';     alto=60;  anchoFijo=0;  tol=0; gif=$true }
     # JEFE FINAL DEL NIVEL 1 (minuto 30): la loba capitolina y los gemelos, en
     # version monstruosa. La loba mide más que la hidra (es el jefe final y
     # tiene que imponer más que el segundo). Los gemelos, algo más que un
@@ -3114,8 +3221,8 @@ $CATALOGO = @(
     # porque hay que ir a por ellos.
     # Los dos en GIF. La loba va de frente —encarada al jugador, que es como
     # tiene que verse un jefe final— así que voltearla no cambiaría nada.
-    @{ src='enemies\loba_capitolina.gif';  dst='enemigos\loba.png';      id='loba';      alto=90;  anchoFijo=0;  tol=0; gif=$true }
-    @{ src='enemies\gemelo.gif';           dst='enemigos\gemelo.png';    id='gemelo';    alto=26;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\loba_capitolina.gif';  dst='enemigos\loba.png';      id='loba';      alto=68;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\gemelo.gif';           dst='enemigos\gemelo.png';    id='gemelo';    alto=20;  anchoFijo=0;  tol=0; gif=$true }
     # Personajes: MISMO ALTO logico, ancho derivado de su silueta. Encajar
     # la figura dentro de un cuadrado comun hacia que las poses anchas salieran
     # mas bajas: a Vicky, con ratio 1.43, la limitaba el ancho y se quedaba más
@@ -3445,6 +3552,22 @@ $CATALOGO = @(
     @{ src='objetos\potenciadores_tienda\zurron.png'; dst='objetos\pot-zurron.png'; id='potZurron'; alto=28; anchoFijo=0; tol=0; plano=$true }
     @{ src='objetos\potenciadores_tienda\bandolera.png'; dst='objetos\pot-bandolera.png'; id='potBandolera'; alto=28; anchoFijo=0; tol=0; plano=$true }
 
+    # --- Las maquinas expendedoras del nivel 2 (resources/stages/2/), cuatro
+    # enteras y sus cuatro rotas, en dos laminas de 2x2 de Sergio. Son OBJETOS
+    # CON VIDA como las antorchas (datos/enemigos.js, `esObjeto`): se rompen a
+    # golpes y sueltan un consumible, asi que las enteras van sin `plano` para
+    # tener el destello de impacto. Las rotas son decoracion solida y si lo
+    # llevan. 28 de alto: algo mas que un personaje (26), como una maquina de
+    # verdad al lado de una persona. Ver sistemas/expendedoras.js.
+    @{ src='stages\2\maquinas_expendedora.png';       dst='objetos\expendedora1.png';     id='expendedora1';     alto=28; anchoFijo=0; tol=0; celda=0; cols=2; filas=2 }
+    @{ src='stages\2\maquinas_expendedora.png';       dst='objetos\expendedora2.png';     id='expendedora2';     alto=28; anchoFijo=0; tol=0; celda=1; cols=2; filas=2 }
+    @{ src='stages\2\maquinas_expendedora.png';       dst='objetos\expendedora3.png';     id='expendedora3';     alto=28; anchoFijo=0; tol=0; celda=2; cols=2; filas=2 }
+    @{ src='stages\2\maquinas_expendedora.png';       dst='objetos\expendedora4.png';     id='expendedora4';     alto=28; anchoFijo=0; tol=0; celda=3; cols=2; filas=2 }
+    @{ src='stages\2\maquinas_expendedora_rotas.png'; dst='objetos\expendedora-rota1.png'; id='expendedoraRota1'; alto=28; anchoFijo=0; tol=0; celda=0; cols=2; filas=2; plano=$true }
+    @{ src='stages\2\maquinas_expendedora_rotas.png'; dst='objetos\expendedora-rota2.png'; id='expendedoraRota2'; alto=28; anchoFijo=0; tol=0; celda=1; cols=2; filas=2; plano=$true }
+    @{ src='stages\2\maquinas_expendedora_rotas.png'; dst='objetos\expendedora-rota3.png'; id='expendedoraRota3'; alto=28; anchoFijo=0; tol=0; celda=2; cols=2; filas=2; plano=$true }
+    @{ src='stages\2\maquinas_expendedora_rotas.png'; dst='objetos\expendedora-rota4.png'; id='expendedoraRota4'; alto=28; anchoFijo=0; tol=0; celda=3; cols=2; filas=2; plano=$true }
+
     # --- Decoracion solida del nivel 1: columnas, antorchas, estatuas y
     # ruinas de resources/stages/1/objetos/. Ilustraciones estaticas sueltas
     # (sin gif/cadera/hoja), asi que caen directas por Procesar():
@@ -3515,6 +3638,16 @@ $atlas = [ordered]@{}
 foreach ($e in $CATALOGO) {
     $rutaSrc = Join-Path $ORIGEN $e.src
     $rutaDst = Join-Path $DESTINO $e.dst
+
+    # `celda`: la fuente es UNA CASILLA de una lamina de cols x filas, no un
+    # archivo entero. Se extrae a un temporal y de ahi sigue por el mismo
+    # camino que cualquier ilustracion suelta. Es lo que usan las maquinas
+    # expendedoras del nivel 2: Sergio las dibujo cuatro por lamina.
+    if ($null -ne $e.celda) {
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) "emerita-celda-$($e.id).png"
+        [Procesador]::ExtraerCelda($rutaSrc, $tmp, $e.cols, $e.filas, [int]$e.celda) | Out-Null
+        $rutaSrc = $tmp
+    }
 
     # `gifSiExiste`: la entrada apunta a un PNG, pero si al lado hay un GIF con
     # el mismo nombre manda el GIF. Ver la nota del bloque de mascotas: sirve
@@ -4032,6 +4165,41 @@ $LADO_ARO = 72
 $AROS_RITMICA = @('aro1','aro2','aro3','aro4','aro5',
                   'aro6','aro7','aro8','aro9','aro10')
 
+# LOS CASCOS DE LA METRALLA, lamina de 8x4 de Sergio (sprite_metralla.png).
+#
+# No es una hoja de diez como las de arriba: son treinta y dos pedazos de
+# hierro roto distintos y el arma sortea uno por proyectil (ver
+# `fotogramaAleatorio` en datos/armas.js). Entran treinta: las casillas 13 y 14
+# son esquirlas sueltas, cuatro o cinco pedacitos que a este tamano no son
+# nada, y se dejan fuera con `celdas`.
+#
+# 20 y no 16 como tenia el trozo generado: el dibujo trae aristas y oxido que
+# a 16 se emborronan; a 20 mide 5 unidades logicas, y con dos docenas en el
+# aire siguen siendo perdigones, no piedras.
+$LADO_CASCO = 20
+
+$CELDAS_METRALLA = '0,1,2,3,4,5,6,7,8,9,10,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31'
+$CASCOS_METRALLA = @($CELDAS_METRALLA.Split(',') | ForEach-Object { "casco$_" })
+
+# LAS AVISPAS DEL ENJAMBRE, lamina de 6x4 de Sergio (sprite_ebjambre.png, con
+# la errata en el nombre tal cual la guardo). Vienen en dos posturas, mirando
+# a la izquierda y mirando arriba, cada una con su gesto de alas y patas.
+# Entran solo LAS QUE MIRAN A LA IZQUIERDA, que es el convenio de los
+# proyectiles con dibujo (entidades/proyectil.js las orienta al vuelo): una
+# avispa vista desde arriba girada al rumbo es una avispa que vuela hacia
+# alli, y con once distintas sorteadas por avispa (`fotogramaAleatorio`) la
+# nube no repite postura. Las que miran arriba se quedan fuera porque la
+# rejilla no puede girarlas celda a celda, y girarlas es lo unico que les
+# faltaria.
+#
+# 36 = 9 unidades logicas de envergadura: la abeja generada media 10x5,5 y
+# esta es mas bicho, con alas abiertas; mas grande y una nube de veinte tapa
+# lo que hay debajo.
+$LADO_AVISPA = 36
+
+$CELDAS_AVISPAS = '0,2,6,9,10,12,14,15,18,20,22'
+$AVISPAS_ENJAMBRE = @($CELDAS_AVISPAS.Split(',') | ForEach-Object { "avispa$_" })
+
 # La PORTADA de un arma que no tiene archivo propio, sino una celda de una hoja.
 # Se extrae a un temporal antes de montar la tira de iconos. Ver ExtraerCelda.
 $ICONO_DESDE_HOJA = @{
@@ -4072,6 +4240,18 @@ $HOJAS_ICONOS = @(
     @{ src='armas\aros.png';      dst='efectos\proy-aros.png'; id='proyAros'
        ids=$AROS_RITMICA;   modo='rejilla'; cols=5; filas=2; lado=$LADO_ARO
        huecos=$true }
+    # Y los treinta cascos de la metralla. Sale a efectos\proy-metralla.png,
+    # que es el archivo que hasta ahora fabricaba generar-efectos.ps1 con un
+    # poligono: la entrada del atlas de aqui gana porque se escribe despues de
+    # fundir explosiones.json, y el poligono se ha quitado de alli.
+    @{ src='armas\efectos\sprite_metralla.png'; dst='efectos\proy-metralla.png'; id='proyMetralla'
+       ids=$CASCOS_METRALLA; modo='rejilla'; cols=8; filas=4; lado=$LADO_CASCO
+       celdas=$CELDAS_METRALLA }
+    # Y las once avispas del Enjambre. Sustituyen a la abeja generada
+    # (proyAbeja, que se queda en explosiones.json por si otra arma la quiere).
+    @{ src='armas\efectos\sprite_ebjambre.png'; dst='efectos\proy-avispas.png'; id='proyAvispa'
+       ids=$AVISPAS_ENJAMBRE; modo='rejilla'; cols=6; filas=4; lado=$LADO_AVISPA
+       celdas=$CELDAS_AVISPAS }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'iconos')  | Out-Null
@@ -4141,10 +4321,11 @@ foreach ($hoja in $HOJAS_ICONOS) {
         } else {
             $r = [Procesador]::RecortarIconos($rutaSrc, $rutaDst, $n, $hoja.lado,
                                               $hoja.modo, $hoja.cols, $hoja.filas,
-                                              [bool]$hoja.huecos)
+                                              [bool]$hoja.huecos, [string]$hoja.celdas)
         }
     } catch {
         $informeIconos += [PSCustomObject]@{ Hoja=$hoja.id; Pedidos=$n; Hallados='-'; Tira='-'; Estado='ERROR' }
+        "  ERROR $($hoja.id): $($_.Exception.Message)"
         continue
     }
     $p = $r -split '\|'
@@ -4332,13 +4513,78 @@ $DIBUJOS_SUELTOS = @(
     # 304 = radio 38 * 2 * 4, el tamano al que se dibuja en el caso base.
     @{ src='armas\efectos\sprite_aceiteHirviendo.png'; dst='efectos\zona-aceite.png'
        id='zonaAceite'; ancho=304; alto=304 }
+
+    # LAS BALAS DE LAS OTRAS ARMAS DE FUEGO, dibujadas por Sergio (septiembre de
+    # 2026). Entraron una primera vez horneadas aparte con hornear_suelto.py y
+    # el atlas escrito a mano, y la siguiente pasada de esta herramienta las
+    # borro del atlas.json —lo que no esta en este catalogo no existe, ver los
+    # corazones de las vidas—. Ahora salen de aqui, como todo.
+    #
+    # Vienen SOBRE BLANCO y MIRANDO HACIA ARRIBA, como se dibuja una bala de
+    # pie; `blanco` quita el fondo y `rotar=3` (tres cuartos horarios, o sea
+    # uno antihorario) las tumba mirando a la izquierda, que es el convenio de
+    # entidades/proyectil.js. El tamano conserva la proporcion del dibujo y
+    # ronda el de la bala de la pistola (43x19): la del fusil algo mas larga,
+    # la del subfusil mas corta, la del revolver mas gorda, que es lo que cada
+    # arma dice de si misma.
+    @{ src='armas\efectos\sprite_fusil.png';    dst='efectos\bala-fusil.png'
+       id='balaFusil';    ancho=52; alto=32; blanco=232; rotar=3 }
+    @{ src='armas\efectos\sprite_subfusil.png'; dst='efectos\bala-subfusil.png'
+       id='balaSubfusil'; ancho=38; alto=17; blanco=232; rotar=3 }
+    @{ src='armas\efectos\sprite_revolver.png'; dst='efectos\bala-revolver.png'
+       id='balaRevolver'; ancho=48; alto=22; rotar=3 }
+    # La recortada no dispara una bala: el dibujo es el CARTUCHO reventando, con
+    # su fogonazo. No tiene punta que orientar y el arma lo hace girar en vuelo
+    # (`giroProyectil`), asi que se hornea tal cual, cuadrado.
+    @{ src='armas\efectos\sprite_recortada.png'; dst='efectos\bala-recortada.png'
+       id='balaRecortada'; ancho=28; alto=28; blanco=232 }
+    # El cohete del bazooka ya mira a la izquierda. Mas grande que una bala,
+    # que es un cohete: 60 fisicos son 15 unidades logicas de largo.
+    @{ src='armas\efectos\sprite_bazooka.png'; dst='efectos\proy-cohete.png'
+       id='proyCohete'; ancho=60; alto=27; blanco=232 }
+    # La bomba del Bombardeo. Cae a plomo (ver `caida` en datos/armas.js) y el
+    # motor la orienta al vuelo como a cualquier proyectil, asi que se guarda
+    # mirando a la izquierda como las balas; cayendo, la punta queda abajo.
+    @{ src='armas\efectos\sprite_Bombardeo.png'; dst='efectos\proy-bomba.png'
+       id='proyBomba'; ancho=64; alto=35; blanco=232; rotar=3 }
+
+    # El obus de la Artilleria. Ya mira a la izquierda; mismo tamano que el
+    # cohete del bazooka, que es su hermano: 60 fisicos, 15 logicos de largo.
+    @{ src='armas\efectos\sprite_artilleria.png'; dst='efectos\proy-obus.png'
+       id='proyObus'; ancho=60; alto=27; blanco=232 }
+
+    # LA MINA, de Sergio (con alfa real). 72x72 son los 9 de radio logico a los
+    # que el motor la dibuja SIEMPRE, pase lo que pase con el nivel del arma
+    # (ver `radioDibujo` en entidades/zonaDanyo.js). Entro a mano en el atlas
+    # el 3 de septiembre y la pasada siguiente de esta herramienta le volvio a
+    # fundir encima la ficha de 12 fotogramas de generar-efectos.ps1: el motor
+    # recorria once huecos vacios de un PNG de uno y la mina parpadeaba.
+    @{ src='armas\efectos\sprite_mina.png'; dst='efectos\mina-explosiva.png'
+       id='minaExplosiva'; ancho=72; alto=72; radioDibujo=9 }
+
+    # ATAQUES DE LOS ENEMIGOS, de resources\enemies\Sprite_ataques\ (Sergio,
+    # septiembre de 2026). Mismo convenio que las balas: mirando a la izquierda,
+    # y entidades/disparo.js los orienta al vuelo.
+    #
+    # El escupitajo de la medusa viene de pie, con las gotas cayendo por
+    # debajo: tumbado, las gotas quedan detras. La bola de fuego de la
+    # manticora viene mirando a la derecha y se espeja —no se gira media
+    # vuelta, que dejaria la llama boca abajo—. La roca del ciclope no mira a
+    # ningun sitio: voltea en el aire.
+    @{ src='enemies\Sprite_ataques\sprite_medusa.png';    dst='efectos\disparo-medusa.png'
+       id='disparoMedusa';    ancho=72; alto=26; blanco=232; rotar=3 }
+    @{ src='enemies\Sprite_ataques\sprite_masticore.png'; dst='efectos\disparo-manticora.png'
+       id='disparoManticora'; ancho=60; alto=35; blanco=232; espejar=$true }
+    @{ src='enemies\Sprite_ataques\sprite_ciclope.png';   dst='efectos\roca-ciclope.png'
+       id='rocaCiclope';      ancho=40; alto=37; blanco=232 }
 )
 
 foreach ($p in $DIBUJOS_SUELTOS) {
     $rutaSrc = Join-Path $ORIGEN $p.src
     if (-not (Test-Path $rutaSrc)) { "PROYECTIL $($p.id): no existe $rutaSrc"; continue }
     try {
-        $r = [Procesador]::RecortarSuelto($rutaSrc, (Join-Path $DESTINO $p.dst), $p.ancho, $p.alto)
+        $r = [Procesador]::RecortarSuelto($rutaSrc, (Join-Path $DESTINO $p.dst), $p.ancho, $p.alto,
+                                          [int]$p.blanco, [int]$p.rotar, [bool]$p.espejar)
         $q = $r -split '\|'
         $atlas[$p.id] = [ordered]@{
             archivo = $p.dst.Replace('\', '/')
@@ -4346,6 +4592,12 @@ foreach ($p in $DIBUJOS_SUELTOS) {
             anclaX = [int]($p.ancho / 2); anclaY = [int]($p.alto / 2)
             frames = 1
             plano  = $true
+        }
+        # Lo que el motor dibuja a tamano fijo (la mina) lleva su radio en
+        # unidades logicas; no es aditivo porque es chapa, no luz.
+        if ($p.radioDibujo) {
+            $atlas[$p.id].aditivo = $false
+            $atlas[$p.id].radioDibujo = [int]$p.radioDibujo
         }
         "PROYECTIL $($p.id): silueta $($q[2])x$($q[3]) -> $($q[0])x$($q[1])"
     } catch {

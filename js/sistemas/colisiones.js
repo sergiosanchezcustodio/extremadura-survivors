@@ -248,10 +248,14 @@ function juntarPares(items, rejilla) {
       for (let p = ini; p < fin; p++) {
         const ia = indices[p];
         const a = items[ia];
+        // Un muerto disolviéndose ya no es un cuerpo (ver DURACION_DISOLUCION
+        // en entidades/enemigo.js): ni empuja ni se le empuja.
+        if (a.vida <= 0) continue;
         const ax = a.x, ay = a.y, ar = a.radioSep + MARGEN_PAR;
         for (let q = p + 1; q < fin; q++) {
           const ib = indices[q];
           const b = items[ib];
+          if (b.vida <= 0) continue;
           const dx = b.x - ax;
           const dy = b.y - ay;
           const r = ar + b.radioSep;
@@ -290,10 +294,12 @@ function paresEntre(items, indices, iniA, finA, iniB, finB, n) {
   for (let p = iniA; p < finA; p++) {
     const ia = indices[p];
     const a = items[ia];
+    if (a.vida <= 0) continue;           // disolviéndose: no es cuerpo
     const ax = a.x, ay = a.y, ar = a.radioSep + MARGEN_PAR;
     for (let q = iniB; q < finB; q++) {
       const ib = indices[q];
       const b = items[ib];
+      if (b.vida <= 0) continue;
       const dx = b.x - ax;
       const dy = b.y - ay;
       const r = ar + b.radioSep;
@@ -435,6 +441,7 @@ function apartarDelJugador(items, rejilla, jugador) {
         // medio de la horda un bicho invencible que te muerde. Las dos reglas
         // van juntas o ninguna.
         if (e.poseido > 0) continue;
+        if (e.vida <= 0) continue;         // disolviéndose: se le atraviesa
         const dx = e.x - jx;
         const dy = e.y - jy;
         const r = jugador.radioCuerpo + e.radioCuerpo;
@@ -451,7 +458,12 @@ function apartarDelJugador(items, rejilla, jugador) {
         //
         // El invariante de arriba se mantiene: sigue sin haber penetración, solo
         // cambia cuál de los dos cuerpos cede.
-        const inamovible = e.def.esObjeto;
+        //
+        // Y LOS JEFES TAMPOCO. Ya eran inmunes al empuje de las armas y a la
+        // presión de la horda (invMasa 0), pero por aquí el jugador seguía
+        // desplazándolos andando contra ellos, como a cualquier bicho. Lo pidió
+        // Sergio: a un jefe no lo mueve nadie, cede el jugador.
+        const inamovible = e.def.esObjeto || e.def.rol === 'jefe';
         if (d2 > 0.0001) {
           const d = Math.sqrt(d2);
           const f = (r - d) / d;         // escala el propio delta, sin normalizar
@@ -669,7 +681,9 @@ export function colisionarObstaculos(obstaculos, jugadores, enemigos) {
         if (fx < 0 || fx >= columnas) continue;
         const c = fy * columnas + fx;
         for (let p = inicio[c]; p < inicio[c + 1]; p++) {
-          empujarFueraDe(enemItems[indices[p]], o.cx, o.cy, o.hx, o.hy);
+          const e = enemItems[indices[p]];
+          if (e.vida <= 0) continue;     // disolviéndose: no es cuerpo
+          empujarFueraDe(e, o.cx, o.cy, o.hx, o.hy);
         }
       }
     }
@@ -842,6 +856,7 @@ export function contactoJugador(enemigos, jugador) {
         // bloque de hielo y salir con la vida a la mitad sería la peor manera
         // posible de contar lo que hace el objeto.
         if (e.paralizado > 0) continue;
+        if (e.vida <= 0) continue;         // disolviéndose: ya no muerde
         const dx = e.x - jx;
         const dy = e.y - jy;
         const r = (e.radioCuerpo + jugador.radioCuerpo) * MARGEN_DANYO;
@@ -1030,6 +1045,11 @@ export function impactosProyectiles(proyectiles, enemigos, alEstallar) {
     // (ver Proyectiles.mover). Se sale antes de mirar la rejilla siquiera: no
     // hay nada que pueda pasarle a un proyectil que no golpea.
     if (p.perforacion < 0) { k++; continue; }
+    // EN EL AIRE: el obús de la Artillería cruza la pantalla en parábola y no
+    // toca a nadie hasta que cae, que es cuando revienta (ver `arco` en
+    // entidades/proyectil.js). Si golpeara por el camino, reventaría a media
+    // pantalla del punto que estaba anunciando.
+    if (p.arco > 0) { k++; continue; }
 
     // EL PROYECTIL SE PRUEBA COMO SEGMENTO, NO COMO PUNTO.
     //

@@ -1,109 +1,109 @@
 {
     "escalaArte":  4,
-    "version":  "20260920152607",
+    "version":  "20260921131117",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
-                                        "w":  54,
-                                        "h":  48,
-                                        "anclaX":  27,
-                                        "anclaY":  48,
+                                        "w":  45,
+                                        "h":  40,
+                                        "anclaX":  22,
+                                        "anclaY":  40,
                                         "frames":  10
                                     },
                       "gargola":  {
                                       "archivo":  "enemigos/gargola.png",
-                                      "w":  86,
-                                      "h":  72,
-                                      "anclaX":  43,
-                                      "anclaY":  72,
+                                      "w":  67,
+                                      "h":  56,
+                                      "anclaX":  34,
+                                      "anclaY":  56,
                                       "frames":  52
                                   },
                       "legionario":  {
                                          "archivo":  "enemigos/legionario.png",
-                                         "w":  105,
-                                         "h":  112,
-                                         "anclaX":  52,
-                                         "anclaY":  112,
+                                         "w":  82,
+                                         "h":  88,
+                                         "anclaX":  41,
+                                         "anclaY":  88,
                                          "frames":  10
                                      },
                       "gladiador":  {
                                         "archivo":  "enemigos/gladiador.png",
-                                        "w":  103,
-                                        "h":  108,
-                                        "anclaX":  52,
-                                        "anclaY":  108,
+                                        "w":  84,
+                                        "h":  88,
+                                        "anclaX":  42,
+                                        "anclaY":  88,
                                         "frames":  12
                                     },
                       "arpia":  {
                                     "archivo":  "enemigos/arpia.png",
-                                    "w":  93,
-                                    "h":  76,
-                                    "anclaX":  46,
-                                    "anclaY":  76,
+                                    "w":  73,
+                                    "h":  60,
+                                    "anclaX":  36,
+                                    "anclaY":  60,
                                     "frames":  12
                                 },
                       "medusa":  {
                                      "archivo":  "enemigos/medusa.png",
-                                     "w":  78,
-                                     "h":  96,
-                                     "anclaX":  39,
-                                     "anclaY":  96,
+                                     "w":  62,
+                                     "h":  76,
+                                     "anclaX":  31,
+                                     "anclaY":  76,
                                      "frames":  16
                                  },
                       "minotauro":  {
                                         "archivo":  "enemigos/minotauro.png",
-                                        "w":  113,
-                                        "h":  120,
-                                        "anclaX":  56,
-                                        "anclaY":  120,
+                                        "w":  91,
+                                        "h":  96,
+                                        "anclaX":  46,
+                                        "anclaY":  96,
                                         "frames":  10
                                     },
                       "ciclope":  {
                                       "archivo":  "enemigos/ciclope.png",
-                                      "w":  159,
-                                      "h":  140,
-                                      "anclaX":  80,
-                                      "anclaY":  140,
+                                      "w":  127,
+                                      "h":  112,
+                                      "anclaX":  64,
+                                      "anclaY":  112,
                                       "frames":  16
                                   },
                       "manticora":  {
                                         "archivo":  "enemigos/manticora.png",
-                                        "w":  204,
-                                        "h":  172,
-                                        "anclaX":  102,
-                                        "anclaY":  172,
+                                        "w":  161,
+                                        "h":  136,
+                                        "anclaX":  80,
+                                        "anclaY":  136,
                                         "frames":  16
                                     },
                       "cerbero":  {
                                       "archivo":  "enemigos/cerbero.png",
-                                      "w":  310,
-                                      "h":  280,
-                                      "anclaX":  155,
-                                      "anclaY":  280,
+                                      "w":  230,
+                                      "h":  208,
+                                      "anclaX":  115,
+                                      "anclaY":  208,
                                       "frames":  16
                                   },
                       "hidra":  {
                                     "archivo":  "enemigos/hidra.png",
-                                    "w":  365,
-                                    "h":  320,
-                                    "anclaX":  182,
-                                    "anclaY":  320,
+                                    "w":  274,
+                                    "h":  240,
+                                    "anclaX":  137,
+                                    "anclaY":  240,
                                     "frames":  16
                                 },
                       "loba":  {
                                    "archivo":  "enemigos/loba.png",
-                                   "w":  320,
-                                   "h":  360,
-                                   "anclaX":  160,
-                                   "anclaY":  360,
+                                   "w":  241,
+                                   "h":  272,
+                                   "anclaX":  120,
+                                   "anclaY":  272,
                                    "frames":  16
                                },
                       "gemelo":  {
                                      "archivo":  "enemigos/gemelo.png",
-                                     "w":  101,
-                                     "h":  104,
-                                     "anclaX":  50,
-                                     "anclaY":  104,
+                                     "w":  77,
+                                     "h":  80,
+                                     "anclaX":  38,
+                                     "anclaY":  80,
                                      "frames":  8
                                  },
                       "ericCara":  {
@@ -1152,6 +1152,122 @@
                                                           70
                                                       ]
                                        },
+                      "expendedora1":  {
+                                           "archivo":  "objetos/expendedora1.png",
+                                           "w":  112,
+                                           "h":  112,
+                                           "anclaX":  56,
+                                           "anclaY":  112,
+                                           "frames":  1,
+                                           "solido":  [
+                                                          11,
+                                                          11,
+                                                          90,
+                                                          87
+                                                      ]
+                                       },
+                      "expendedora2":  {
+                                           "archivo":  "objetos/expendedora2.png",
+                                           "w":  112,
+                                           "h":  112,
+                                           "anclaX":  56,
+                                           "anclaY":  112,
+                                           "frames":  1,
+                                           "solido":  [
+                                                          12,
+                                                          11,
+                                                          89,
+                                                          87
+                                                      ]
+                                       },
+                      "expendedora3":  {
+                                           "archivo":  "objetos/expendedora3.png",
+                                           "w":  112,
+                                           "h":  112,
+                                           "anclaX":  56,
+                                           "anclaY":  112,
+                                           "frames":  1,
+                                           "solido":  [
+                                                          11,
+                                                          12,
+                                                          90,
+                                                          87
+                                                      ]
+                                       },
+                      "expendedora4":  {
+                                           "archivo":  "objetos/expendedora4.png",
+                                           "w":  112,
+                                           "h":  112,
+                                           "anclaX":  56,
+                                           "anclaY":  112,
+                                           "frames":  1,
+                                           "solido":  [
+                                                          12,
+                                                          12,
+                                                          89,
+                                                          87
+                                                      ]
+                                       },
+                      "expendedoraRota1":  {
+                                               "archivo":  "objetos/expendedora-rota1.png",
+                                               "w":  112,
+                                               "h":  112,
+                                               "anclaX":  56,
+                                               "anclaY":  112,
+                                               "frames":  1,
+                                               "plano":  true,
+                                               "solido":  [
+                                                              13,
+                                                              12,
+                                                              87,
+                                                              86
+                                                          ]
+                                           },
+                      "expendedoraRota2":  {
+                                               "archivo":  "objetos/expendedora-rota2.png",
+                                               "w":  128,
+                                               "h":  112,
+                                               "anclaX":  64,
+                                               "anclaY":  112,
+                                               "frames":  1,
+                                               "plano":  true,
+                                               "solido":  [
+                                                              23,
+                                                              14,
+                                                              87,
+                                                              81
+                                                          ]
+                                           },
+                      "expendedoraRota3":  {
+                                               "archivo":  "objetos/expendedora-rota3.png",
+                                               "w":  112,
+                                               "h":  112,
+                                               "anclaX":  56,
+                                               "anclaY":  112,
+                                               "frames":  1,
+                                               "plano":  true,
+                                               "solido":  [
+                                                              13,
+                                                              14,
+                                                              86,
+                                                              84
+                                                          ]
+                                           },
+                      "expendedoraRota4":  {
+                                               "archivo":  "objetos/expendedora-rota4.png",
+                                               "w":  128,
+                                               "h":  112,
+                                               "anclaX":  64,
+                                               "anclaY":  112,
+                                               "frames":  1,
+                                               "plano":  true,
+                                               "solido":  [
+                                                              27,
+                                                              14,
+                                                              82,
+                                                              80
+                                                          ]
+                                           },
                       "columna":  {
                                       "archivo":  "objetos/columna.png",
                                       "w":  112,
@@ -1681,6 +1797,69 @@
                                                      "aro10"
                                                  ]
                                    },
+                      "proyMetralla":  {
+                                           "archivo":  "efectos/proy-metralla.png",
+                                           "w":  20,
+                                           "h":  20,
+                                           "anclaX":  10,
+                                           "anclaY":  10,
+                                           "frames":  30,
+                                           "plano":  true,
+                                           "orden":  [
+                                                         "casco0",
+                                                         "casco1",
+                                                         "casco2",
+                                                         "casco3",
+                                                         "casco4",
+                                                         "casco5",
+                                                         "casco6",
+                                                         "casco7",
+                                                         "casco8",
+                                                         "casco9",
+                                                         "casco10",
+                                                         "casco11",
+                                                         "casco12",
+                                                         "casco15",
+                                                         "casco16",
+                                                         "casco17",
+                                                         "casco18",
+                                                         "casco19",
+                                                         "casco20",
+                                                         "casco21",
+                                                         "casco22",
+                                                         "casco23",
+                                                         "casco24",
+                                                         "casco25",
+                                                         "casco26",
+                                                         "casco27",
+                                                         "casco28",
+                                                         "casco29",
+                                                         "casco30",
+                                                         "casco31"
+                                                     ]
+                                       },
+                      "proyAvispa":  {
+                                         "archivo":  "efectos/proy-avispas.png",
+                                         "w":  36,
+                                         "h":  36,
+                                         "anclaX":  18,
+                                         "anclaY":  18,
+                                         "frames":  11,
+                                         "plano":  true,
+                                         "orden":  [
+                                                       "avispa0",
+                                                       "avispa2",
+                                                       "avispa6",
+                                                       "avispa9",
+                                                       "avispa10",
+                                                       "avispa12",
+                                                       "avispa14",
+                                                       "avispa15",
+                                                       "avispa18",
+                                                       "avispa20",
+                                                       "avispa22"
+                                                   ]
+                                     },
                       "balaPistola":  {
                                           "archivo":  "efectos/bala-pistola.png",
                                           "w":  43,
@@ -1708,6 +1887,107 @@
                                          "frames":  1,
                                          "plano":  true
                                      },
+                      "balaFusil":  {
+                                        "archivo":  "efectos/bala-fusil.png",
+                                        "w":  52,
+                                        "h":  32,
+                                        "anclaX":  26,
+                                        "anclaY":  16,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "balaSubfusil":  {
+                                           "archivo":  "efectos/bala-subfusil.png",
+                                           "w":  38,
+                                           "h":  17,
+                                           "anclaX":  19,
+                                           "anclaY":  8,
+                                           "frames":  1,
+                                           "plano":  true
+                                       },
+                      "balaRevolver":  {
+                                           "archivo":  "efectos/bala-revolver.png",
+                                           "w":  48,
+                                           "h":  22,
+                                           "anclaX":  24,
+                                           "anclaY":  11,
+                                           "frames":  1,
+                                           "plano":  true
+                                       },
+                      "balaRecortada":  {
+                                            "archivo":  "efectos/bala-recortada.png",
+                                            "w":  28,
+                                            "h":  28,
+                                            "anclaX":  14,
+                                            "anclaY":  14,
+                                            "frames":  1,
+                                            "plano":  true
+                                        },
+                      "proyCohete":  {
+                                         "archivo":  "efectos/proy-cohete.png",
+                                         "w":  60,
+                                         "h":  27,
+                                         "anclaX":  30,
+                                         "anclaY":  14,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
+                      "proyBomba":  {
+                                        "archivo":  "efectos/proy-bomba.png",
+                                        "w":  64,
+                                        "h":  35,
+                                        "anclaX":  32,
+                                        "anclaY":  18,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "proyObus":  {
+                                       "archivo":  "efectos/proy-obus.png",
+                                       "w":  60,
+                                       "h":  27,
+                                       "anclaX":  30,
+                                       "anclaY":  14,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "minaExplosiva":  {
+                                            "archivo":  "efectos/mina-explosiva.png",
+                                            "w":  72,
+                                            "h":  72,
+                                            "anclaX":  36,
+                                            "anclaY":  36,
+                                            "frames":  1,
+                                            "plano":  true,
+                                            "aditivo":  false,
+                                            "radioDibujo":  9
+                                        },
+                      "disparoMedusa":  {
+                                            "archivo":  "efectos/disparo-medusa.png",
+                                            "w":  72,
+                                            "h":  26,
+                                            "anclaX":  36,
+                                            "anclaY":  13,
+                                            "frames":  1,
+                                            "plano":  true
+                                        },
+                      "disparoManticora":  {
+                                               "archivo":  "efectos/disparo-manticora.png",
+                                               "w":  60,
+                                               "h":  35,
+                                               "anclaX":  30,
+                                               "anclaY":  18,
+                                               "frames":  1,
+                                               "plano":  true
+                                           },
+                      "rocaCiclope":  {
+                                          "archivo":  "efectos/roca-ciclope.png",
+                                          "w":  40,
+                                          "h":  37,
+                                          "anclaX":  20,
+                                          "anclaY":  18,
+                                          "frames":  1,
+                                          "plano":  true
+                                      },
                       "explosionFuego":  {
                                              "archivo":  "efectos/explosion-fuego.png",
                                              "w":  540,
@@ -1730,7 +2010,7 @@
                                                             0.68213,
                                                             0.77686,
                                                             0.88216,
-                                                            1.0
+                                                            1
                                                         ]
                                          },
                       "explosionCohete":  {
@@ -1755,7 +2035,7 @@
                                                              0.68213,
                                                              0.77686,
                                                              0.88216,
-                                                             1.0
+                                                             1
                                                          ]
                                           },
                       "explosionMolotov":  {
@@ -1780,7 +2060,7 @@
                                                               0.68213,
                                                               0.77686,
                                                               0.88216,
-                                                              1.0
+                                                              1
                                                           ]
                                            },
                       "explosionJupiter":  {
@@ -1805,7 +2085,7 @@
                                                               0.68213,
                                                               0.77686,
                                                               0.88216,
-                                                              1.0
+                                                              1
                                                           ]
                                            },
                       "ondaChoque":  {
@@ -1830,7 +2110,7 @@
                                                         0.68213,
                                                         0.77686,
                                                         0.88216,
-                                                        1.0
+                                                        1
                                                     ]
                                      },
                       "ondaAurea":  {
@@ -1855,7 +2135,7 @@
                                                        0.68213,
                                                        0.77686,
                                                        0.88216,
-                                                       1.0
+                                                       1
                                                    ]
                                     },
                       "ondaGrito":  {
@@ -1880,7 +2160,7 @@
                                                        0.68213,
                                                        0.77686,
                                                        0.88216,
-                                                       1.0
+                                                       1
                                                    ]
                                     },
                       "reventonTierra":  {
@@ -1905,7 +2185,7 @@
                                                             0.68213,
                                                             0.77686,
                                                             0.88216,
-                                                            1.0
+                                                            1
                                                         ]
                                          },
                       "reventonVeneno":  {
@@ -1930,7 +2210,7 @@
                                                             0.68213,
                                                             0.77686,
                                                             0.88216,
-                                                            1.0
+                                                            1
                                                         ]
                                          },
                       "reventonLlama":  {
@@ -1955,9 +2235,34 @@
                                                            0.68213,
                                                            0.77686,
                                                            0.88216,
-                                                           1.0
+                                                           1
                                                        ]
                                         },
+                      "reventonChatarra":  {
+                                               "archivo":  "efectos/reventon-chatarra.png",
+                                               "w":  304,
+                                               "h":  304,
+                                               "anclaX":  152,
+                                               "anclaY":  152,
+                                               "frames":  12,
+                                               "plano":  true,
+                                               "margen":  1.35,
+                                               "aditivo":  true,
+                                               "radios":  [
+                                                              0.15,
+                                                              0.20275,
+                                                              0.25816,
+                                                              0.31673,
+                                                              0.37905,
+                                                              0.44583,
+                                                              0.51791,
+                                                              0.59628,
+                                                              0.68213,
+                                                              0.77686,
+                                                              0.88216,
+                                                              1
+                                                          ]
+                                           },
                       "reventonChispa":  {
                                              "archivo":  "efectos/reventon-chispa.png",
                                              "w":  304,
@@ -1980,7 +2285,7 @@
                                                             0.68213,
                                                             0.77686,
                                                             0.88216,
-                                                            1.0
+                                                            1
                                                         ]
                                          },
                       "ondaAullido":  {
@@ -2005,9 +2310,46 @@
                                                          0.68213,
                                                          0.77686,
                                                          0.88216,
-                                                         1.0
+                                                         1
                                                      ]
                                       },
+                      "ondaSismo":  {
+                                        "archivo":  "efectos/onda-sismo.png",
+                                        "w":  648,
+                                        "h":  648,
+                                        "anclaX":  324,
+                                        "anclaY":  324,
+                                        "frames":  24,
+                                        "plano":  true,
+                                        "margen":  1.35,
+                                        "aditivo":  false,
+                                        "radios":  [
+                                                       0.15,
+                                                       0.17493,
+                                                       0.20041,
+                                                       0.22649,
+                                                       0.25323,
+                                                       0.28068,
+                                                       0.30889,
+                                                       0.33795,
+                                                       0.36792,
+                                                       0.39887,
+                                                       0.4309,
+                                                       0.46409,
+                                                       0.49854,
+                                                       0.53437,
+                                                       0.57169,
+                                                       0.61063,
+                                                       0.65133,
+                                                       0.69395,
+                                                       0.73863,
+                                                       0.78557,
+                                                       0.83496,
+                                                       0.887,
+                                                       0.94194,
+                                                       1
+                                                   ]
+                                    },
                       "charcoLava":  {
                                          "archivo":  "efectos/charco-lava.png",
                                          "w":  376,
@@ -2146,19 +2488,6 @@
                                            "plano":  true,
                                            "aditivo":  true
                                        },
-                      "minaExplosiva":  {
-                                            "archivo":  "efectos/mina-explosiva.png",
-                                            "w":  72,
-                                            "h":  72,
-                                            "anclaX":  36,
-                                            "anclaY":  36,
-                                            "frames":  12,
-                                            "plano":  true,
-                                            "aditivo":  false,
-                                            "bucle":  true,
-                                            "fps":  24,
-                                            "radioDibujo":  9
-                                        },
                       "auraRoja":  {
                                        "archivo":  "efectos/aura-roja.png",
                                        "w":  64,
@@ -2222,15 +2551,6 @@
                                          "frames":  1,
                                          "plano":  true
                                      },
-                      "proyMetralla":  {
-                                           "archivo":  "efectos/proy-metralla.png",
-                                           "w":  16,
-                                           "h":  16,
-                                           "anclaX":  8,
-                                           "anclaY":  8,
-                                           "frames":  1,
-                                           "plano":  true
-                                       },
                       "proyPiedra":  {
                                          "archivo":  "efectos/proy-piedra.png",
                                          "w":  20,
@@ -2240,6 +2560,15 @@
                                          "frames":  1,
                                          "plano":  true
                                      },
+                      "proyPetanca":  {
+                                          "archivo":  "efectos/proy-petanca.png",
+                                          "w":  20,
+                                          "h":  18,
+                                          "anclaX":  10,
+                                          "anclaY":  9,
+                                          "frames":  1,
+                                          "plano":  true
+                                      },
                       "proyLengua":  {
                                          "archivo":  "efectos/proy-lengua.png",
                                          "w":  32,

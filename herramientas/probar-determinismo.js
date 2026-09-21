@@ -93,7 +93,21 @@ const PUERTO = 8143;
 // Y otra vez (septiembre de 2026): estaba caducada de alguna tanda anterior
 // sobre Merida -salia la misma huella nueva con y sin los cambios de paredes
 // del nivel 2, que en Merida no tocan nada-, y se copio la que daba.
-const HUELLA_ESPERADA = '6c8a0fbd 63ddbfbb 40479eff e2b62fb7 1fed1f40 921629ab fa0aab49';
+// Y otra vez (21 de septiembre de 2026), y esta solo desde el cuarto grupo: el
+// proyectil dirigido dispara aunque no tenga blanco -al rumbo del jugador, lo
+// pidio Sergio- asi que el Pilum de salida suelta jabalinas donde antes
+// esperaba, y hay campos nuevos en el proyectil (`arco`, el obus de la
+// Artilleria). Los tres primeros grupos no se mueven porque ahi la horda ya
+// esta encima y el Pilum tenia blanco de todas formas.
+// Y el mismo dia, otra vez desde el segundo grupo: cada enemigo lleva un campo
+// nuevo (`expendedora`, el sitio de la maquina expendedora que representa, -1
+// para todo lo demas) y entra en la foto del mundo en cuanto hay horda.
+// Y otra vez el mismo dia: el bestiario entero un 20% mas pequeno (radios de
+// colision incluidos) y campos nuevos de atasco en cada enemigo.
+// Y otra vez (misma tarde): los muertos ya no se retiran en el acto, se
+// disuelven en ceniza durante 0,75 s y sueltan particulas con el rng, asi que
+// el pool y el rng van distintos desde la primera baja.
+const HUELLA_ESPERADA = '6c8a0fbd 313b15a0 3c13d141 325829f5 c7193914 931f92c4 337d8b2b';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

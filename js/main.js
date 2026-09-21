@@ -25,6 +25,7 @@ import {
   ajustes, enemigoMasCercano
 } from './sistemas/colisiones.js';
 import { Obstaculos } from './sistemas/obstaculos.js';
+import { Expendedoras } from './sistemas/expendedoras.js';
 import { RejillaMapa } from './sistemas/rejillaMapa.js';
 import { SueloRejilla } from './sistemas/sueloRejilla.js';
 import { Lockstep } from './core/lockstep.js';
@@ -379,6 +380,8 @@ async function usarNivel(nivel) {
     RejillaMapa.apagar();
     SueloRejilla.activo = false;
   }
+  // Y las máquinas expendedoras, que salen de la rejilla: sin rejilla no hay.
+  Expendedoras.iniciar();
   // Y la lámina de su historia, si trae una propia. Aquí y no al abrir la
   // pantalla: una imagen que se empieza a pedir cuando ya se está leyendo el
   // relato se pone de fondo a media lectura.
@@ -2551,6 +2554,7 @@ function empezarPartida() {
   // decoración se invocan una vez por fila y hay que olvidar las de la partida
   // anterior. Ver Obstaculos.reiniciar.
   Obstaculos.reiniciar();
+  Expendedoras.reiniciar();
   Lockstep.reiniciar();
   reiniciarSellosOrbitales();
   enemigos.bajas = 0;
@@ -2637,6 +2641,20 @@ function prepararColoresRejilla(nivel) {
 // Chico a propósito: ver `colisionar` en sistemas/rejillaMapa.js.
 const PIES_CONTRA_PARED = 2;
 
+// TOPE DE LA CAJA CON QUE UN ENEMIGO CHOCA CONTRA LAS PAREDES. Los grandes
+// llevan un `radioCuerpo` que sale de su dibujo —26 Cerbero, más la Loba— y
+// con él la caja no cabe por una puerta de 64 ni dobla una esquina: el campo
+// de flujo le decía "sigue" y la pared le decía "no", y se quedaba clavado
+// empujando contra el canto. Lo vio Sergio. Contra las PAREDES se choca con
+// una caja de 14 de semilado como mucho: 28 de ancho pasa por cualquier hueco
+// del mapa y, sobre todo, por las rutas del campo ancho (ver
+// sistemas/rejillaMapa.js): una celda libre de ese campo está a 16 de la
+// pared más cercana en su peor punto, y con 18 la esquina de la caja seguía
+// enganchándose en los cantos —medido—. Que el dibujo de un jefe tape un
+// poco de muro al pasar es lo que hace un cuerpo grande en un pasillo visto
+// desde arriba. Entre cuerpos se sigue chocando con el radio de cuerpo entero.
+const PARED_SEMILADO_MAX = 14;
+
 function colisionarParedes() {
   if (!RejillaMapa.activa) return;
   for (let i = 0; i < jugadores.length; i++) {
@@ -2648,7 +2666,9 @@ function colisionarParedes() {
   const n = enemigos.pool.activos;
   for (let k = 0; k < n; k++) {
     const e = items[k];
-    RejillaMapa.colisionar(e, e.radioCuerpo || e.radio);
+    if (e.vida <= 0) continue;           // disolviéndose: los jirones no chocan
+    const r = e.radioCuerpo || e.radio;
+    RejillaMapa.colisionar(e, r > PARED_SEMILADO_MAX ? PARED_SEMILADO_MAX : r);
   }
 }
 
@@ -2751,6 +2771,7 @@ function volverAlMenu() {
   Progresion.iniciar(rng);
   Director.reiniciar();
   Obstaculos.reiniciar();
+  Expendedoras.reiniciar();
   // Los corazones olvidan la partida pasada: si no, el primer fotograma de la
   // siguiente enseña reventando las vidas que ya no se tienen.
   reiniciarVidasHud();
@@ -3302,9 +3323,15 @@ function actualizar(dt) {
   enemigos.rejilla.reconstruir(
     enemigos.pool.items, enemigos.pool.activos, camara.x, camara.y);
   separacion(enemigos, jugadores);
+  // Las máquinas expendedoras, ANTES de los obstáculos: es quien pone las
+  // rotas en `Obstaculos.fijos` y las enteras en el pool de enemigos.
+  Expendedoras.actualizar(camara, enemigos);
   Obstaculos.actualizar(camara.y, enemigos);
   colisionarObstaculos(Obstaculos, jugadores, enemigos);
   colisionarParedes();
+  // Con las paredes ya aplicadas: lo que cada enemigo ha avanzado de verdad,
+  // para el detector de atasco de los jefes (ver `medirAvance`).
+  enemigos.medirAvance();
   // Y los proyectiles que CORREN por el suelo -hoy el Osito Dinamito- contra
   // esos mismos obstaculos. Va aqui, justo detras y con la plantilla ya
   // colocada por `Obstaculos.actualizar`, porque es el mismo problema: lo que
@@ -4208,6 +4235,8 @@ async function arrancar() {
   // El director decide cuándo cae un consumible; los objetos del suelo saben
   // dibujarse y dejarse recoger. Ninguno de los dos sabe del otro más que esto.
   Director.objetos = cofres;
+  Director.jugadores = jugadores;
+  enemigos.alRomper = (e) => Expendedoras.romper(e);
   Jefes.iniciar(rng);
   Mascotas.iniciar();
 

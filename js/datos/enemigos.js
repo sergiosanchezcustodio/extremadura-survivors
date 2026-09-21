@@ -9,7 +9,8 @@
 //
 // - vida / velocidad / danyo / radio: sección 10 del plan, a minuto 0.
 // - xp: experiencia que suelta al morir, en la gema del escalón que le toque.
-// - radio: círculo de COLISIÓN, no del sprite. Sale de min(0.35*alto, 0.45*ancho)
+// - radio: círculo de COLISIÓN, no del sprite. (Tercera pasada de tamaños el
+//   21/09/2026: todo x0,8 y los jefes x0,75, a la par que los sprites.) Sale de min(0.35*alto, 0.45*ancho)
 //   para que rozar un ala o un cuerno no cuente como impacto.
 // - masa: reparte el empuje. Un cíclope no sale despedido como una serpiente.
 //   No es un peso realista, es un divisor de empuje.
@@ -157,22 +158,22 @@ export const ENEMIGOS = {
   // Su RADIO baja a la mitad con su sprite (ver el catálogo de la herramienta):
   // el círculo de daño no puede sobrar por fuera de la silueta, o el bicho muerde
   // desde donde no está.
-  serpiente:  { sprite:'serpiente',  rol:'masa',      xp:1, vida:16,    velocidad:10, danyo:4,  radio:3.6,  masa:1.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag'    },
-  gargola:    { sprite:'gargola',    rol:'masa',      xp:2, vida:40,    velocidad:16, danyo:5,  radio:6.5,  masa:1.6,  vuela:true,  inmuneEmpuje:false, movimiento:'revoloteo', restos:'piedra' },
+  serpiente:  { sprite:'serpiente',  rol:'masa',      xp:1, vida:16,    velocidad:10, danyo:4,  radio:2.9,  masa:1.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag'    },
+  gargola:    { sprite:'gargola',    rol:'masa',      xp:2, vida:40,    velocidad:16, danyo:5,  radio:5.2,  masa:1.6,  vuela:true,  inmuneEmpuje:false, movimiento:'revoloteo', restos:'piedra' },
 
   // --- Base: los guardianes humanos ---------------------------------------
   // Casi diez veces la serpiente. Un legionario no es "otra serpiente con
   // casco": es un muro que hay que decidir si rodear o romper. Sus radios suben
   // con el sprite, que ahora es un 40% más alto.
-  legionario: { sprite:'legionario', rol:'base',      xp:6, vida:140,   velocidad:13, danyo:9,  radio:7.7,  masa:3.5,  vuela:false, inmuneEmpuje:false, movimiento:'directo'   },
-  gladiador:  { sprite:'gladiador',  rol:'base',      xp:8, vida:190,   velocidad:24, danyo:11, radio:8.8,  masa:4.5,  vuela:false, inmuneEmpuje:false, movimiento:'orbita'    },
+  legionario: { sprite:'legionario', rol:'base',      xp:6, vida:140,   velocidad:13, danyo:9,  radio:6.2,  masa:3.5,  vuela:false, inmuneEmpuje:false, movimiento:'directo'   },
+  gladiador:  { sprite:'gladiador',  rol:'base',      xp:8, vida:190,   velocidad:24, danyo:11, radio:7,  masa:4.5,  vuela:false, inmuneEmpuje:false, movimiento:'orbita'    },
 
   // --- Rápido: el único que te alcanza si huyes en línea recta ------------
   // Bajada EXTRA por encima del 25% general: a 50 se hacía insoportable, porque
   // vuela errática y no hay forma de anticiparla. A 32 sigue siendo la más rápida
   // del bestiario y la única que gana terreno si huyes en línea recta, pero da
   // tiempo a verla llegar.
-  arpia:      { sprite:'arpia',      rol:'rapido',    xp:5, vida:70,    velocidad:32, danyo:8,  radio:7.1,  masa:2.2,  vuela:true,  inmuneEmpuje:false, movimiento:'revoloteo' },
+  arpia:      { sprite:'arpia',      rol:'rapido',    xp:5, vida:70,    velocidad:32, danyo:8,  radio:5.7,  masa:2.2,  vuela:true,  inmuneEmpuje:false, movimiento:'revoloteo' },
 
   // --- Distancia: los que NO matan por contacto ---------------------------
   //
@@ -194,12 +195,16 @@ export const ENEMIGOS = {
   //               que no se puede ver venir no es un ataque, es un impuesto
   //   proyectiles + dispersion   abanico, en grados entre uno y otro
   //   vida        impactos que aguanta antes de romperse
-  medusa:     { sprite:'medusa',     rol:'distancia', xp:8, vida:160,   velocidad:8,  danyo:7,  radio:7.6,  masa:3.5,  vuela:false, inmuneEmpuje:false, movimiento:'acecho',
+  medusa:     { sprite:'medusa',     rol:'distancia', xp:8, vida:160,   velocidad:8,  danyo:7,  radio:6.1,  masa:3.5,  vuela:false, inmuneEmpuje:false, movimiento:'acecho',
                 // ESCUPITAJO. Verde de veneno con el corazón claro y una cola
                 // de gotas que se deshace por detrás (ver Disparos.dibujar):
                 // lo que sale de la boca de una medusa es líquido, y un líquido
                 // lanzado se separa en el aire.
-                ataque: { danyo:12, cadencia:2.8, alcance:190, velocidad:78, proyectiles:1, dispersion:0, radio:4.5, color:'#6cc93a', estela:'#3f8a22', nucleo:'#dcf7a8', vida:1, spriteReventon:'reventonVeneno' },
+                ataque: { danyo:12, cadencia:2.8, alcance:190, velocidad:78, proyectiles:1, dispersion:0, radio:4.5, color:'#6cc93a', estela:'#3f8a22', nucleo:'#dcf7a8', vida:1, spriteReventon:'reventonVeneno',
+                          // Y DIBUJADO por Sergio (septiembre de 2026): la gota de veneno con
+                          // su cola. El color, la estela y el núcleo se quedan para el reventón
+                          // y por si faltara la hoja (ver entidades/disparo.js).
+                          spriteDisparo:'disparoMedusa' },
                 // Muere en el mismo verde con el que dispara: lo que le sale del
                 // cuerpo es lo que llevaban sus púas, y eso se lee sin leer nada.
                 restos:'veneno' },
@@ -231,7 +236,7 @@ export const ENEMIGOS = {
   // impacto. A 22,5 el aviso de 0,85 s da de sobra para salirse: el sismo pasa
   // de castigar dónde estabas a castigar quedarse quieto, que es lo que se le
   // pedía desde el principio.
-  ciclope:    { sprite:'ciclope',    rol:'tanque',    xp:45, vida:950,   velocidad:7,  danyo:30, radio:11.8, masa:20.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo',
+  ciclope:    { sprite:'ciclope',    rol:'tanque',    xp:45, vida:950,   velocidad:7,  danyo:30, radio:9.4, masa:20.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo',
                 // `tonos`: la rampa del aviso, del canto al centro. Seis pasos
                 // de arena clara a brasa oscura, que es lo que hace el suelo
                 // cuando va a reventar. Van escritos y no interpolados en
@@ -239,20 +244,24 @@ export const ENEMIGOS = {
                 // (ver el sismo en entidades/disparo.js).
                 ataque: { tipo:'sismo', danyo:24, cadencia:4.2, alcance:230, aviso:0.85, radio:22.5, azarObjetivo:0.33, color:'#c98a3a',
                           tonos:['#e8c894','#d8a95e','#c98a3a','#a86524','#7d4415','#52290c'],
-                          spriteReventon:'reventonTierra' } },
-  minotauro:  { sprite:'minotauro',  rol:'tanque',    xp:24, vida:520,   velocidad:15, danyo:21, radio:10.9, masa:14.0, vuela:false, inmuneEmpuje:false, movimiento:'acecho'    },
+                          spriteReventon:'reventonTierra',
+                          // La roca que vuela de la mano al círculo, dibujada por Sergio.
+                          spritePiedra:'rocaCiclope' } },
+  minotauro:  { sprite:'minotauro',  rol:'tanque',    xp:24, vida:520,   velocidad:15, danyo:21, radio:8.7, masa:14.0, vuela:false, inmuneEmpuje:false, movimiento:'acecho'    },
 
   // --- Élite: suelta cofre garantizado ------------------------------------
   // La mantícora dispara el abanico de tres púas que pedía la sección 10 del
   // plan. Desde lejos y en abanico: es lo que la convierte en un enemigo al que
   // hay que acercarse con cuidado, en vez de un saco de vida al que rodear.
-  manticora:  { sprite:'manticora',  rol:'elite',     xp:120, vida:2600,  velocidad:28, danyo:13, radio:15.0, masa:30.0, vuela:true,  inmuneEmpuje:false, movimiento:'orbita',  cofre:true, persistente:true,
+  manticora:  { sprite:'manticora',  rol:'elite',     xp:120, vida:2600,  velocidad:28, danyo:13, radio:12, masa:30.0, vuela:true,  inmuneEmpuje:false, movimiento:'orbita',  cofre:true, persistente:true,
                 // BOLA DE FUEGO. Mismo mecanismo que el escupitajo de la
                 // medusa y a propósito: la cola de gotas vale igual para un
                 // líquido que para algo que arde soltando lo que le sobra. Lo
                 // que las separa es el color — aquí naranja con el corazón
                 // amarillo pálido y el rastro rojo apagándose.
-                ataque: { danyo:14, cadencia:2.5, alcance:260, velocidad:105, proyectiles:3, dispersion:16, radio:4, color:'#ff8a1a', estela:'#c43a08', nucleo:'#fff0a8', vida:1, spriteReventon:'reventonLlama' } },
+                ataque: { danyo:14, cadencia:2.5, alcance:260, velocidad:105, proyectiles:3, dispersion:16, radio:4, color:'#ff8a1a', estela:'#c43a08', nucleo:'#fff0a8', vida:1, spriteReventon:'reventonLlama',
+                          // Y la bola de fuego dibujada, como el escupitajo de la medusa.
+                          spriteDisparo:'disparoManticora' } },
 
   // Serpiente dorada (sección 11 del plan): la SEGUNDA vía de las evoluciones.
   // Variante de color de la serpiente, así que no cuesta ni un PNG.
@@ -275,7 +284,7 @@ export const ENEMIGOS = {
   // `persistente` sigue haciendo falta: aunque se aleje despacio, se aleja.
   serpienteDorada: { sprite:'serpienteDorada', spriteBase:'serpiente', tinte:'#e8b73a',
                      rol:'elite', especial:'serpiente', xp:70, vida:1400, velocidad:11, danyo:2,
-                     radio:3.6, masa:10.0,
+                     radio:2.9, masa:10.0,
                      vuela:false, inmuneEmpuje:false, movimiento:'huida', cofre:true, persistente:true },
 
   // Gárgola de bronce: el segundo especial, para que el recurso no sea "la
@@ -285,7 +294,7 @@ export const ENEMIGOS = {
   // que ir a buscarla, hay que sobrevivir a ella mientras la tumbas.
   gargolaBronce:   { sprite:'gargolaBronce', spriteBase:'gargola', tinte:'#c9822f',
                      rol:'elite', especial:'gargola', xp:90, vida:1800, velocidad:16, danyo:12,
-                     radio:6.5, masa:14.0,
+                     radio:5.2, masa:14.0,
                      vuela:true, inmuneEmpuje:false, movimiento:'revoloteo', cofre:true, persistente:true, restos:'piedra' },
 
   // === DORADOS: la versión que suelta tesoro ================================
@@ -303,19 +312,19 @@ export const ENEMIGOS = {
   // donde está por su papel especial: es la única que HUYE.
   gargolaDorada:    { sprite:'gargolaDorada', spriteBase:'gargola', tinte:'#e8c23a',
                       rol:'elite', especial:'gargola', xp:110, vida:2000, velocidad:16, danyo:7,
-                      radio:6.5, masa:12.0,
+                      radio:5.2, masa:12.0,
                       vuela:true, inmuneEmpuje:false, movimiento:'revoloteo', cofre:true, persistente:true, restos:'piedra' },
   legionarioDorado: { sprite:'legionarioDorado', spriteBase:'legionario', tinte:'#e8c23a',
                       rol:'elite', especial:'legionario', xp:150, vida:3200, velocidad:13, danyo:12,
-                      radio:7.7, masa:18.0,
+                      radio:6.2, masa:18.0,
                       vuela:false, inmuneEmpuje:false, movimiento:'directo', cofre:true, persistente:true },
   gladiadorDorado:  { sprite:'gladiadorDorado', spriteBase:'gladiador', tinte:'#e8c23a',
                       rol:'elite', especial:'gladiador', xp:190, vida:4000, velocidad:24, danyo:14,
-                      radio:8.8, masa:22.0,
+                      radio:7, masa:22.0,
                       vuela:false, inmuneEmpuje:false, movimiento:'orbita', cofre:true, persistente:true },
   minotauroDorado:  { sprite:'minotauroDorado', spriteBase:'minotauro', tinte:'#e8c23a',
                       rol:'elite', especial:'minotauro', xp:280, vida:6500, velocidad:15, danyo:22,
-                      radio:10.9, masa:40.0,
+                      radio:8.7, masa:40.0,
                       vuela:false, inmuneEmpuje:false, movimiento:'acecho', cofre:true, persistente:true },
 
   // --- Jefes --------------------------------------------------------------
@@ -378,16 +387,23 @@ export const ENEMIGOS = {
   //     acaba, así que un cofre de niveles no le serviría a nadie —no queda
   //     partida donde gastarlo—. Lo único que vale a esas alturas es lo que te
   //     llevas a mañana.
-  cerbero:    { sprite:'cerbero',    rol:'jefe',      xp:600,  vida:13000, velocidad:18, danyo:15, radio:21,   masa:80.0,  vuela:false, inmuneEmpuje:true,  movimiento:'directo', cofreDorado:true },
-  hidra:      { sprite:'hidra',      rol:'jefe',      xp:1000, vida:16000, velocidad:15, danyo:36, radio:28,   masa:100.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo', cofreDorado:true },
-  loba:       { sprite:'loba',       rol:'jefe',      xp:1500, vida:26000, velocidad:12, danyo:38, radio:31.5, masa:120.0, vuela:false, inmuneEmpuje:true,  movimiento:'acecho',  denariosAlMorir:1000 },
+  cerbero:    { sprite:'cerbero',    rol:'jefe',      xp:600,  vida:13000, velocidad:27, danyo:15, radio:15.8,   masa:80.0,  vuela:false, inmuneEmpuje:true,  movimiento:'directo', cofreDorado:true },
+  hidra:      { sprite:'hidra',      rol:'jefe',      xp:1000, vida:16000, velocidad:23, danyo:36, radio:21,   masa:100.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo', cofreDorado:true },
+  // UN 50% MÁS RÁPIDOS (Sergio, 21/09/2026): 18/15/12 -> 27/23/18. Eran los
+  // más lentos del bestiario con diferencia y en el centro comercial, con
+  // rodeos por pasillos, no llegaban nunca. Los gemelos no se tocan: son
+  // escolta, no jefe, y ya iban a 30.
+  // `directo` y no `acecho`: el acecho se para y mira antes de embestir, y
+  // Sergio quiere a los jefes persiguiendo sin descanso. Sus embestidas ya
+  // las lleva sistemas/jefes.js.
+  loba:       { sprite:'loba',       rol:'jefe',      xp:1500, vida:26000, velocidad:18, danyo:38, radio:23.6, masa:120.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo', denariosAlMorir:1000 },
   // `escolta` es lo que sistemas/jefes.js vigila para saber cuándo cae un
   // gemelo: mientras alguno siga vivo, la loba regenera; cada vez que uno cae,
   // se enfurece. Ver datos/jefes.js.
   // velocidad 25->30 (petición de Sergio jugándolo): rondaba la de un
   // gladiador (24); ahora queda por delante de todo el bestiario base salvo
   // la arpía (32), acorde a ser la escolta del jefe final.
-  gemelo:     { sprite:'gemelo',     rol:'jefe',      xp:200,  vida:3000,  velocidad:30, danyo:18, radio:9.5,  masa:16.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag', escolta:true },
+  gemelo:     { sprite:'gemelo',     rol:'jefe',      xp:200,  vida:3000,  velocidad:30, danyo:18, radio:7.1,  masa:16.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag', escolta:true },
 
   // --- Objetos destruibles del escenario -----------------------------------
   // Las antorchas del nivel (sistemas/obstaculos.js las coloca junto a
@@ -405,5 +421,16 @@ export const ENEMIGOS = {
   // `vida:0` en `xp` porque no da experiencia; `radio` sale de la misma
   // fórmula que el resto de la decoración (sección 10 del plan).
   antorcha1:  { sprite:'antorcha1',  rol:'objeto', xp:0, vida:30, velocidad:0, danyo:0, radio:2.7, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true, restos:'ceniza' },
-  antorcha2:  { sprite:'antorcha2',  rol:'objeto', xp:0, vida:30, velocidad:0, danyo:0, radio:2.7, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true, restos:'ceniza' }
+  antorcha2:  { sprite:'antorcha2',  rol:'objeto', xp:0, vida:30, velocidad:0, danyo:0, radio:2.7, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true, restos:'ceniza' },
+
+  // LAS MÁQUINAS EXPENDEDORAS DEL NIVEL 2. Mismo trato que las antorchas
+  // —objeto con vida, sin XP, suelta un consumible al romperse— con tres
+  // diferencias: aguantan bastante más (una máquina no es una tea), su radio
+  // es el de un armatoste de 24 de ancho, y al caer revientan en cristal
+  // (`restos`) con su reventón de chispas y vidrio (`spriteReventon`). Dónde
+  // van y qué queda cuando se rompen lo lleva sistemas/expendedoras.js.
+  expendedora1: { sprite:'expendedora1', rol:'objeto', xp:0, vida:140, velocidad:0, danyo:0, radio:11, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true, restos:'cristal', spriteReventon:'reventonChatarra', radioReventon:24 },
+  expendedora2: { sprite:'expendedora2', rol:'objeto', xp:0, vida:140, velocidad:0, danyo:0, radio:11, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true, restos:'cristal', spriteReventon:'reventonChatarra', radioReventon:24 },
+  expendedora3: { sprite:'expendedora3', rol:'objeto', xp:0, vida:140, velocidad:0, danyo:0, radio:11, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true, restos:'cristal', spriteReventon:'reventonChatarra', radioReventon:24 },
+  expendedora4: { sprite:'expendedora4', rol:'objeto', xp:0, vida:140, velocidad:0, danyo:0, radio:11, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true, restos:'cristal', spriteReventon:'reventonChatarra', radioReventon:24 }
 };

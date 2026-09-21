@@ -32,6 +32,8 @@ export const COLOR_CENIZA  = '#6d6a63';
 // con el que llena sus púas.
 export const COLOR_PIEDRA  = '#8f9298';
 export const COLOR_VENENO  = '#7fc247';
+// Cristal y chapa: lo que salta de una máquina expendedora al reventarla.
+export const COLOR_CRISTAL = '#cfe6f2';
 
 // La paleta es CERRADA a propósito: el dibujado agrupa por color y recorre esta
 // lista, así que un color nuevo tiene que añadirse aquí o no se pintará.
@@ -44,7 +46,7 @@ export const COLOR_VENENO  = '#7fc247';
 // no lo tenía: estaba en la paleta sin que nadie lo pidiera nunca, pagando su
 // pasada a cambio de nada. Ahora es lo que sueltan las antorchas al apagarse.
 const PALETA = [COLOR_SANGRE, COLOR_CHISPA, COLOR_POLVO, COLOR_CENIZA,
-                COLOR_PIEDRA, COLOR_VENENO];
+                COLOR_PIEDRA, COLOR_VENENO, COLOR_CRISTAL];
 
 function crearParticula() {
   return {

@@ -3,6 +3,7 @@ import { Recursos } from '../core/recursos.js';
 import { tipoConsumible } from '../entidades/cofre.js';
 import { Jefes } from './jefes.js';
 import { sen, cos, atan2, hipot } from '../core/mate.js';
+import { RejillaMapa } from './rejillaMapa.js';
 
 // Mismo margen que MARGEN_NIVEL en main.js: no se importa de ahí porque
 // main.js es el arranque, no un módulo pensado para que otros tiren de él.
@@ -267,6 +268,39 @@ function patronIndividual(enemigos, cx, cy, n, tipos, rng, eV, eD, mov) {
   return puestos;
 }
 
+// UN JEFE, y por dónde entra. En Mérida es `patronIndividual` tal cual: un
+// punto del perímetro de la cámara. En un nivel de recinto ese punto puede
+// caer en la tienda de al lado, al otro lado de una pared, y el jefe aparece
+// de la nada donde nadie lo ve llegar. Aquí se le pide a la rejilla un punto
+// FUERA de la pantalla pero en la misma sala o pasillo que un jugador —uno al
+// azar de los vivos, si hay varios— y desde ahí entra andando, como cualquier
+// enemigo que sigue el campo de flujo (ver `puntoDeEntradaJefe` en
+// sistemas/rejillaMapa.js). Si la rejilla no encuentra sitio, perímetro.
+const ENTRADA_JEFE = { x: 0, y: 0 };
+function patronJefe(enemigos, cx, cy, tipo, rng, eV, eD, jugadores) {
+  if (RejillaMapa.activa && jugadores && jugadores.length > 0) {
+    // Los vivos, y entre ellos uno al azar. Sin vivos, el primero: la partida
+    // ya está acabando y da igual por dónde entre.
+    let vivos = 0;
+    for (let i = 0; i < jugadores.length; i++) if (jugadores[i].vida > 0) vivos++;
+    let cual = vivos > 0 ? (rng() * vivos) | 0 : 0;
+    let j = jugadores[0];
+    if (vivos > 0) {
+      for (let i = 0; i < jugadores.length; i++) {
+        if (jugadores[i].vida <= 0) continue;
+        if (cual-- === 0) { j = jugadores[i]; break; }
+      }
+    }
+    if (RejillaMapa.puntoDeEntradaJefe(j.x, j.y, cx, cy, SEMI_X, SEMI_Y, rng, ENTRADA_JEFE)) {
+      const e = enemigos.aparecer(tipo, ENTRADA_JEFE.x, ENTRADA_JEFE.y, eV, eD, null);
+      if (!e) return 0;
+      ultimoIndividual = e;
+      return 1;
+    }
+  }
+  return patronIndividual(enemigos, cx, cy, 1, [tipo], rng, eV, eD, null);
+}
+
 const PATRONES = {
   anillo: patronAnillo,
   linea: patronLinea,
@@ -317,6 +351,9 @@ export const Director = {
   // decide CUÁNDO cae un consumible, pero no sabe cómo se dibuja ni cómo se
   // recoge.
   objetos: null,
+  // Los jugadores, para saber en qué sala está cada uno cuando entra un jefe
+  // (ver `patronJefe`). Lo enchufa main.js, como `objetos`.
+  jugadores: null,
   relojConsumible: 0,
   jefeInvocado: false,
   ultimoPatron: '',
@@ -451,9 +488,9 @@ export const Director = {
     if (!this.jefeInvocado && jefes && jefes.final &&
         this.t >= this.nivel.duracion - MARGEN_JEFE_FINAL) {
       this.jefeInvocado = true;
-      const puesto = PATRONES.individual(
-        enemigos, camara.x, camara.y, 1, [jefes.final], this.rng,
-        escalaVidaDe(this.nivel, this.t), escalaDanyoDe(this.nivel, this.t));
+      const puesto = patronJefe(
+        enemigos, camara.x, camara.y, jefes.final, this.rng,
+        escalaVidaDe(this.nivel, this.t), escalaDanyoDe(this.nivel, this.t), this.jugadores);
       if (puesto > 0) {
         const entidadJefe = ultimoIndividual;
         enemigos.huidaGeneral();
@@ -484,9 +521,9 @@ export const Director = {
         this.hitosInvocados[i] = 1;
         const tipoJefe = this.nivel.jefes && this.nivel.jefes[h.jefe];
         if (!tipoJefe) continue;
-        const puestoH = PATRONES.individual(
-          enemigos, camara.x, camara.y, 1, [tipoJefe], this.rng,
-          escalaVidaDe(this.nivel, this.t), escalaDanyoDe(this.nivel, this.t));
+        const puestoH = patronJefe(
+          enemigos, camara.x, camara.y, tipoJefe, this.rng,
+          escalaVidaDe(this.nivel, this.t), escalaDanyoDe(this.nivel, this.t), this.jugadores);
         if (puestoH > 0) {
           enemigos.huidaGeneral();
           Jefes.registrar(ultimoIndividual, h.texto);

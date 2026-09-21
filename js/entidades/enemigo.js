@@ -1,14 +1,14 @@
 import { ANCHO_LOGICO, ALTO_LOGICO, ESCALA_ARTE } from '../core/constantes.js';
 import { Pool } from '../core/pool.js';
 import { Rejilla } from '../core/rejilla.js';
-import { Recursos } from '../core/recursos.js';
+import { Recursos, HALO_PX } from '../core/recursos.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 import { ENEMIGOS } from '../datos/enemigos.js';
 import { VFX } from '../sistemas/vfx.js';
 import { GestorAudio } from '../sistemas/audio.js';
 import { RejillaMapa } from '../sistemas/rejillaMapa.js';
 import {
-  Particulas, COLOR_SANGRE, COLOR_POLVO, COLOR_CHISPA, COLOR_CENIZA,
+  Particulas, COLOR_SANGRE, COLOR_POLVO, COLOR_CHISPA, COLOR_CENIZA, COLOR_CRISTAL,
   COLOR_PIEDRA, COLOR_VENENO
 } from '../sistemas/particulas.js';
 import { tipoConsumible, COFRE } from './cofre.js';
@@ -126,7 +126,23 @@ const SEG_POR_FRAME = 0.1;
 const DECAIMIENTO_EMPUJE = 12;
 
 // Cuánto dura el blanqueo del sprite al recibir un impacto.
-const DURACION_DESTELLO = 0.07;
+// EL HALO DE GOLPE dura lo que tarda en aparecer y desvanecerse: un cuarto
+// subiendo y tres cuartos bajando (ver `alfaHalo`). Era 0,07 cuando era un
+// fogonazo blanco; un borde que se enciende y se apaga suave necesita tiempo
+// para que se vea la curva.
+const DURACION_DESTELLO = 0.32;
+// LA DISOLUCIÓN: lo que tarda un enemigo muerto en deshacerse en ceniza y
+// desaparecer. Lo pidió Sergio: nada de caer y esfumarse, se DESVANECEN a
+// jirones, como en el chasquido. Mientras dura, el cuerpo sigue en el pool
+// pero ya no es un cuerpo: no choca, no muerde, no se le apunta (ver los
+// filtros `vida <= 0` en sistemas/colisiones.js) y solo se dibuja.
+const DURACION_DISOLUCION = 0.75;
+// En cuántas franjas horizontales se deshace el dibujo. Cada una se va con
+// su propio retraso, deriva y alfa, de arriba abajo; seis se leen como
+// jirones sin que el sprite parezca cortado en lonchas.
+const FRANJAS_DISOLUCION = 6;
+// Cada cuánto suelta ceniza un cuerpo que se disuelve.
+const CADA_CENIZA = 0.06;
 
 // --- Patrones de movimiento --------------------------------------------------
 //
@@ -330,8 +346,20 @@ const MATERIALES = {
   carne:  { color: COLOR_SANGRE, gravedad: 1,    velocidad: 85, apertura: 1.25, gotas: 7, tam: 2 },
   piedra: { color: COLOR_PIEDRA, gravedad: 1.7,  velocidad: 72, apertura: 1.5,  gotas: 9, tam: 1.5 },
   veneno: { color: COLOR_VENENO, gravedad: 0.25, velocidad: 62, apertura: 1.9,  gotas: 8, tam: 2 },
-  ceniza: { color: COLOR_CENIZA, gravedad: 0.12, velocidad: 48, apertura: 2.2,  gotas: 8, tam: 1.5 }
+  ceniza: { color: COLOR_CENIZA, gravedad: 0.12, velocidad: 48, apertura: 2.2,  gotas: 8, tam: 1.5 },
+  // Cristal: se rompe en muchos trozos pequeños que caen a plomo y salen en
+  // todas direcciones, que es lo que hace un frontal de máquina al reventar.
+  cristal: { color: COLOR_CRISTAL, gravedad: 1.6, velocidad: 90, apertura: 2.6, gotas: 12, tam: 1.5 }
 };
+
+// LA CURVA DEL HALO: sube en el primer cuarto y baja en los tres restantes.
+// Sube rápido para que el golpe se sienta al instante, baja despacio para que
+// se lea como que se desvanece, y ninguna de las dos es un escalón.
+function alfaHalo(destello) {
+  const t = 1 - destello / DURACION_DESTELLO;      // 0 al golpe, 1 al apagarse
+  const a = t < 0.25 ? t / 0.25 : 1 - (t - 0.25) / 0.75;
+  return a < 0 ? 0 : a > 1 ? 1 : a;
+}
 
 // Forma única para todos los enemigos: un solo tipo oculto en V8. Si unos
 // enemigos tuvieran campos que otros no, cada acceso pasaría a ser polimórfico.
@@ -343,8 +371,14 @@ function crearEnemigo() {
     sepX: 0, sepY: 0, contactos: 0,
     empujeX: 0, empujeY: 0,
     frenado: 0,              // 0..1, cuánto le ralentiza una red o un charco
-    destello: 0,             // segundos que queda blanqueado tras un impacto
+    destello: 0,             // segundos que le quedan de halo rojo tras un impacto
+    disolucion: 0,           // segundos que le quedan de deshacerse en ceniza (muerto)
+    relojCeniza: 0,
     material: null,          // de qué está hecho: entrada de MATERIALES
+    // Índice de su sitio en sistemas/expendedoras.js, o -1. Solo lo llevan
+    // las máquinas expendedoras: es lo que permite saber, al reciclarse o al
+    // romperse, QUÉ máquina era y no solo que era una.
+    expendedora: -1,
     ultimoSello: 0,          // marca del último proyectil que le golpeó
     radio: 0, radioCuerpo: 0, radioSep: 0, invMasa: 1, vuela: false,
     fase: 0, cadencia: 0, mirandoDerecha: true,
@@ -404,10 +438,15 @@ function crearEnemigo() {
     // subido. 0 en todo el bestiario salvo un jefe embistiendo.
     embestida: 0,
     frames: 1, frame: 0, relojAnim: 0,
+    // ATASCO. Cuánto ha avanzado de verdad en la última ventana y cuánto le
+    // queda de "ir por el campo de flujo aunque vea al jugador". Ver el bloque
+    // de los pasillos en `mover`: es lo que saca a un jefe de una esquina.
+    avance: 0, relojAtasco: 0, rodeo: 0,
     // Referencias resueltas al aparecer: dibujar 800 entidades no puede pagar
     // dos búsquedas en Map por entidad y frame.
     objetivo: null,          // jugador al que persigue este paso
-    meta: null, img: null, imgEspejo: null, imgTinte: null, imgTinteEspejo: null
+    meta: null, img: null, imgEspejo: null, imgTinte: null, imgTinteEspejo: null,
+    imgHalo: null, imgHaloEspejo: null
   };
 }
 
@@ -435,6 +474,9 @@ export class Enemigos {
     this.bajas = 0;
     this.recogibles = null;    // lo enchufa main.js
     this.cofres = null;        // ídem: solo los élites lo usan
+    // Quién quiere enterarse de que un `esObjeto` ha caído (hoy, las máquinas
+    // expendedoras: sistemas/expendedoras.js por main.js). Función o null.
+    this.alRomper = null;
     this.disparos = null;      // ídem: solo los que llevan `ataque`
     this._sinArte = new Set(); // tipos ya avisados por no tener sprite
     // Élites vivos ahora mismo (los que sueltan cofre). Lo consulta el director
@@ -633,6 +675,7 @@ export class Enemigos {
     e.huidaTotal = false;
     e.relojDesbandada = 0;
     e.panico = 0;
+    e.avance = 0; e.relojAtasco = 0; e.rodeo = 0;
     // NACE PARALIZADO si el Reloj está corriendo. Es lo que hace que el efecto
     // valga también para lo que todavía no había aparecido — que es la mitad de
     // la horda, porque el director no deja de soltar mientras dura. Ver
@@ -663,6 +706,10 @@ export class Enemigos {
     e.imgEspejo = Recursos.espejo(def.sprite);
     e.imgTinte = Recursos.tinte(def.sprite);
     e.imgTinteEspejo = Recursos.tinteEspejo(def.sprite);
+    e.imgHalo = Recursos.halo(def.sprite);
+    e.imgHaloEspejo = Recursos.haloEspejo(def.sprite);
+    e.disolucion = 0;
+    e.relojCeniza = 0;
     // Copia azulada para cuando el Reloj de Emerita lo deja congelado. Se
     // resuelve aquí, con las otras tres hojas, para que el dibujado no tenga que
     // preguntar nada: elige imagen y ya.
@@ -671,6 +718,7 @@ export class Enemigos {
     // ningún diccionario ni preguntar si el campo existe. Es lo mismo que se
     // hace dos líneas más arriba con las hojas de dibujo.
     e.material = MATERIALES[def.restos] || MATERIALES.carne;
+    e.expendedora = -1;
     return e;
   }
 
@@ -705,6 +753,26 @@ export class Enemigos {
       const e = items[k];
       e.xPrev = e.x;
       e.yPrev = e.y;
+
+      // MUERTO Y DISOLVIÉNDOSE: no se mueve, no hace nada; solo descuenta y
+      // suelta ceniza. Se retira cuando la disolución llega a cero (ver
+      // `retirarMuertos`). Un poco de ceniza de cada vez, desde un punto al
+      // azar del cuerpo, subiendo: es lo que da el aire de jirones que se van.
+      if (e.vida <= 0) {
+        e.disolucion -= dt;
+        e.relojCeniza -= dt;
+        if (e.relojCeniza <= 0 && e.disolucion > 0 && e.meta) {
+          e.relojCeniza = CADA_CENIZA;
+          if (!Particulas.saturado()) {
+            const alto = e.meta.h / ESCALA_ARTE, ancho = e.meta.w / ESCALA_ARTE;
+            const px = e.x + (this._rng() - 0.5) * ancho * 0.8;
+            const py = e.y - this._rng() * alto;
+            Particulas.chorro(px, py, 0.35, -1, 2, 26, 0.9, 0.7, 1.5,
+                              COLOR_CENIZA, -0.08, this._rng);
+          }
+        }
+        continue;
+      }
 
       // EL RELOJ DE LA DESBANDADA, antes que nada y sin `continue`: lo único
       // que hace es contar, y tiene que contar también mientras el enemigo está
@@ -967,9 +1035,44 @@ export class Enemigos {
       // Los que HUYEN quedan fuera: el campo apunta hacia el jugador y es justo
       // lo contrario de lo que quieren.
       if (RejillaMapa.activa && e.mov !== MOV_HUIDA && (dx !== 0 || dy !== 0)) {
-        const aCiegas = dist > DIST_VISION ||
-                        !RejillaMapa.lineaLibre(e.x, e.y, objetivo.x, objetivo.y);
-        if (aCiegas && RejillaMapa.direccionEn(e.x, e.y, RUMBO)) {
+        let aCiegas = dist > DIST_VISION ||
+                      !RejillaMapa.lineaLibre(e.x, e.y, objetivo.x, objetivo.y);
+
+        // LOS GRANDES NO SE FÍAN DE UNA LÍNEA. `lineaLibre` mira un hilo desde
+        // el centro, y un jefe de veinte de radio "ve" al jugador por un hueco
+        // por el que su cuerpo no cabe: se echa encima en línea recta, la pared
+        // lo para y ahí se queda, empujando contra la esquina mientras el
+        // jugador lo mira desde el pasillo. Lo vio Sergio en el centro
+        // comercial. Para los cuerpos anchos la vista se comprueba TAMBIÉN por
+        // los dos costados: si uno de los tres hilos choca, se va por el campo
+        // de flujo, que sí conoce los pasillos.
+        if (!aCiegas && e.radio > 9) {
+          const px = -dy * e.radio * 0.85, py = dx * e.radio * 0.85;
+          if (!RejillaMapa.lineaLibre(e.x + px, e.y + py, objetivo.x + px, objetivo.y + py) ||
+              !RejillaMapa.lineaLibre(e.x - px, e.y - py, objetivo.x - px, objetivo.y - py)) {
+            aCiegas = true;
+          }
+        }
+
+        // Y EL ATASCO, para lo que la vista no resuelve. Cada medio segundo se
+        // compara lo que ha avanzado con lo que debería a su velocidad; si no
+        // ha hecho ni un cuarto y no es porque ya esté encima, es que hay algo
+        // en medio. Entonces se rinde a la ruta por pasillos durante un rato
+        // (`rodeo`), aunque vea al jugador: la ruta por pasillos rodea la
+        // esquina; la línea recta, no. Vale para cualquiera, pero quien lo
+        // sufre son los grandes.
+        e.relojAtasco += dt;
+        if (e.relojAtasco >= 0.5) {
+          const esperado = e.velocidad * 0.5 * 0.25;
+          if (e.avance < esperado && dist > CERCA * 1.5 && e.paralizado <= 0) e.rodeo = 1.6;
+          e.relojAtasco = 0;
+          e.avance = 0;
+        }
+        if (e.rodeo > 0) { e.rodeo -= dt; aCiegas = true; }
+
+        // Los anchos, por el campo ancho: rutas en las que caben. Ver
+        // `actualizarCampo` en sistemas/rejillaMapa.js.
+        if (aCiegas && RejillaMapa.direccionEn(e.x, e.y, RUMBO, e.radio > 9)) {
           dx = RUMBO.x; dy = RUMBO.y;
         }
       }
@@ -1090,6 +1193,9 @@ export class Enemigos {
       }
       e.x += dx * v * dt;
       e.y += dy * v * dt;
+      // Lo que ha avanzado de verdad se mide más abajo, en `medirAvance`,
+      // después de que las paredes y la separación lo hayan recolocado: aquí
+      // todavía no se sabe si el paso se ha dado o se ha estrellado.
 
       // Empuje por daño. Decae rápido y en exponencial: un golpe da un tirón
       // seco, no un desplazamiento largo. Los inmunes ni lo acumulan.
@@ -1119,6 +1225,21 @@ export class Enemigos {
       } else {
         e.fase += dt * e.cadencia;
       }
+    }
+  }
+
+  // CUÁNTO SE HA MOVIDO CADA UNO DE VERDAD en este paso, midiendo contra
+  // `xPrev`/`yPrev` DESPUÉS de las paredes y la separación. Lo llama main.js al
+  // final de la física. Es la entrada del detector de atasco de `mover`: un
+  // jefe que empuja contra una esquina "se mueve" en su propio paso y lo
+  // desandan las paredes, así que hay que medir aquí y no allí.
+  medirAvance() {
+    const items = this.pool.items;
+    const n = this.pool.activos;
+    for (let k = 0; k < n; k++) {
+      const e = items[k];
+      const dx = e.x - e.xPrev, dy = e.y - e.yPrev;
+      e.avance += Math.sqrt(dx * dx + dy * dy);
     }
   }
 
@@ -1195,7 +1316,11 @@ export class Enemigos {
     }
 
     e.vida -= cantidad;
-    e.destello = DURACION_DESTELLO;
+    // Si el halo ya está encendido se le deja en su punto álgido en vez de
+    // volver a empezar desde cero: apagarlo de golpe para volver a encenderlo
+    // sería justo el parpadeo que este efecto quiere evitar.
+    e.destello = e.destello > 0 ? Math.max(e.destello, DURACION_DESTELLO * 0.75)
+                                : DURACION_DESTELLO;
     VFX.numero(e.x, e.y - e.meta.h / ESCALA_ARTE * 0.6, cantidad, this._rng);
 
     // Empuje proporcional al daño e inverso a la masa, como pide el plan: una
@@ -1208,6 +1333,11 @@ export class Enemigos {
 
     if (e.vida <= 0) {
       e.vida = 0;
+      // Empieza a deshacerse. Los objetos del escenario (antorchas, máquinas)
+      // no: esos revientan y se van, no son carne que se vuelva ceniza.
+      e.disolucion = e.def.esObjeto ? 0 : DURACION_DISOLUCION;
+      e.relojCeniza = 0;
+      e.destello = 0;
       // EL PARÓN Y LA SACUDIDA, A LA MEDIDA DE LO QUE HA CAÍDO.
       //
       // Antes era un valor fijo para todo lo que pasara de VIDA_HITSTOP, así
@@ -1235,6 +1365,15 @@ export class Enemigos {
         MetaProgreso.ganar(DENARIOS_ANTORCHA);
         GestorAudio.muerteEnemigo();
         if (this.cofres) this.cofres.soltar(e.x, e.y, tipoConsumible(this._rng()));
+        // El REVENTÓN, si el objeto lo trae: la máquina expendedora estalla en
+        // cristal y chispas (hoja generada, ver `chatarra` en
+        // herramientas/generar-efectos.ps1) antes de quedarse rota.
+        if (e.def.spriteReventon) {
+          VFX.reventon(e.x, e.y - e.meta.h / ESCALA_ARTE * 0.45, e.def.radioReventon || 22,
+                       e.def.spriteReventon, 0.42, this._rng);
+          VFX.sacudir(2.5);
+        }
+        if (this.alRomper && e.expendedora >= 0) this.alRomper(e);
         // Una antorcha no muere: se APAGA. Las chispas son el fuego que salta al
         // romperla, y lo que se queda flotando después es su ceniza —el material
         // de su ficha— en vez del polvo de tierra que levanta un cuerpo al caer.
@@ -1378,7 +1517,8 @@ export class Enemigos {
     const items = this.pool.items;
     let k = 0;
     while (k < this.pool.activos) {
-      if (items[k].vida <= 0) this.pool.liberarEn(k);   // sin avanzar k
+      const e = items[k];
+      if (e.vida <= 0 && e.disolucion <= 0) this.pool.liberarEn(k);   // sin avanzar k
       else k++;
     }
   }
@@ -1746,9 +1886,11 @@ export class Enemigos {
       // un teñido azul por bicho no distingue nada de nada — lo dice ya el hecho
       // de que no se mueva ninguno. Lo que sí hacía falta conservar es esto: que
       // el destello no se cuele durante la parada.
-      const img = (e.destello > 0 && Enemigos.destelloActivo && e.paralizado <= 0)
-        ? (e.mirandoDerecha ? e.imgTinte : e.imgTinteEspejo)
-        : (e.mirandoDerecha ? e.img : e.imgEspejo);
+      // EL HALO ROJO DE GOLPE en vez del blanqueado (lo pidió Sergio): se dibuja
+      // la silueta engordada en rojo DETRÁS del sprite, con el alfa de una
+      // curva suave, y el sprite normal encima. Ver Recursos._halo.
+      const img = e.mirandoDerecha ? e.img : e.imgEspejo;
+      const conHalo = e.destello > 0 && Enemigos.destelloActivo && e.paralizado <= 0 && e.vida > 0;
 
       // Todo se cuadra a PÍXEL FÍSICO ENTERO antes de dibujar.
       //
@@ -1758,6 +1900,50 @@ export class Enemigos {
       // apenas se mueva. Esa era la mitad de la vibración que se veía.
       const cxF = Math.round(e.xVista * ESCALA_ARTE);
       const cyF = Math.round(e.yVista * ESCALA_ARTE);
+
+      // MUERTO: se deshace en jirones. El dibujo se parte en franjas
+      // horizontales y cada una se va por su cuenta —de arriba abajo, con un
+      // retraso escalonado— derivando hacia arriba y a un lado mientras se
+      // apaga. Con la ceniza que suelta `mover`, es la gente del chasquido.
+      if (e.vida <= 0) {
+        if (e.disolucion <= 0) continue;
+        const t = 1 - e.disolucion / DURACION_DISOLUCION;      // 0 -> 1
+        const nf = FRANJAS_DISOLUCION;
+        const hF = meta.h / nf;
+        const fx = e.frame * meta.w;
+        const x0 = (cxF - (meta.w >> 1)) / ESCALA_ARTE;
+        const y0 = (cyF - meta.h) / ESCALA_ARTE;
+        for (let b = 0; b < nf; b++) {
+          // Cada franja empieza a irse en su momento: la de arriba al
+          // instante, la de abajo a mitad de la disolución.
+          const ini = (b / nf) * 0.5;
+          let p = (t - ini) / 0.5;
+          if (p < 0) p = 0; else if (p > 1) p = 1;
+          if (p >= 1) continue;
+          ctx.globalAlpha = 1 - p;
+          const deriva = p * (6 + b * 1.5);
+          ctx.drawImage(img,
+            fx, b * hF, meta.w, hF,
+            x0 + deriva * 0.6 + (b & 1 ? -1 : 1) * p * 2, y0 + b * hF / ESCALA_ARTE - deriva,
+            meta.w / ESCALA_ARTE, hF / ESCALA_ARTE);
+        }
+        ctx.globalAlpha = 1;
+        continue;
+      }
+
+      if (conHalo) {
+        const halo = e.mirandoDerecha ? e.imgHalo : e.imgHaloEspejo;
+        if (halo) {
+          const cw = meta.w + 2 * HALO_PX, ch = meta.h + 2 * HALO_PX;
+          const bob = e.frames > 1 ? 0 : Math.round(sen(e.fase) * (e.vuela ? FLOTE_PX : BOTE_PX));
+          ctx.globalAlpha = alfaHalo(e.destello);
+          ctx.drawImage(halo,
+            e.frame * cw, 0, cw, ch,
+            (cxF - (meta.w >> 1) - HALO_PX) / ESCALA_ARTE, (cyF - meta.h - HALO_PX + bob) / ESCALA_ARTE,
+            cw / ESCALA_ARTE, ch / ESCALA_ARTE);
+          ctx.globalAlpha = 1;
+        }
+      }
 
       // Con hoja de animación real no se aplica NADA procedural: el bote y el
       // flote existen para dar vida a una ilustración estática, y superpuestos a

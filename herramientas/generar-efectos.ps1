@@ -1760,6 +1760,203 @@ public class Pirotecnia {
         return medidas;
     }
 
+    // SISMO. Otra familia y otro algoritmo, y no una fila mas de Explosion.
+    //
+    // El Sismo del jugador salia con reventonTierra, que es CASCOTES: chispas
+    // gordas y una bola rota, pensada para el golpe de la roca del ciclope.
+    // Sergio lo quiere de otra manera: ondas sismicas que se abren desde el
+    // centro, una detras de otra, en tonos tierra y SIN SALTOS, ni de color ni
+    // de fotograma. De ahi tres decisiones que lo separan de todo lo de arriba:
+    //
+    //   - EL COLOR SE INTERPOLA, no se escalona. Las explosiones eligen un
+    //     tono de la paleta por umbral, que es lo que les da el aspecto de
+    //     pixel art; aqui cada pixel mezcla entre dos tonos vecinos de una
+    //     rampa de ocho, asi que un anillo va del ocre claro al pardo sin que
+    //     se vea donde cambia.
+    //   - LAS CAPAS SE COMPONEN ENCIMA (over), no con el mas opaco. Poner()
+    //     se queda con el pixel mas opaco y eso es correcto para chispas, pero
+    //     un anillo que pasa por encima de una grieta tiene que mezclarse con
+    //     ella, no borrarla ni ser borrado.
+    //   - EL DOBLE DE FOTOGRAMAS. El motor elige el fotograma por radio y con
+    //     doce el salto entre uno y el siguiente se veia en un circulo de
+    //     media pantalla; con veinticuatro cada salto es la mitad.
+    //
+    // Que hay en cada fotograma, de fuera adentro: un halo de polvo claro por
+    // delante del frente; el frente mismo, que es el anillo mas claro y mas
+    // ancho; nOndas anillos mas por detras, cada uno un poco mas oscuro y mas
+    // fino, que son las ondas que ya han pasado; un relleno tenue de tierra
+    // removida; y nGrietas grietas radiales que se abren con el tiempo. Todo
+    // se mueve con el frente -las ondas van a fracciones fijas del radio-, asi
+    // que la animacion es LA MISMA figura creciendo, igual que en Explosion.
+    //
+    // La silueta lleva tres armonicos de amplitud pequena, fijos para toda la
+    // hoja: un sismo no es un circulo de compas, pero tampoco una explosion
+    // rota. Composicion NORMAL en el motor (aditivo=false en la ficha): es
+    // tierra, tapa.
+    static int ColorEn(int[] pal, double u) {
+        if (u < 0) u = 0; if (u > 1) u = 1;
+        double s = u * (pal.Length - 1);
+        int i = (int)Math.Floor(s); if (i >= pal.Length - 1) i = pal.Length - 2;
+        double t = s - i;
+        int a = pal[i], b = pal[i + 1];
+        int r = (int)Math.Round(((a >> 16) & 255) * (1 - t) + ((b >> 16) & 255) * t);
+        int g = (int)Math.Round(((a >> 8) & 255) * (1 - t) + ((b >> 8) & 255) * t);
+        int bl = (int)Math.Round((a & 255) * (1 - t) + (b & 255) * t);
+        return (r << 16) | (g << 8) | bl;
+    }
+
+    static void Encima(double[] cr, double[] cg, double[] cb, double[] ca, int i, int color, double a) {
+        if (a <= 0) return; if (a > 1) a = 1;
+        double r = ((color >> 16) & 255) / 255.0, g = ((color >> 8) & 255) / 255.0, b = (color & 255) / 255.0;
+        double na = a + ca[i] * (1 - a);
+        if (na <= 0) return;
+        cr[i] = (r * a + cr[i] * ca[i] * (1 - a)) / na;
+        cg[i] = (g * a + cg[i] * ca[i] * (1 - a)) / na;
+        cb[i] = (b * a + cb[i] * ca[i] * (1 - a)) / na;
+        ca[i] = na;
+    }
+
+    public static string Sismo(string salida, int radioDanyo, double margen,
+                               int nFrames, int escala, uint semilla,
+                               string paletaTxt, int nOndas, int nGrietas) {
+        int[] pal = LeerPaleta(paletaTxt);
+        int radioLog = (int)Math.Round(radioDanyo * margen);
+        int lado = radioLog * 2;
+        Az az = new Az(semilla);
+
+        int[] arm = new int[3]; double[] amp = new double[3]; double[] fase = new double[3];
+        for (int k = 0; k < 3; k++) {
+            arm[k] = 3 + k * 2;
+            amp[k] = az.R(0.02, 0.05) / (k + 1);
+            fase[k] = az.R(0, Math.PI * 2);
+        }
+        // Las grietas: angulo de salida, hasta donde llegan, y tres armonicos
+        // de culebreo cada una, fijos para toda la hoja.
+        double[] gAng = new double[nGrietas], gLen = new double[nGrietas];
+        double[,] gAmp = new double[nGrietas, 3], gFas = new double[nGrietas, 3];
+        for (int g = 0; g < nGrietas; g++) {
+            gAng[g] = (g + az.R(0.15, 0.85)) * Math.PI * 2 / nGrietas;
+            gLen[g] = az.R(0.55, 0.92);
+            for (int k = 0; k < 3; k++) { gAmp[g, k] = az.R(0.015, 0.045) / (k + 1); gFas[g, k] = az.R(0, Math.PI * 2); }
+        }
+
+        int n = lado * lado;
+        double[] cr = new double[n], cg = new double[n], cb = new double[n], ca = new double[n];
+        byte[] alfa = new byte[n]; int[] rgb = new int[n];
+        int anchoTira = lado * escala * nFrames, altoTira = lado * escala;
+        int stride = anchoTira * 4;
+        byte[] buf = new byte[stride * altoTira];
+        string medidas = "";
+
+        for (int f = 0; f < nFrames; f++) {
+            double p = nFrames > 1 ? (double)f / (nFrames - 1) : 1;
+            // El mismo reparto de radios que la ficha escribe en el atlas.
+            double rn = 0.5 * (0.15 + 0.85 * p) + 0.5 * (0.15 * Math.Pow(1.0 / 0.15, p));
+            double R = radioDanyo * rn;
+            Array.Clear(ca, 0, n);
+            // Se apaga al final SUAVEMENTE y desde dentro: lo ultimo que se ve
+            // es el frente, que es lo ultimo que mata.
+            double fin = p > 0.7 ? 0.12 + 0.88 * (1 - p) / 0.3 : 1;
+
+            for (int y = 0; y < lado; y++) {
+                for (int x = 0; x < lado; x++) {
+                    double dx = x + 0.5 - radioLog, dy = y + 0.5 - radioLog;
+                    double dist = Math.Sqrt(dx * dx + dy * dy);
+                    double ang = Math.Atan2(dy, dx);
+                    double def = 0;
+                    for (int k = 0; k < 3; k++) def += amp[k] * Math.Sin(arm[k] * ang + fase[k]);
+                    double Rq = R * (1 + def);
+                    if (Rq < 1) Rq = 1;
+                    double q = dist / Rq;              // 1 = el frente
+                    if (q > 1.16) continue;
+                    int i = y * lado + x;
+
+                    // Relleno: tierra removida, mas cargada hacia el centro y
+                    // que se va asentando con el tiempo.
+                    if (q < 1) {
+                        double aF = 0.14 * Math.Pow(1 - q, 0.6) * (1 - 0.55 * p) * fin;
+                        Encima(cr, cg, cb, ca, i, ColorEn(pal, 0.62 + 0.2 * q), aF);
+                    }
+
+                    // Grietas: se abren con el tiempo (alfa que sube con p) y
+                    // solo hasta donde ya ha pasado el frente.
+                    if (q < 0.97 && dist > 2) {
+                        double abre = Math.Min(1, p * 1.5) * fin;
+                        for (int g = 0; g < nGrietas; g++) {
+                            if (q > gLen[g]) continue;
+                            double da = ang - gAng[g];
+                            while (da > Math.PI) da -= Math.PI * 2;
+                            while (da < -Math.PI) da += Math.PI * 2;
+                            double curva = 0;
+                            for (int k = 0; k < 3; k++) curva += gAmp[g, k] * Math.Sin((k + 1) * 5.0 * q + gFas[g, k]);
+                            // distancia perpendicular a la grieta, en pixeles
+                            double perp = Math.Abs(da - curva) * dist;
+                            double grosor = 1.1 + 1.2 * (1 - q / gLen[g]);
+                            if (perp > grosor + 1.5) continue;
+                            double aG = perp < grosor ? 1 : 1 - (perp - grosor) / 1.5;
+                            // se estrecha y se desvanece hacia la punta
+                            aG *= abre * 0.85 * (1 - Math.Pow(q / gLen[g], 3));
+                            Encima(cr, cg, cb, ca, i, ColorEn(pal, 0.93 - 0.1 * q), aG);
+                        }
+                    }
+
+                    // Las ondas que ya han pasado, de dentro afuera: cada una
+                    // un poco mas oscura y mas fina que la siguiente.
+                    for (int k = nOndas; k >= 1; k--) {
+                        double qk = 1 - k * 0.17;
+                        if (qk <= 0.05) continue;
+                        double w = 0.05 + 0.01 * k;
+                        double dq = (q - qk) / w;
+                        if (dq > 3 || dq < -3) continue;
+                        double I = Math.Exp(-dq * dq);
+                        double aK = I * (0.95 - 0.08 * k) * (1 - 0.25 * p) * fin;
+                        // color: se oscurece hacia dentro y con el tiempo
+                        double u = 0.36 + 0.16 * k + 0.1 * p;
+                        Encima(cr, cg, cb, ca, i, ColorEn(pal, u), aK);
+                    }
+
+                    // El frente: el anillo mas claro y mas ancho, con el borde
+                    // exterior mas duro que el interior.
+                    {
+                        double w = q < 1 ? 0.07 : 0.035;
+                        double dq = (q - 1) / w;
+                        if (dq < 3 && dq > -3) {
+                            double I = Math.Exp(-dq * dq);
+                            double aFr = I * 0.95 * fin * (1 - 0.15 * p);
+                            Encima(cr, cg, cb, ca, i, ColorEn(pal, 0.1 + 0.15 * p), aFr);
+                        }
+                    }
+
+                    // Polvo por delante del frente: un halo claro que se
+                    // difumina hacia fuera.
+                    if (q > 1) {
+                        double aH = (1 - (q - 1) / 0.16) * 0.38 * fin * (1 - 0.3 * p);
+                        Encima(cr, cg, cb, ca, i, ColorEn(pal, 0.02), aH);
+                    }
+                }
+            }
+
+            int opacos = 0;
+            for (int i = 0; i < n; i++) {
+                double a = ca[i];
+                if (a <= 0.004) { alfa[i] = 0; rgb[i] = 0; continue; }
+                // Cuantizado a 32 niveles por canal y 64 de alfa: sin esto la
+                // tira pesaba 2,8 MB por tener cien mil colores distintos, y a
+                // estos tonos el escalon de 8 no se ve.
+                alfa[i] = (byte)(((int)Math.Round(Math.Min(1, a) * 255)) & ~3);
+                if (alfa[i] == 0) alfa[i] = 4;
+                int r = ((int)Math.Round(cr[i] * 255)) & ~7, g = ((int)Math.Round(cg[i] * 255)) & ~7, b = ((int)Math.Round(cb[i] * 255)) & ~7;
+                rgb[i] = (r << 16) | (g << 8) | b;
+                opacos++;
+            }
+            Ampliar(buf, stride, alfa, rgb, lado, escala, f);
+            medidas += (f > 0 ? ";" : "") + opacos + "|" + R.ToString("0.0", CultureInfo.InvariantCulture);
+        }
+
+        Volcar(salida, buf, anchoTira, altoTira, stride);
+        return medidas;
+    }
+
     static void Ampliar(byte[] buf, int stride, byte[] alfa, int[] rgb,
                         int lado, int escala, int f) {
         for (int y = 0; y < lado; y++) {
@@ -1854,8 +2051,11 @@ $CATALOGO = @(
        paleta = 'fffbe0,ffee9c,ffd94e,f0b41c,c08610,8a5c08'
        radioRef = 28; chispas = 8; huecoIni = 0.58; hueco = 0.92; rugosidad = 0.0; anillo = 1.0; nucleo = 0.45; chispaTam = 1.0 }
 
+    # EN ROJO, lo pidio Sergio: un grito de guerra es sangre y garganta, no la
+    # luz dorada del choque. Del rosa casi blanco del centro al granate del
+    # borde; en aditivo el granate se apaga solo.
     @{ id = 'grito';   atlas = 'ondaGrito';   archivo = 'onda-grito.png';   semilla = 909090
-       paleta = 'fff4d8,ffe1a0,f2c05a,d69433,a86a22,764716'
+       paleta = 'ffe4dc,ffb0a0,ff6f5a,e8382a,b81e18,7a100e'
        radioRef = 80; chispas = 14; huecoIni = 0.55; hueco = 0.88; rugosidad = 0.85; anillo = 0.9; nucleo = 0.60; chispaTam = 1.0 }
 
     # --- Reventones de enemigo: poca bola y mucha metralla -----------------
@@ -1884,6 +2084,16 @@ $CATALOGO = @(
     @{ id = 'llama';   atlas = 'reventonLlama';   archivo = 'reventon-llama.png';   semilla = 161803
        paleta = 'fff0cc,ffbe66,ff8a2a,e85a14,ad3a0e,73230a'
        chispas = 40; huecoIni = 0.18; hueco = 0.68; rugosidad = 1.40; anillo = 0.40; nucleo = 0.62; chispaTam = 1.5 }
+
+    # --- Chatarra: una maquina expendedora reventando ------------------------
+    #
+    # Cristal y chapa saltando: blanco frio, azul de vidrio y gris de acero,
+    # con muchas chispas gordas y poca bola. Es el reventon que se ve al romper
+    # una maquina del nivel 2 (datos/enemigos.js, `spriteReventon`), justo
+    # antes de que quede la rota. radioRef 28: se dibuja a 24 de radio.
+    @{ id = 'chatarra'; atlas = 'reventonChatarra'; archivo = 'reventon-chatarra.png'; semilla = 240924
+       paleta = 'ffffff,e2f4ff,a9dcf5,74aacc,b8c0c8,6f7a86'
+       radioRef = 28; chispas = 44; huecoIni = 0.12; hueco = 0.66; rugosidad = 1.5; anillo = 0.35; nucleo = 0.5; chispaTam = 1.7 }
 
     # --- Chispazo del rayo: donde toca tierra la tormenta -------------------
     #
@@ -1916,6 +2126,26 @@ $CATALOGO = @(
        # verdad, para que se lea a la primera contra cualquier terreno.
        paleta = 'ffffff,f0dcff,d9a8ff,b96eff,8c3fd6,5a2496'
        radioRef = 120; chispas = 16; huecoIni = 0.60; hueco = 0.88; rugosidad = 0.45; anillo = 0.95; nucleo = 0.40; chispaTam = 1.2 }
+)
+
+# --- Sismo ------------------------------------------------------------------
+#
+# Ondas sismicas para el Sismo del jugador (datos/armas.js), ver Pirotecnia.Sismo.
+# Paleta de OCHO tonos tierra, de la arena clara del polvo al pardo casi negro
+# de la grieta, y el color se interpola entre ellos: ocho puntos y mezcla
+# continua es lo que quita los saltos.
+#
+# radioRef 60 y 24 fotogramas. El radio del arma va de 140 a 220 -media
+# pantalla- y se hornea mas pequeno que eso a proposito: la tira son
+# lado x 24, y a radioRef 80 pasaria de los 16384 px que algunos navegadores
+# aceptan como ancho de imagen. A 60 son 648 x 24 = 15552. El motor la amplia
+# 2-3x, y como el dibujo es de degradados y no de pixel art, ampliarlo no le
+# hace dano.
+$FOTOGRAMAS_SISMO = 24
+$SISMOS = @(
+    @{ id = 'sismo'; atlas = 'ondaSismo'; archivo = 'onda-sismo.png'; semilla = 424242
+       paleta = 'f4e8cc,e2cd9c,cbab6c,ad8a4b,8f6a34,6f4e24,4e3517,2c1c0b'
+       radioRef = 60; ondas = 3; grietas = 9 }
 )
 
 # --- Charcos ----------------------------------------------------------------
@@ -2120,6 +2350,29 @@ $TAJOS = @(
        paleta = 'f4fbf4,d6ecd8,aed4b4,84b48e,5c8a67,3a5c44'; grosor = 0.30; estela = 0.50 }
 )
 
+# --- Sismo: se genera aqui, con $DETALLE y $MARGEN ya definidos ------------
+Write-Host "Sismo: $FOTOGRAMAS_SISMO fotogramas, ondas interpoladas"
+foreach ($sm in $SISMOS) {
+    if ($Solo -and $sm.id -ne $Solo) { continue }
+    $ruta = Join-Path $Destino $sm.archivo
+    $radioRef = [int][math]::Round([int]$sm.radioRef * $FUENTE_POR_LOGICO)
+    try {
+        $m = [Pirotecnia]::Sismo($ruta, $radioRef, [double]$MARGEN, $FOTOGRAMAS_SISMO, $DETALLE,
+                                 [uint32]$sm.semilla, $sm.paleta, [int]$sm.ondas, [int]$sm.grietas)
+    } catch {
+        # El mensaje de GDI+ ("el parametro no es valido") no dice donde; la
+        # pila interior si.
+        $ex = $_.Exception; while ($ex.InnerException) { $ex = $ex.InnerException }
+        Write-Host "  ERROR sismo: $($ex.Message)"; Write-Host $ex.StackTrace
+        continue
+    }
+    $frames = $m -split ';'
+    $vacios = @($frames | Where-Object { ([int]($_ -split '\|')[0]) -eq 0 }).Count
+    $ultimo = ($frames[-1] -split '\|')
+    Write-Host ("  {0,-8} {1} fotogramas, {2} vacios, radio final {3}" -f $sm.id, $frames.Count, $vacios, $ultimo[1])
+}
+Write-Host ""
+
 $ladoTajo = 0
 Write-Host "Tajos: una hoja por arma, medio lado = alcance, $FOTOGRAMAS fotogramas"
 Write-Host ""
@@ -2187,14 +2440,15 @@ foreach ($c in $CHARCOS) {
 # siempre igual de grande pase lo que pase con el nivel del arma.
 $RADIO_MINA = 9        # unidades logicas: se lee a un golpe de vista y no estorba
 
-$MINAS = @(
-    @{ id = 'mina'; atlas = 'minaExplosiva'; archivo = 'mina-explosiva.png'; semilla = 194501
-       # Cuerpo: hierro pintado, de la chapa iluminada al reborde en sombra.
-       paleta = '9aa3a8,74808a,55606b,3d4750,2a323a,1b2127'
-       # Lampara: del blanco del destello al rojo apagado de cuando espera.
-       luz = 'fff0f0,ff9a90,f2483c,c22218,86140e,4d0b07'
-       remaches = 8 }
-)
+# VACIA A PROPOSITO. La mina generada aqui (12 fotogramas de parpadeo) la
+# sustituyo la de Sergio, resources/armas/efectos/sprite_mina.png, que hornea
+# procesar-assets.ps1 sobre el mismo efectos/mina-explosiva.png con UN
+# fotograma y `radioDibujo` 9 (ver $DIBUJOS_SUELTOS). Mientras esta lista
+# siguio declarandola, cada pasada de procesar-assets fundia esta ficha de 12
+# fotogramas sobre un PNG de uno solo, y el motor recorria once huecos vacios:
+# la mina PARPADEABA sin parar. El generador de minas se queda por si vuelve a
+# hacer falta; la entrada, no.
+$MINAS = @()
 
 # --- Auras -------------------------------------------------------------------
 #
@@ -2329,11 +2583,10 @@ $PROYECTILES = @(
        anchoAsta = 0.22; fracPluma = 0.20 }
 
     # --- Pedazos ----------------------------------------------------------
-    @{ id = 'metralla'; tipo = 'trozo'; atlas = 'proyMetralla'; archivo = 'proy-metralla.png'
-       semilla = 55123
-       paleta = 'd9dfe6,a8b0ba,7b838d,565d66,373d45,1e2228'
-       # Muchas aristas: es hierro roto, tiene que cortar solo de mirarlo.
-       vertices = 7; irregular = 0.42 }
+    # La metralla ya no sale de aqui: Sergio dibujo treinta y dos cascos en
+    # resources/armas/efectos/sprite_metralla.png y los hornea procesar-assets
+    # (ver $CASCOS_METRALLA) sobre el mismo efectos/proy-metralla.png. Si
+    # volviera a declararse aqui, las dos herramientas se pisarian el archivo.
 
     @{ id = 'piedra'; tipo = 'trozo'; atlas = 'proyPiedra'; archivo = 'proy-piedra.png'
        semilla = 90210
@@ -2738,6 +2991,27 @@ foreach ($e in $CATALOGO) {
         })
     }
 }
+# El sismo: como las explosiones (margen, radios, sin aditivo) pero con sus
+# propios fotogramas. El reparto de radios es EL MISMO que usa Pirotecnia.Sismo
+# al dibujar; si se cambia uno hay que cambiar el otro.
+foreach ($sm in $SISMOS) {
+    $rr = [int][math]::Round([int]$sm.radioRef * $FUENTE_POR_LOGICO)
+    $lado = [int]([math]::Round($rr * $MARGEN)) * 2 * $DETALLE
+    $ficha[$sm.atlas] = [ordered]@{
+        archivo = 'efectos/' + $sm.archivo
+        w = $lado; h = $lado
+        anclaX = [int]($lado / 2); anclaY = [int]($lado / 2)
+        frames = $FOTOGRAMAS_SISMO
+        plano  = $true
+        margen = $MARGEN
+        aditivo = $false
+        radios = @(0..($FOTOGRAMAS_SISMO - 1) | ForEach-Object {
+            $p = $_ / ($FOTOGRAMAS_SISMO - 1)
+            [math]::Round(0.5 * (0.15 + 0.85 * $p) + 0.5 * (0.15 * [math]::Pow(1.0 / 0.15, $p)), 5)
+        })
+    }
+}
+
 # Los charcos van a la misma ficha. Llevan `bucle` en vez de `radios`: no hay
 # radio que seguir —no crecen— y en cambio el motor necesita saber que la tira
 # se puede repetir, porque un charco dura hasta cinco segundos y la tira son

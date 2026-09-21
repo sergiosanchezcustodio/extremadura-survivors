@@ -207,6 +207,10 @@ números que costaron tardes de ajuste.
 Siguen saliendo en el ciclador de desarrollo (tecla **M**), que es justo donde
 hacen falta: para volver a mirar una y decidir si vuelve.
 
+**La Artillería volvió** (21 de septiembre de 2026): Sergio dibujó el obús y
+ahora se ve salir de un borde de la pantalla y cruzar en parábola hasta donde
+revienta (`desdeBorde` y `arco` en `js/datos/armas.js`). Quedan seis retiradas.
+
 ## Nombres que cambiaron
 
 Cambia el nombre VISIBLE; el identificador interno no se toca, porque de él

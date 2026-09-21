@@ -21,6 +21,12 @@ const ATLAS_REPLIEGUE = {
 // El rojo del destello de daño del jugador. Bastante opaco: tiene que leerse en
 // un fotograma y medio, que es lo que dura.
 const COLOR_DANYO = 'rgba(216,44,52,.78)';
+// El halo de golpe de los enemigos: rojo vivo, macizo (el difuminado lo pone
+// la estampa, no el alfa del color). Y su grosor en píxeles FÍSICOS del
+// sprite: 3 son 0,75 unidades lógicas, lo justo para leerse como un borde y no
+// como una mancha alrededor de una serpiente de 10 de alto.
+const COLOR_HALO = 'rgba(255,48,40,1)';
+export const HALO_PX = 3;
 
 const COLORES_PLACEHOLDER = {
   eric: '#4b8fd6', lucy: '#d64b8f', sara: '#d6c14b', vicky: '#4bd6a1'
@@ -31,6 +37,8 @@ export const Recursos = {
   imagenes: new Map(),      // id -> HTMLImageElement | HTMLCanvasElement
   espejos: new Map(),       // id -> canvas volteado en horizontal
   tintes: new Map(),        // id -> canvas blanqueado (destello de impacto)
+  halos: new Map(),         // id -> halo rojo alrededor de la silueta (golpe)
+  halosEspejo: new Map(),   // id -> el mismo, volteado
   tintesEspejo: new Map(),  // id -> el mismo, volteado
   tintesDanyo: new Map(),      // id -> canvas enrojecido (el jugador al recibir)
   tintesDanyoEspejo: new Map(),
@@ -128,6 +136,8 @@ export const Recursos = {
         this.espejos.set(id, espejo);
         this.tintes.set(id, this._tinte(fuente, meta));
         this.tintesEspejo.set(id, this._tinte(espejo, meta));
+        this.halos.set(id, this._halo(fuente, meta));
+        this.halosEspejo.set(id, this._halo(espejo, meta));
       };
       const conPlaceholder = () => {
         // Una hoja de iconos que no carga se queda SIN registrar, a propósito.
@@ -204,6 +214,54 @@ export const Recursos = {
     g.globalCompositeOperation = 'source-atop';
     g.fillStyle = color;
     g.fillRect(0, 0, c.width, c.height);
+    return c;
+  },
+
+  // --- Halo rojo de golpe, alrededor de la silueta -------------------------
+  //
+  // Lo pidió Sergio en vez del blanqueado: al recibir daño, un enemigo no se
+  // vuelve blanco, le sale un BORDE rojo alrededor que aparece suave y se
+  // desvanece. Se genera UNA vez al cargar, como el tinte: primero una copia
+  // de la silueta pintada de rojo macizo (source-atop, como _tinte pero
+  // opaco) y luego esa silueta ESTAMPADA doce veces en anillo, a HALO_PX de
+  // radio, sobre un lienzo con margen. Lo que queda es la silueta engordada
+  // HALO_PX en todas direcciones; el sprite se dibuja encima y tapa el
+  // interior, así que en pantalla solo se ve el borde. Con un segundo anillo
+  // más ancho y más tenue el borde se difumina hacia fuera en vez de cortarse.
+  //
+  // Cada fotograma va en su celda de (w + 2·HALO_PX) x (h + 2·HALO_PX): el
+  // que lo dibuja lo desplaza HALO_PX arriba y a la izquierda respecto al
+  // sprite (ver Enemigos.dibujar).
+  _halo(fuente, meta) {
+    const frames = meta.frames || 1;
+    const P = HALO_PX;
+    const cw = meta.w + 2 * P, ch = meta.h + 2 * P;
+    // La silueta roja, en un lienzo del tamaño del sprite.
+    const rojo = this._tinte(fuente, meta, COLOR_HALO);
+    const c = document.createElement('canvas');
+    c.width = cw * frames;
+    c.height = ch;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    for (let f = 0; f < frames; f++) {
+      // Anillo exterior, tenue, para el difuminado.
+      g.globalAlpha = 0.45;
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * Math.PI * 2;
+        const ox = Math.round(Math.cos(a) * P), oy = Math.round(Math.sin(a) * P);
+        g.drawImage(rojo, f * meta.w, 0, meta.w, meta.h,
+                    f * cw + P + ox, P + oy, meta.w, meta.h);
+      }
+      // Anillo interior, macizo.
+      g.globalAlpha = 1;
+      const Pi = Math.max(1, P - 1);
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * Math.PI * 2;
+        const ox = Math.round(Math.cos(a) * Pi), oy = Math.round(Math.sin(a) * Pi);
+        g.drawImage(rojo, f * meta.w, 0, meta.w, meta.h,
+                    f * cw + P + ox, P + oy, meta.w, meta.h);
+      }
+    }
     return c;
   },
 
@@ -433,6 +491,8 @@ export const Recursos = {
   espejo(id) { return this.espejos.get(id); },
   tinte(id) { return this.tintes.get(id); },
   tinteEspejo(id) { return this.tintesEspejo.get(id); },
+  halo(id) { return this.halos.get(id); },
+  haloEspejo(id) { return this.halosEspejo.get(id); },
   tinteDanyo(id) { return this.tintesDanyo.get(id); },
   tinteDanyoEspejo(id) { return this.tintesDanyoEspejo.get(id); }
 };

@@ -2667,6 +2667,10 @@ function colisionarParedes() {
   for (let k = 0; k < n; k++) {
     const e = items[k];
     if (e.vida <= 0) continue;           // disolviéndose: los jirones no chocan
+    // Los OBJETOS (máquinas expendedoras, antorchas) no se mueven nunca y se
+    // colocan a propósito pegados al muro, con los pies en el borde de su
+    // cara: chocar contra la pared solo servía para despegarlos de ella.
+    if (e.def && e.def.esObjeto) continue;
     const r = e.radioCuerpo || e.radio;
     RejillaMapa.colisionar(e, r > PARED_SEMILADO_MAX ? PARED_SEMILADO_MAX : r);
   }

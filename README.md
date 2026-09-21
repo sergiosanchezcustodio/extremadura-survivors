@@ -306,11 +306,22 @@ su propio archivo de datos; se salta aguantando dos segundos, como la intro.
 
 El segundo sitio es otra clase de nivel. Mérida es un campo abierto que repite
 sin límite; el centro comercial es **un recinto cerrado con paredes**, dibujado
-en Tiled sobre una rejilla: tres anillos de pasillos, ocho puertas por anillo,
+en Tiled sobre una rejilla: tres anillos de pasillos **a escuadra** —ni una
+pared en diagonal ni una curva en todo el edificio—, ocho puertas por anillo,
 estanterías y mostradores que se ven en tres cuartos y **no se atraviesan** —ni
 los jugadores, ni los bichos, ni las armas—. Se empieza encerrado en el centro y
 cada jefe abre un cierre: el del minuto 10 da paso al anillo siguiente, y el
 final abre la puerta de la calle.
+
+**Cada tienda es de lo suyo, y todas son sencillas.** Seis tipos —supermercado,
+regalos, tecnología, alimentos, droguería, juguetes—, cada uno con **su pared de
+dentro, su escaparate y sus estanterías**, dibujados a mano y a su tamaño, más
+altos que dos personajes, sin repetir un panel entre dos tipos: ositos en la
+juguetería, el rótulo verde del súper visto desde el pasillo. Todas las tiendas
+son rectángulos con el mismo trazado: las paredes del fondo forradas de
+estantería y filas horizontales por dentro. Seis de cada diez están
+**cerradas**: se ve su techo y su escaparate a oscuras, y no se entra. Los
+tabiques miden cuatro unidades, la mitad que antes.
 
 Un recinto necesita **plano**. Se abre con Bloq Mayús o con **Y**, congela la
 partida y se dibuja translúcido encima, para ver por dónde viene la horda sin
@@ -318,9 +329,9 @@ cerrarlo. Solo enseña **lo que ya se ha pisado**: el resto del centro comercial
 se descubre andando. Se acerca y aleja con **+** y **-**, o con los gatillos de
 abajo del mando, y entra al aumento mayor con el que cabe entero.
 
-Todavía es un **prototipo**: la geometría es la buena y ya se juega, el suelo y
-el mobiliario llevan una hoja de texturas provisional, y la curva de oleadas
-está copiada de Mérida y se ajustará jugándola.
+Todavía es un **prototipo**: la geometría es la buena y ya se juega, los
+suelos llevan una hoja de texturas provisional hasta que lleguen los de
+Sergio, y la curva de oleadas está copiada de Mérida y se ajustará jugándola.
 
 ---
 
@@ -570,6 +581,7 @@ juego. Las dos que llaman a una API leen su clave de `.env`, que está en
 | `jugar.ps1` | Levanta el servidor y abre el juego (`jugar.bat` a doble clic) |
 | `servidor.py` | El servidor que levanta el anterior: `http.server` más `Cache-Control: no-store`, para que el navegador no sirva arte viejo |
 | `procesar-assets.ps1` | Convierte `resources/` en sprites y escribe el atlas |
+| `paneles-lighthouse.ps1` | Deja los paneles de pared y estantería del nivel 2 a 64x224, prácticamente a su tamaño |
 | `generar-efectos.ps1` | Hornea por código las 41 hojas de efectos |
 | `mapa-lighthouse.js` | Traza el mapa del CC The Lighthouse y lo lleva a Tiled y de vuelta (`generar` / `importar`) |
 | `generar-imagen.js` | Pide un boceto a Replicate. Es referencia, nunca arte final: nada entra en `assets/` sin que Sergio lo haya dibujado |

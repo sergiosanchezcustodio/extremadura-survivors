@@ -35,11 +35,19 @@ import { CULL_X, CULL_Y } from '../entidades/enemigo.js';
 // por parcela (ver PARCELA), y el centro comercial son unas 900 parcelas.
 const MAX_MAQUINAS = 900;
 
-// Lado de la PARCELA en celdas de colisión: una máquina como mucho por
-// parcela, la de mejor hash de las que caben. 34 celdas son 272 unidades,
-// algo más de media pantalla de ancho: así salen repartidas por todo el mapa —tiendas y
-// pasillos, arriba y abajo— y no amontonadas donde el recorrido empieza.
-const PARCELA = 34;
+// Lado de la PARCELA en unidades: una máquina como mucho por parcela, la de
+// mejor hash de las que caben. 272 unidades son algo más de media pantalla de
+// ancho: así salen repartidas por todo el mapa —tiendas y pasillos, arriba y
+// abajo— y no amontonadas donde el recorrido empieza.
+const PARCELA_UNIDADES = 272;
+
+// Lo que ocupa una máquina, en unidades: 28 de ancho (el dibujo mide 28) y
+// por delante 40 de ancho por 16 de fondo de suelo libre, para que no se
+// plante en una puerta ni cierre un paso. Se pasa a celdas al repartir, sea
+// cual sea la celda del nivel.
+const ANCHO_MAQUINA = 28;
+const DELANTE_ANCHO = 40;
+const DELANTE_FONDO = 16;
 
 // Separación mínima entre dos, en unidades lógicas. Media pantalla larga.
 const SEPARACION = 190;
@@ -146,7 +154,7 @@ export const Expendedoras = {
     const R = RejillaMapa;
     const c = R.celda;
     const ancho = R.ancho, alto = R.alto;
-    const solido = R.solido, pie = R.pie;
+    const solido = R.solido, pie = R.pie, tipo = R.tipo;
     const sitios = this.sitios;
 
     const pisable = (cx, cy) => {
@@ -154,17 +162,28 @@ export const Expendedoras = {
       const i = cy * ancho + cx;
       return solido[i] === 0 && pie[i] === 0;
     };
+    // CONTRA UNA PARED, no contra una estantería ni un mostrador: la celda de
+    // encima es pie o muro, y mirando hacia arriba lo primero sólido que hay
+    // es pared. Apoyada en una estantería, la máquina tapaba el género y
+    // parecía parte del lineal.
+    const tipoPared = R.simbolos.findIndex((ch) => R.leyenda && R.leyenda[ch] && R.leyenda[ch].nombre === 'pared');
     const respaldo = (cx, cy) => {
       if (cx < 0 || cy < 0 || cx >= ancho || cy >= alto) return false;
       const i = cy * ancho + cx;
-      return solido[i] === 1 || pie[i] === 1;
+      if (solido[i] !== 1 && pie[i] !== 1) return false;
+      for (let k = 0; k <= R.alturaMax; k++) {
+        const a = i - k * ancho;
+        if (a < 0) return false;
+        if (solido[a] === 1) return tipoPared < 0 || tipo[a] === tipoPared;
+      }
+      return false;
     };
     // Que lo de detrás no sea una PUERTA: empiezan cerradas y sólidas, así
     // que pasarían por pared, y al abrirlas la máquina taparía el paso. Se
     // miran las cuatro celdas de encima porque la puerta tiene dos de cara.
-    const grupoDe = R.grupoDe, tipo = R.tipo;
+    const grupoDe = R.grupoDe;
     const sinPuerta = (cx, cy) => {
-      for (let dy = 1; dy <= 4; dy++) {
+      for (let dy = 1; dy <= 4 * Math.max(1, 8 / c); dy++) {
         const yy = cy - dy;
         if (yy < 0) break;
         if (grupoDe && grupoDe[tipo[yy * ancho + cx]] >= 0) return false;
@@ -175,19 +194,25 @@ export const Expendedoras = {
     // Una por parcela: la de mejor hash. Se guarda la celda ganadora y su
     // hash por parcela; al cargar el nivel, así que estos dos arrays no
     // cuentan como asignación de partida.
+    const PARCELA = Math.max(1, Math.round(PARCELA_UNIDADES / c));
+    const semi = Math.ceil(ANCHO_MAQUINA / 2 / c);        // celdas a cada lado
+    const semiDelante = Math.ceil(DELANTE_ANCHO / 2 / c);
+    const fondo = Math.ceil(DELANTE_FONDO / c);
     const pAncho = Math.ceil(ancho / PARCELA), pAlto = Math.ceil(alto / PARCELA);
     const mejorCelda = new Int32Array(pAncho * pAlto).fill(-1);
     const mejorHash = new Uint32Array(pAncho * pAlto).fill(0xffffffff);
 
-    for (let cy = 2; cy < alto - 3; cy++) {
-      for (let cx = 1; cx < ancho - 1; cx++) {
-        if (!pisable(cx, cy) || !pisable(cx - 1, cy) || !pisable(cx + 1, cy)) continue;
-        if (!respaldo(cx, cy - 1) || !respaldo(cx - 1, cy - 1) || !respaldo(cx + 1, cy - 1)) continue;
-        if (!sinPuerta(cx, cy) || !sinPuerta(cx - 1, cy) || !sinPuerta(cx + 1, cy)) continue;
-        // Sitio por delante: dos filas libres, cinco celdas de ancho.
+    for (let cy = 2; cy < alto - fondo - 1; cy++) {
+      for (let cx = semiDelante; cx < ancho - semiDelante; cx++) {
+        let vale = true;
+        for (let dx = -semi; dx <= semi && vale; dx++) {
+          if (!pisable(cx + dx, cy) || !respaldo(cx + dx, cy - 1) || !sinPuerta(cx + dx, cy)) vale = false;
+        }
+        if (!vale) continue;
+        // Sitio por delante: `fondo` filas libres, DELANTE_ANCHO de ancho.
         let libre = true;
-        for (let dy = 1; dy <= 2 && libre; dy++)
-          for (let dx = -2; dx <= 2; dx++)
+        for (let dy = 1; dy <= fondo && libre; dy++)
+          for (let dx = -semiDelante; dx <= semiDelante; dx++)
             if (!pisable(cx + dx, cy + dy)) { libre = false; break; }
         if (!libre) continue;
 
@@ -203,7 +228,14 @@ export const Expendedoras = {
       if (i < 0) continue;
       const cx = i % ancho, cy = (i / ancho) | 0;
       const x = cx * c + c / 2;
-      const y = cy * c + c;          // los pies, en el borde inferior de la celda
+      // Los pies en el borde SUPERIOR de la celda: justo donde acaba la cara
+      // del muro. Antes iban en el inferior, y como además la caja de la
+      // máquina chocaba contra el pie del muro y la empujaba, quedaba una
+      // celda y pico de suelo entre la máquina y la pared. Sergio quiere las
+      // máquinas completamente pegadas al muro, y una máquina no se mueve en
+      // toda la partida, así que ni la caja necesita chocar con la pared (ver
+      // colisionarParedes en main.js).
+      const y = cy * c;
       // Dos parcelas vecinas pueden dar dos sitios pegados en la costura: se
       // respeta la separación mínima igual.
       let lejos = true;

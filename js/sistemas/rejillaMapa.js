@@ -159,6 +159,7 @@ export const RejillaMapa = {
     this.solido = new Uint8Array(n);
     this.tipo = new Uint8Array(n);
     this.simbolos = Object.keys(leyenda);
+    this.leyenda = leyenda;       // quien quiera saber qué es un símbolo (expendedoras)
 
     // LA ALTURA DE CADA SÍMBOLO, en celdas de cara. Es dato de SIMULACIÓN y no
     // solo de dibujo: la cara de una pared no se pisa (ver `pie`), así que
@@ -550,7 +551,11 @@ export const RejillaMapa = {
   // de una horda— y no cierra ningún paso: la puerta más estrecha del mapa mide
   // 64 unidades, cuatro celdas de navegación.
   _prepararNavegacion() {
-    const P = 2;                                  // celdas finas por celda de nav
+    // Celdas finas por celda de navegación: las que hagan falta para que la
+    // de navegación mida 16 unidades, sea cual sea la fina. Con la celda de 8
+    // eran dos; con la de 4 del CC The Lighthouse son cuatro, y el campo de
+    // flujo sigue costando lo mismo.
+    const P = Math.max(1, Math.round(16 / this.celda));
     this.navAncho = Math.ceil(this.ancho / P);
     this.navAlto = Math.ceil(this.alto / P);
     this.navCelda = this.celda * P;

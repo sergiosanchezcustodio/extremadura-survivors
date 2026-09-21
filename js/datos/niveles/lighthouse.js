@@ -63,6 +63,17 @@ export const NIVEL = {
     'E': '#8a5a3a',    // estantería
     'M': '#b8864e',    // mostrador
 
+    // Las siete tiendas pequeñas, en tonos de la `c` para que el plano las siga
+    // leyendo como tiendas y a la vez se note dónde acaba una y empieza otra.
+    'r': '#b0a2b3',    // ropa
+    'j': '#b8a0a0',    // juguetes
+    'l': '#a49cb4',    // libros
+    'g': '#b4a49c',    // regalos
+    'q': '#acacb4',    // droguería
+    't': '#9ca4ac',    // tecnología
+    'u': '#a8b49c',    // alimentos
+    'T': '#4a4d55',    // techo de una tienda cerrada
+
     // Las puertas. Se pintan del color de su juego para que, al verlas de lejos
     // en el suelo, se lean igual que en el plano.
     'G': '#8d949f',    // cierre gris   — lo abre el jefe del minuto 10
@@ -90,6 +101,14 @@ export const NIVEL = {
     'a': 'assets/niveles/lighthouse/hipermercado.png',
     'b': 'assets/niveles/lighthouse/muebleria.png',
     'c': 'assets/niveles/lighthouse/tienda.png',
+    // Las siete tiendas pisan hoy la misma moqueta: Sergio tiene pendientes
+    // los suelos (baldosas, moquetas...) y hasta entonces se mantiene lo que
+    // hay. Cuando lleguen, es cambiar la ruta de cada una.
+    'j': 'assets/niveles/lighthouse/tienda.png',
+    'g': 'assets/niveles/lighthouse/tienda.png',
+    'q': 'assets/niveles/lighthouse/tienda.png',
+    't': 'assets/niveles/lighthouse/tienda.png',
+    'u': 'assets/niveles/lighthouse/tienda.png',
     'd': 'assets/niveles/lighthouse/ocio.png',
     'f': 'assets/niveles/lighthouse/plaza.png',
     '#': 'assets/niveles/lighthouse/pared.png',
@@ -101,16 +120,82 @@ export const NIVEL = {
 
   // LAS CARAS de lo que tiene altura (perspectiva 3/4, ver sueloRejilla.js):
   // símbolo → PNG del frente, que repite en horizontal y se recorta al alto de
-  // la cara. La estantería y el mostrador de la hoja son frontales, así que
-  // sirven de cara; la tapa de la estantería es de relleno. Lo que no esté
-  // aquí lleva una cara de relleno por su nombre.
+  // la cara. Aquí solo queda el mostrador: las paredes y las estanterías van
+  // POR TIENDA, más abajo.
   carasMapa: {
-    'E': 'assets/niveles/lighthouse/estanteria.png',
     'M': 'assets/niveles/lighthouse/mostrador.png'
   },
-  // Celdas de cara por símbolo; lo que no esté usa lo de su nombre (pared 2,
-  // estantería 3, mostrador 2, puertas 2).
-  alturasMapa: {},
+  // Celdas de cara por símbolo, EN CELDAS DE 4 (las de este nivel). Paredes y
+  // estanterías a 14 celdas = 56 unidades, que es el alto de los paneles de
+  // Sergio a su tamaño (213 px = 53 unidades): más de dos personajes de
+  // pared, como quiere él. La franja de pie que no se pisa mide lo mismo, y el
+  // generador (CARA en herramientas/mapa-lighthouse.js, que TIENE QUE
+  // COINCIDIR con esto) ensancha galerías y túneles y separa los lineales
+  // contando con ella. Mostradores y puertas, más bajos.
+  alturasMapa: { '#': 14, 'E': 14, 'M': 4, 'G': 6, 'Z': 6, 'S': 6 },
+
+  // LOS PANELES DE PARED, POR TIENDA (Sergio, 21/09/2026). SEIS TIPOS DE
+  // TIENDA —supermercado, regalos, tecnología, alimentos, droguería,
+  // juguetes— y cada una tiene UNA pared y no se mezclan: la cara de una pared
+  // se elige por el suelo desde el que se ve —dentro de la juguetería, ositos;
+  // en el pasillo, el azulejo del centro comercial—. Son los `pared_tipoN.png` de resources/stages/2,
+  // reducidos por herramientas/paneles-lighthouse.ps1 a 64x224 —cuatro celdas
+  // de ancho, catorce de alto—; cambiar el número es cambiar la pared de esa
+  // tienda.
+  //
+  // Los que no se usan (2, 3, 10, 12, 13, 16, 22, 23, 24) quedan horneados en
+  // assets/niveles/lighthouse/paredes/ para cuando haga falta cambiar uno.
+  paredesMapa: {
+    '.': 'assets/niveles/lighthouse/paredes/tipo1.png',    // azulejo blanco: el pasillo
+    'f': 'assets/niveles/lighthouse/paredes/tipo11.png',   // ladrillo arena: la plaza
+    'a': 'assets/niveles/lighthouse/paredes/tipo9.png',    // blanco liso: supermercado
+    'g': 'assets/niveles/lighthouse/paredes/tipo17.png',   // damasco azul: regalos
+    't': 'assets/niveles/lighthouse/paredes/tipo19.png',   // triángulos grises: tecnología
+    'u': 'assets/niveles/lighthouse/paredes/tipo20.png',   // hojas: alimentos
+    'q': 'assets/niveles/lighthouse/paredes/tipo14.png',   // piedra clara: droguería
+    'j': 'assets/niveles/lighthouse/paredes/tipo21.png'    // ositos: juguetes
+  },
+
+  // LOS ESCAPARATES: la pared de una tienda vista DESDE EL PASILLO. Una pared
+  // entre el pasillo y una tienda enseña al pasillo el frente de esa tienda,
+  // no el azulejo del centro comercial, y así se sabe qué hay dentro antes de
+  // entrar. Se elige por lo que hay al otro lado del tabique. SIEMPRE DISTINTO
+  // de la pared de dentro de esa tienda, y ningún panel repetido entre dos
+  // tiendas (Sergio). Una tienda CERRADA enseña su techo al otro lado, y su
+  // escaparate es el de cierre: el cristal oscuro con los maniquíes a oscuras.
+  escaparatesMapa: {
+    'a': 'assets/niveles/lighthouse/paredes/tipo8.png',    // el rótulo verde del súper
+    'g': 'assets/niveles/lighthouse/paredes/tipo7.png',    // cristalera clara: regalos
+    't': 'assets/niveles/lighthouse/paredes/tipo15.png',   // cristal oscuro: tecnología
+    'u': 'assets/niveles/lighthouse/paredes/tipo6.png',    // piedra blanca: alimentos
+    'q': 'assets/niveles/lighthouse/paredes/tipo4.png',    // azul con tubería: droguería
+    'j': 'assets/niveles/lighthouse/paredes/tipo18.png',   // flores menta: juguetes
+    'T': 'assets/niveles/lighthouse/paredes/tipo5.png'     // escaparate a oscuras: tienda cerrada
+  },
+
+  // LAS ESTANTERÍAS, POR TIENDA: tres dibujos de cada, que se van alternando a
+  // lo largo del lineal. Una estantería enseña las de la tienda en la que
+  // está —se elige por el suelo que tiene delante— y nunca las de otra.
+  estanteriasMapa: {
+    'a': ['assets/niveles/lighthouse/estanterias/supermercado1.png',
+          'assets/niveles/lighthouse/estanterias/supermercado2.png',
+          'assets/niveles/lighthouse/estanterias/supermercado3.png'],
+    'g': ['assets/niveles/lighthouse/estanterias/regalos1.png',
+          'assets/niveles/lighthouse/estanterias/regalos2.png',
+          'assets/niveles/lighthouse/estanterias/regalos3.png'],
+    't': ['assets/niveles/lighthouse/estanterias/tecnologia1.png',
+          'assets/niveles/lighthouse/estanterias/tecnologia2.png',
+          'assets/niveles/lighthouse/estanterias/tecnologia3.png'],
+    'u': ['assets/niveles/lighthouse/estanterias/fruteria1.png',
+          'assets/niveles/lighthouse/estanterias/fruteria2.png',
+          'assets/niveles/lighthouse/estanterias/fruteria3.png'],
+    'q': ['assets/niveles/lighthouse/estanterias/drogueria1.png',
+          'assets/niveles/lighthouse/estanterias/drogueria2.png',
+          'assets/niveles/lighthouse/estanterias/drogueria3.png'],
+    'j': ['assets/niveles/lighthouse/estanterias/juguetes1.png',
+          'assets/niveles/lighthouse/estanterias/juguetes2.png',
+          'assets/niveles/lighthouse/estanterias/juguetes3.png']
+  },
 
   // Paleta del suelo procedural. Aquí no se usa —el mapa manda—, pero
   // Recursos.cargarNivel la pide y ui/tema.js se apoya en ella.

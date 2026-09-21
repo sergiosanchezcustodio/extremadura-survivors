@@ -1894,7 +1894,13 @@ export class Enemigos {
       // EL HALO ROJO DE GOLPE en vez del blanqueado (lo pidió Sergio): se dibuja
       // la silueta engordada en rojo DETRÁS del sprite, con el alfa de una
       // curva suave, y el sprite normal encima. Ver Recursos._halo.
-      const img = e.mirandoDerecha ? e.img : e.imgEspejo;
+      // UN OBJETO DEL ESCENARIO NO MIRA A NADIE NI RESPIRA. Las máquinas
+      // expendedoras se volteaban al pasarles por delante —la cara de
+      // "mirando" se decide por dónde está el jugador— y botaban con el
+      // vaivén de un bicho parado; Sergio las quiere quietas y del mismo
+      // lado siempre. Lo lleva `quieto` hasta el final del dibujo.
+      const quieto = e.def.esObjeto;
+      const img = (quieto || e.mirandoDerecha) ? e.img : e.imgEspejo;
       const conHalo = e.destello > 0 && Enemigos.destelloActivo && e.paralizado <= 0 && e.vida > 0;
 
       // Todo se cuadra a PÍXEL FÍSICO ENTERO antes de dibujar.
@@ -1937,10 +1943,10 @@ export class Enemigos {
       }
 
       if (conHalo) {
-        const halo = e.mirandoDerecha ? e.imgHalo : e.imgHaloEspejo;
+        const halo = (quieto || e.mirandoDerecha) ? e.imgHalo : e.imgHaloEspejo;
         if (halo) {
           const cw = meta.w + 2 * HALO_PX, ch = meta.h + 2 * HALO_PX;
-          const bob = e.frames > 1 ? 0 : Math.round(sen(e.fase) * (e.vuela ? FLOTE_PX : BOTE_PX));
+          const bob = (quieto || e.frames > 1) ? 0 : Math.round(sen(e.fase) * (e.vuela ? FLOTE_PX : BOTE_PX));
           ctx.globalAlpha = alfaHalo(e.destello);
           ctx.drawImage(halo,
             e.frame * cw, 0, cw, ch,
@@ -1963,7 +1969,7 @@ export class Enemigos {
         // rebajado. Van al unísono porque salen de la misma curva.
         if (conHalo) {
           ctx.globalAlpha = alfaHalo(e.destello) * ILUMINACION_GOLPE;
-          ctx.drawImage(e.mirandoDerecha ? e.imgTinte : e.imgTinteEspejo,
+          ctx.drawImage((quieto || e.mirandoDerecha) ? e.imgTinte : e.imgTinteEspejo,
             e.frame * meta.w, 0, meta.w, meta.h,
             (cxF - (meta.w >> 1)) / ESCALA_ARTE, (cyF - meta.h) / ESCALA_ARTE,
             meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
@@ -1981,14 +1987,14 @@ export class Enemigos {
       // Desplazar el ancla da casi la misma sensación de peso y deja todos los
       // blits a escala 1:1. Si algún día sobra presupuesto, el squash vuelve
       // aquí y en ningún otro sitio.
-      const amp = e.vuela ? FLOTE_PX : BOTE_PX;
+      const amp = quieto ? 0 : (e.vuela ? FLOTE_PX : BOTE_PX);
       const dyF = cyF - meta.h + Math.round(sen(e.fase) * amp);
       ctx.drawImage(img,
         (cxF - (meta.w >> 1)) / ESCALA_ARTE, dyF / ESCALA_ARTE,
         meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
       if (conHalo) {
         ctx.globalAlpha = alfaHalo(e.destello) * ILUMINACION_GOLPE;
-        ctx.drawImage(e.mirandoDerecha ? e.imgTinte : e.imgTinteEspejo,
+        ctx.drawImage((quieto || e.mirandoDerecha) ? e.imgTinte : e.imgTinteEspejo,
           (cxF - (meta.w >> 1)) / ESCALA_ARTE, dyF / ESCALA_ARTE,
           meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
         ctx.globalAlpha = 1;

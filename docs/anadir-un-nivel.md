@@ -261,7 +261,9 @@ Lo que tiene altura —pared, estantería, mostrador, puerta cerrada— se pinta
 con **tapa** (su textura de `texturasMapa`) y **cara**: el frente, que se
 pinta sobre las celdas de suelo al sur del tramo, tantas como diga su altura
 (`alturasMapa`, símbolo → celdas; por defecto pared 2, estantería 3,
-mostrador 2, puertas 2). La cara va en la capa del suelo a propósito: quien
+mostrador 2, puertas 2; The Lighthouse, con celdas de 4, pone pared y
+estantería a **14** —56 unidades, los paneles de Sergio a su tamaño—,
+mostrador 4 y puertas 6). La cara va en la capa del suelo a propósito: quien
 se arrima por abajo queda delante, como en Mérida. **Y esa franja no se
 pisa**: `RejillaMapa.pie` marca las celdas de cara y `solidoEnCelda` las trata
 como pared para todo (jugadores, horda, disparos, apariciones, navegación);
@@ -269,13 +271,46 @@ se rehace al abrir y cerrar puertas. Los PNG de cara van en
 `carasMapa` (repiten en horizontal, se recortan al alto); sin PNG hay una
 cara de relleno por nombre. Cambiar el arte no toca código.
 
+### Cada tienda con lo suyo: paredes y estanterías por tipo
+
+Una pared no tiene UNA cara: tiene **la de la tienda desde la que se mira**.
+Tres tablas más en los datos del nivel, todas símbolo de SUELO → PNG:
+
+- `paredesMapa` — el panel de pared que enseña una pared vista desde ese
+  suelo: dentro de la juguetería, ositos; desde el pasillo, el azulejo.
+- `escaparatesMapa` — lo que enseña al **pasillo** una pared que tiene esa
+  tienda detrás: el rótulo del súper, el cristal a oscuras de una cerrada. De
+  qué tienda es cada celda sólida lo decide `_calcularDuenyos` al cargar:
+  la tienda (o techo) con escaparate más cercana a través de lo sólido, para
+  que la estantería que forra la pared o la esquina no rompan el escaparate.
+- `estanteriasMapa` — una **lista** de PNG por tienda; una estantería enseña
+  las de la tienda en la que está, alternándolas a lo largo del lineal por la
+  posición de la celda. Nunca las de otra tienda.
+
+Por eso las tiendas ya no son todas `c`: hay **seis tipos** —`a` supermercado,
+`g` regalos, `t` tecnología, `u` alimentos, `q` droguería, `j` juguetes—, cada
+uno con su pared de dentro, su escaparate (siempre distinto de la de dentro) y
+sus estanterías, sin repetir un panel entre dos tipos; el generador reparte
+uno a cada local. Y **seis de cada diez tiendas van cerradas**: su interior es
+`T`, techo —sólido, sin cara, no se entra ni se ve—, y su escaparate es el de
+cierre. (`r`, `l`, `b`, `d` y `c` siguen en la leyenda por si un mapa viejo
+los trae.) Los paneles los
+dibuja Sergio como láminas verticales (`resources/stages/2/pared_tipoN.png`,
+`estanteria_<tienda>N.png`) y `herramientas/paneles-lighthouse.ps1` los
+deja a 64x224, cuatro celdas de ancho y catorce de alto. Cambiar la pared de una
+tienda es cambiar un número en `paredesMapa`.
+
 ### El mobiliario: estanterías y mostradores
 
 Dos símbolos más, `E` (estantería) y `M` (mostrador), sólidos como la pared
 pero con dibujo propio. Los pone el generador (`amueblar` en
 `herramientas/mapa-lighthouse.js`): los lineales del hipermercado son
-estanterías de un módulo de grueso (32, para que quepa un frente); las
-tiendas llevan una o dos estanterías cortas; y todo local
+**todas las tiendas iguales y sencillas** (Sergio): las paredes norte y sur
+forradas de estantería por dentro —menos las puertas, un módulo a cada lado
+de ellas y las esquinas—, y filas interiores horizontales de dos celdas de
+grueso cada cuatro módulos (estantería, cara y 64 unidades de paso). Nada en
+las paredes verticales ni filas verticales: en 3/4 solo enseñarían la tapa.
+Sin mostradores, sin islas de muro. Y todo local
 lleva mostradores —uno si es pequeño, dos o más si pasa de 200 módulos, que es
 el mismo corte que le da dos puertas—. En el híper y la mueblería las cajas
 van en la franja de salida. Ningún mueble se pone sin dos módulos de aire
@@ -287,21 +322,43 @@ Es la consecuencia que más condiciona el trazado y no es evidente: **una pared
 es UNA celda**, así que no hay forma de tener un tabique más fino que la rejilla
 que lo dibuja. The Lighthouse empezó con celdas de 32 y los tabiques entre el
 pasillo y una tienda medían 32 unidades —un quinto del ancho del pasillo—, con
-aspecto de búnker. Hoy la celda mide **8** y el tabique mide 8.
+aspecto de búnker. Bajó a 8, y el 21/09/2026 Sergio pidió todos los muros un
+50% más estrechos: hoy la celda mide **4** y el tabique mide 4.
 
-No se baja más porque la cuenta de celdas crece al cuadrado. Y por eso hay **dos
-rejillas**, que conviene no confundir:
+La cuenta de celdas crece al cuadrado —son 4,1 millones— y el nivel carga en
+medio segundo. Lo que lo hace posible es que hay **dos rejillas**, que conviene
+no confundir:
 
 | | Tamaño | Celdas | Para qué |
 |---|---|---|---|
-| **Colisión** | 8 unidades | 1264x816 = 1.031.424 | paredes, dibujo, línea de visión |
+| **Colisión** | 4 unidades | 2528x1632 = 4.125.696 | paredes, dibujo, línea de visión |
 | **Navegación** | 16 unidades | 632x408 = 257.856 | campo de flujo y niebla del plano |
 
-La de navegación se deriva de la otra al cargar el nivel: una celda suya es
-sólida si lo es **cualquiera** de las cuatro finas que la forman. Eso engorda las
-paredes 8 unidades a efectos de ruta —la horda pasa algo despegada del muro, que
-es lo que uno quiere— y no cierra ningún paso, porque la puerta más estrecha del
-mapa mide 64 unidades.
+La de navegación se deriva de la otra al cargar el nivel, con las celdas finas
+que hagan falta para que la suya mida 16 (cuatro por lado hoy): una celda suya
+es sólida si lo es **cualquiera** de las finas que la forman. Eso engorda las
+paredes unas unidades a efectos de ruta —la horda pasa algo despegada del muro,
+que es lo que uno quiere— y no cierra ningún paso, porque la puerta más
+estrecha del mapa mide 64 unidades.
+
+**Y el generador cuenta con la cara.** La franja de pie de un muro de 14 celdas
+se come 56 unidades de todo lo que tenga debajo, así que
+`herramientas/mapa-lighthouse.js` lleva `CARA = 14` (tiene que coincidir con
+`alturasMapa`) y con ella alarga las puertas de las paredes verticales,
+ensancha los túneles, separa los lineales y, sobre todo, **mide la
+conectividad y las rendijas como se pisa**: con el pie como sólido. Sin eso
+daba por transitables pasillos que en el juego estaban tapados por la pared de
+arriba.
+
+**Las tiendas abiertas son intocables**: ni túneles ni fronteras de anillo
+pasan por dentro (cada tienda abierta va entera al anillo donde cae su
+centro), para que sigan siendo rectángulos con sus cuatro paredes. Las
+cerradas sí se atraviesan —un techo partido son dos techos— y cada canto de
+techo que da a suelo se vuelve pared. Ya no hay galerías: lo que cose cada
+anillo son los túneles, y el trozo que no se puede coser recibe un **cierre de
+rescate** en la frontera que lo toca. Al final, cada pareja de celdas sólidas
+que se toquen solo por la esquina se cuadra rellenando una: el generador
+imprime `esquinas en diagonal rellenadas` y el mapa sale con cero.
 
 Por qué dos y no una: el campo de flujo se rehace diez veces por segundo y sobre
 la rejilla fina costaba 7,8 ms, un pico capaz de comerse un fotograma.
@@ -324,8 +381,9 @@ ganarse:
 | azul | el jefe del minuto 20 | 66% a 100% |
 | verde (la calle) | el jefe final | y con él **se acaba la fase** |
 
-Los anillos son **círculos concéntricos de verdad**, por distancia geométrica al
-punto de partida, y cubren **todas las celdas, muro incluido**: con la frontera
+Los anillos son **cuadrados concéntricos**, por distancia de tablero (la mayor
+de las dos coordenadas) al punto de partida, y cubren **todas las celdas, muro
+incluido**: con la frontera
 definida solo sobre el suelo, cualquier pasadizo excavado por dentro del muro la
 rodea por detrás y la barrera no separa nada. Pasó, y el mapa entero se recorría
 con todos los cierres echados.
@@ -335,14 +393,24 @@ minutos"— y es una trampa: en un laberinto la curva de nivel de la distancia
 andando no se parece a un círculo, y el anillo de fuera salía roto en lóbulos que
 solo se comunicaban pasando por el centro, que está cerrado. Había que darle una
 puerta a cada lóbulo —cuarenta y dos— o tapiarlo, y se tapiaban 57.000 celdas de
-golpe. Con círculos, cada anillo es una región conexa por definición.
+golpe. Con una distancia geométrica, cada anillo es una región conexa por
+definición. Fueron círculos hasta el 21/09/2026: un círculo en una rejilla es
+una escalera de celdas, y sus fronteras eran paredes en diagonal por todo el
+centro comercial. Sergio pidió que no haya **ni diagonales, ni oblicuas, ni
+curvas** —los paneles que dibuja son rectos—, y con la distancia de tablero las
+mismas fronteras salen como cuatro paredes a escuadra. Por lo mismo, los
+túneles que reconectan rincones ya no van por el camino más corto en celdas
+(que es una escalera) sino por el más recto: cada giro cuesta veinte celdas y
+salen en L. El generador se comprueba: **cero esquinas en diagonal** entre
+sólidos, contando las parejas de celdas sólidas que se tocan solo por la
+esquina.
 
 Los radios no se reparten a ojo: se eligen para que **cada anillo tenga un tercio
 de la superficie jugable**. Con el inicio cerca del centro, los tercios en área no
 caen ni de lejos en los tercios del radio.
 
-Y cada anillo lleva su **galería circular**: el pasillo que le da la vuelta por
-dentro, como la galería de un centro comercial de verdad. Sin ella, cruzar de un
+Y cada anillo lleva su **galería**, un marco a escuadra: el pasillo que le da la
+vuelta por dentro, como la galería de un centro comercial de verdad. Sin ella, cruzar de un
 brazo al de enfrente obligaría a pasar por el centro, que está cerrado.
 
 ### Nada de paredes a medio rematar
@@ -388,7 +456,7 @@ del inicio y con una separación mínima entre ellos (se prueban varias, de 150
 celdas hacia abajo, y se para en cuanto caben los ocho). Elegirlos por orden de
 barrido de la rejilla los amontonaba todos en la mitad norte.
 
-Una cosa que NO es un fallo: con el inicio descentrado, el círculo exterior corta
+Una cosa que NO es un fallo: con el inicio descentrado, el cuadrado exterior corta
 el borde del mapa y el anillo de fuera queda partido en dos lóbulos por pura
 geometría — no hay forma de ir de uno al otro sin cruzar el anillo de en medio.
 No se tapian (eran 109.000 celdas): se entra en cada uno por sus propias puertas,

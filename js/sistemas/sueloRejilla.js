@@ -55,7 +55,10 @@ export const TEXTURA = 32;
 // con el píxel del monitor, que es la regla de rendimiento de todo el motor.
 const PX = ESCALA_ARTE;
 
-const TROZO_CELDAS = 16;
+// EN UNIDADES, no en celdas: un trozo son 128 unidades de lado sea cual sea la
+// celda del nivel (16 celdas de 8, 32 de 4). Así en pantalla siguen cabiendo
+// 5x4 trozos y las ranuras de abajo siguen bastando.
+const TROZO_UNIDADES = 128;
 const RANURAS_X = 8, RANURAS_Y = 4;     // 5x4 visibles caben en 8x4 sin chocar
 
 // --- Dibujos de relleno --------------------------------------------------------
@@ -185,6 +188,15 @@ const DIBUJOS = {
     ctx.fillStyle = rgb(base, 0.62);
     for (let y = 7; y < TEXTURA; y += 8) ctx.fillRect(0, y, TEXTURA, 1);
   },
+  // Techo de una tienda cerrada, visto desde arriba: placas de cubierta
+  // grises con la junta oscura, sin nada más. Provisional hasta que Sergio
+  // dibuje uno; se elige por el nombre `techo` de la leyenda.
+  techo(ctx, base) {
+    ctx.fillStyle = rgb(base); ctx.fillRect(0, 0, TEXTURA, TEXTURA);
+    motear(ctx, base, 0.08, 1.12, 0, 13);
+    motear(ctx, base, 0.06, 0.86, 0, 14);
+    embaldosar(ctx, base, 16, 0.70);
+  },
   // Puertas: el color plano con rayas diagonales, como una persiana de cierre.
   puerta(ctx, base) {
     ctx.fillStyle = rgb(base); ctx.fillRect(0, 0, TEXTURA, TEXTURA);
@@ -297,9 +309,39 @@ function normalizar(img, celda) {
   return c;
 }
 
+// LAS CARAS POR TIENDA (ver `paredesMapa`, `escaparatesMapa` y
+// `estanteriasMapa` en datos/niveles/lighthouse.js). Una pared no tiene UNA
+// cara: tiene la de la tienda desde la que se mira. Aquí se resuelven a
+// arrays por índice de tipo de suelo, que es lo que se tiene a mano al
+// componer un trozo, y `_caraPara` elige.
+async function cargarPorTipo(rutas, simbolos, celda, altoU) {
+  const lista = simbolos.map((ch) => rutas[ch] ? Recursos.cargarSuelta(rutas[ch]) : Promise.resolve(null));
+  const imgs = await Promise.all(lista);
+  return imgs.map((img) => img ? normalizarCara(img, celda, altoU) : null);
+}
+
+async function cargarJuegosPorTipo(rutas, simbolos, celda, altoU) {
+  const lista = simbolos.map((ch) => rutas[ch]
+    ? Promise.all(rutas[ch].map((r) => Recursos.cargarSuelta(r)))
+    : Promise.resolve(null));
+  const juegos = await Promise.all(lista);
+  return juegos.map((imgs) => {
+    if (!imgs) return null;
+    const caras = imgs.filter((i) => i).map((img) => normalizarCara(img, celda, altoU));
+    return caras.length ? caras : null;
+  });
+}
+
 export const SueloRejilla = {
   texturas: null,        // una por índice de tipo de RejillaMapa (la tapa)
   caras: null,           // la cara de cada tipo, o null si es plano
+  paredes: null,         // cara de pared por tipo de SUELO desde el que se ve
+  duenyo: null,          // por celda sólida: tipo de la tienda de la que es (255 = de nadie)
+  escaparates: null,     // cara de pared por tipo de suelo que hay DETRÁS (visto desde el pasillo)
+  estanterias: null,     // caras de estantería (varias) por tipo de suelo delante
+  tipoPared: -1,         // índices de tipo: la pared, la estantería y el pasillo
+  tipoEstanteria: -1,
+  tipoPasillo: -1,
   abiertaComo: null,     // índice de tipo con que se pinta una puerta abierta
   ranuras: null,
   version: -1,           // la de RejillaMapa.versionSuelo con que se compuso
@@ -341,10 +383,25 @@ export const SueloRejilla = {
     // Una puerta abierta se pinta como el pasillo: el hueco es pasillo.
     const pasillo = simbolos.indexOf('.');
     this.abiertaComo = pasillo < 0 ? 0 : pasillo;
+    this.tipoPasillo = pasillo;
+
+    // Las caras por tienda. Se buscan los tipos de pared y estantería por el
+    // nombre de la leyenda, que es como los distingue todo lo demás.
+    this.tipoPared = simbolos.findIndex((ch) => leyenda[ch] && leyenda[ch].nombre === 'pared');
+    this.tipoEstanteria = simbolos.findIndex((ch) => leyenda[ch] && leyenda[ch].nombre === 'estantería');
+    const altoPared = this.tipoPared >= 0 ? RejillaMapa.altura[this.tipoPared] * RejillaMapa.celda : 0;
+    const altoEst = this.tipoEstanteria >= 0 ? RejillaMapa.altura[this.tipoEstanteria] * RejillaMapa.celda : 0;
+    this.paredes = altoPared > 0 && nivel.paredesMapa
+      ? await cargarPorTipo(nivel.paredesMapa, simbolos, RejillaMapa.celda, altoPared) : null;
+    this.escaparates = altoPared > 0 && nivel.escaparatesMapa
+      ? await cargarPorTipo(nivel.escaparatesMapa, simbolos, RejillaMapa.celda, altoPared) : null;
+    this.estanterias = altoEst > 0 && nivel.estanteriasMapa
+      ? await cargarJuegosPorTipo(nivel.estanteriasMapa, simbolos, RejillaMapa.celda, altoEst) : null;
+    this._calcularDuenyos();
 
     if (!this.ranuras) {
       this.ranuras = [];
-      const lado = TROZO_CELDAS * RejillaMapa.celda * PX;
+      const lado = TROZO_UNIDADES * PX;
       for (let i = 0; i < RANURAS_X * RANURAS_Y; i++) {
         const { c, ctx } = lienzo(lado, lado);
         this.ranuras.push({ c, ctx, tx: -1, ty: -1, version: -1 });
@@ -362,13 +419,14 @@ export const SueloRejilla = {
     const c = R.celda;
     const tex = this.texturas;
     const ctx = r.ctx;
-    const cx0 = tx * TROZO_CELDAS, cy0 = ty * TROZO_CELDAS;
+    const trozoCeldas = TROZO_UNIDADES / c;
+    const cx0 = tx * trozoCeldas, cy0 = ty * trozoCeldas;
     ctx.clearRect(0, 0, r.c.width, r.c.height);
-    for (let j = 0; j < TROZO_CELDAS; j++) {
+    for (let j = 0; j < trozoCeldas; j++) {
       const cy = cy0 + j;
       if (cy >= R.alto) break;
       const fila = cy * R.ancho;
-      for (let i = 0; i < TROZO_CELDAS; i++) {
+      for (let i = 0; i < trozoCeldas; i++) {
         const cx = cx0 + i;
         if (cx >= R.ancho) break;
         const idx = fila + cx;
@@ -394,7 +452,7 @@ export const SueloRejilla = {
           const ta = R.tipo[ia];
           const h = R.altura[ta];
           if (k <= h) {
-            const cara = this.caras[ta];
+            const cara = this._caraPara(ta, ia, t, cx, cy - k);
             const porCara = cara.width / cp;
             const fx = (cx % porCara) * cp;
             ctx.drawImage(cara, fx, (k - 1) * cp, cp, cp, i * cp, j * cp, cp, cp);
@@ -407,14 +465,96 @@ export const SueloRejilla = {
     this.trozosCompuestos++;
   },
 
+  // DE QUÉ TIENDA ES CADA CELDA SÓLIDA. Una pared enseña al pasillo el
+  // escaparate de la tienda que tiene detrás, y "detrás" no es "la celda de
+  // arriba": detrás del tabique puede haber la estantería que forra la pared,
+  // un trozo de muro de relleno o, en la esquina, la pared vertical de la
+  // misma tienda; mirando solo hacia arriba, esas celdas salían con el
+  // azulejo del pasillo y el escaparate se veía a trozos. Aquí cada celda
+  // sólida (pared, estantería, mostrador) se queda con el tipo de suelo —o de
+  // techo— más cercano que tenga escaparate, buscando desde todas las tiendas
+  // a la vez a través de lo sólido, hasta DUENYO_ALCANCE celdas. Se calcula
+  // una vez al cargar; es un array de bytes del tamaño del mapa.
+  _calcularDuenyos() {
+    const R = RejillaMapa;
+    const n = R.ancho * R.alto;
+    this.duenyo = new Uint8Array(n).fill(255);
+    if (!this.escaparates) return;
+    const DUENYO_ALCANCE = 12;
+    const cola = new Int32Array(n);
+    const paso = new Uint8Array(n);
+    let fin = 0;
+    // Fuentes: toda celda cuyo tipo tenga escaparate (suelo de tienda o techo).
+    for (let i = 0; i < n; i++) {
+      if (this.escaparates[R.tipo[i]]) { this.duenyo[i] = R.tipo[i]; cola[fin++] = i; }
+    }
+    let ini = 0;
+    const W = R.ancho;
+    while (ini < fin) {
+      const i = cola[ini++];
+      const d = paso[i];
+      if (d >= DUENYO_ALCANCE) continue;
+      const x = i % W;
+      for (let k = 0; k < 4; k++) {
+        let v;
+        if (k === 0) v = i - W;
+        else if (k === 1) v = i + W;
+        else if (k === 2) v = x > 0 ? i - 1 : -1;
+        else v = x < W - 1 ? i + 1 : -1;
+        if (v < 0 || v >= n) continue;
+        if (this.duenyo[v] !== 255) continue;
+        if (R.solido[v] !== 1) continue;          // solo se propaga por lo sólido
+        // Una puerta no es de nadie: se pinta como puerta.
+        if (R.grupoDe[R.tipo[v]] >= 0) continue;
+        this.duenyo[v] = this.duenyo[i];
+        paso[v] = d + 1;
+        cola[fin++] = v;
+      }
+    }
+  },
+
+  // QUÉ CARA ENSEÑA la celda sólida `ia` (de tipo `ta`) a la celda de suelo de
+  // tipo `tSuelo` que la mira desde el sur. Es la regla de "cada tienda con lo
+  // suyo": la pared enseña el panel del local desde el que se ve; si se ve
+  // desde el pasillo y detrás del tabique hay una tienda, enseña el escaparate
+  // de esa tienda; y la estantería enseña las de la tienda en la que está,
+  // alternando sus dibujos a lo largo del lineal por la posición de la celda
+  // sólida (la de arriba, no la que pinta: las tres filas de una misma cara
+  // tienen que salir del mismo dibujo). Lo que no tenga panel cae en la cara
+  // genérica del tipo, que es la de siempre.
+  _caraPara(ta, ia, tSuelo, ax, ay) {
+    if (ta === this.tipoPared && this.paredes) {
+      if (tSuelo === this.tipoPasillo && this.escaparates && this.duenyo) {
+        // Desde el pasillo: el escaparate de la tienda de la que es la pared
+        // (ver _calcularDuenyos). Sin dueño, el azulejo del pasillo.
+        const dueno = this.duenyo[ia];
+        if (dueno !== 255) {
+          const e = this.escaparates[dueno];
+          if (e) return e;
+        }
+      }
+      return this.paredes[tSuelo] || this.caras[ta];
+    }
+    if (ta === this.tipoEstanteria && this.estanterias) {
+      const juego = this.estanterias[tSuelo];
+      // Por PANEL, no por celda: un panel de estantería mide 16 unidades de
+      // ancho (las celdas que sean), y todas sus celdas tienen que salir del
+      // mismo dibujo.
+      const panel = Math.floor(ax * RejillaMapa.celda / 16);
+      if (juego) return juego[Math.floor(hash(panel, ay, 31) * juego.length)];
+    }
+    return this.caras[ta];
+  },
+
   // Pinta lo que se ve. `izq`/`arr` es la esquina de la cámara en unidades.
   dibujar(ctx, izq, arr) {
     const R = RejillaMapa;
-    const lado = TROZO_CELDAS * R.celda;
+    const lado = TROZO_UNIDADES;
+    const trozoCeldas = lado / R.celda;
     const tx0 = Math.max(0, Math.floor(izq / lado));
     const ty0 = Math.max(0, Math.floor(arr / lado));
-    const tx1 = Math.min(Math.ceil((izq + ANCHO_LOGICO) / lado), Math.ceil(R.ancho / TROZO_CELDAS) - 1);
-    const ty1 = Math.min(Math.ceil((arr + ALTO_LOGICO) / lado), Math.ceil(R.alto / TROZO_CELDAS) - 1);
+    const tx1 = Math.min(Math.ceil((izq + ANCHO_LOGICO) / lado), Math.ceil(R.ancho / trozoCeldas) - 1);
+    const ty1 = Math.min(Math.ceil((arr + ALTO_LOGICO) / lado), Math.ceil(R.alto / trozoCeldas) - 1);
     let blits = 0;
     for (let ty = ty0; ty <= ty1; ty++) {
       for (let tx = tx0; tx <= tx1; tx++) {

@@ -61,6 +61,7 @@ const ORBITA_CY = 4;           // cuánto baja el centro respecto a los pies
 // que rodea, no que da vueltas como un satélite.
 const VEL_ORBITA = 1.15;
 const SUAVIZADO = 5;           // 1/s: cuanto más alto, más pegada
+const DISTANCIA_MINIMA = 6;    // nunca más cerca del jugador que esto (ver actualizar)
 const FLOTE = 1.6;             // amplitud del balanceo vertical
 const RADIO_DIBUJO = 5;
 
@@ -73,6 +74,14 @@ const BUFER = new Int32Array(400);
 // una velocidad fija para todas, porque son bichos pequeños al lado del jugador
 // y afinarla por mascota no se notaría.
 const SEG_POR_FRAME = 1 / 10;
+
+// ¿Se llega desde el jugador a ese desplazamiento sin cruzar pared? Con dos
+// unidades de margen, las mismas que deja el recorte de la órbita.
+function sitioLibre(j, dx, dy) {
+  const d = hipot(dx, dy);
+  if (d < 0.001) return true;
+  return RejillaMapa.alcanceLibre(j.x, j.y, dx / d, dy / d, d) >= d - 2;
+}
 
 export const Mascotas = {
   activas: null,           // una entrada por jugador, preasignada
@@ -222,23 +231,69 @@ export const Mascotas = {
       // suavizado solo amortigua lo que cambia de verdad, que es el giro. Como
       // el giro es lento, la órbita conserva su tamaño y la mascota no se mete
       // en el sprite ni corriendo ni en zigzag.
-      const objX = cos(ang) * ORBITA_X;
-      const objY = ORBITA_CY + sen(ang) * ORBITA_Y;
+      let objX = cos(ang) * ORBITA_X;
+      let objY = ORBITA_CY + sen(ang) * ORBITA_Y;
+      // SI EL SITIO DE LA VUELTA CAE EN UNA PARED, SE VA DETRÁS DEL JUGADOR.
+      //
+      // Antes se recortaba el desplazamiento hasta el muro, y con el jugador
+      // pegado a la pared eso dejaba a la mascota a cero de él: encima de su
+      // sprite, temblando entre "quiero ir a la pared" y "no cabo". Lo vio
+      // Sergio. Ahora, si el punto de la órbita no está a la vista desde el
+      // jugador, el objetivo pasa a ser un sitio libre de esta lista, por
+      // orden: DETRÁS del jugador (más arriba que sus pies, que es donde el
+      // sprite del jugador la tapa y donde, contra un muro al sur, siempre hay
+      // hueco), el espejo del punto por el otro lado, y un poco más arriba
+      // todavía. El suavizado de abajo la lleva hasta allí sin saltos.
+      // Y con un muro AL NORTE no hay detrás que valga: entonces a un costado
+      // —el del punto de la vuelta, o el otro—, y solo si tampoco, delante.
+      // Lo que nunca: quedarse encima del jugador.
+      // Y el costado que se prefiere es EN EL QUE YA ESTÁ (signo de despX): el
+      // suavizado la lleva en línea recta al objetivo, y cambiar de costado
+      // es pasar por encima del jugador, que es justo lo que se evita.
+      if (RejillaMapa.activa && !sitioLibre(j, objX, objY)) {
+        const lado = m.despX < 0 ? -1 : 1;
+        // El sitio de detrás sigue el LADO DEL PUNTO DE LA VUELTA, no el de
+        // la mascota: así, mientras la vuelta recorre la mitad tapada, la
+        // mascota cruza de un lado a otro POR DETRÁS del jugador (a seis por
+        // encima de sus pies) y sale por el lado por el que la vuelta vuelve
+        // a estar libre, en vez de cruzarle por encima al salir.
+        const ladoVuelta = objX < 0 ? -1 : 1;
+        if (sitioLibre(j, ladoVuelta * ORBITA_X * 0.6, ORBITA_CY - ORBITA_Y)) { objX = ladoVuelta * ORBITA_X * 0.6; objY = ORBITA_CY - ORBITA_Y; }
+        else if (sitioLibre(j, lado * ORBITA_X, ORBITA_CY - 2)) { objX = lado * ORBITA_X; objY = ORBITA_CY - 2; }
+        else if (sitioLibre(j, lado * ORBITA_X * 0.7, ORBITA_CY + ORBITA_Y)) { objX = lado * ORBITA_X * 0.7; objY = ORBITA_CY + ORBITA_Y; }
+        else if (sitioLibre(j, -lado * ORBITA_X, ORBITA_CY - 2)) { objX = -lado * ORBITA_X; objY = ORBITA_CY - 2; }
+        else if (sitioLibre(j, 0, ORBITA_CY + ORBITA_Y)) { objX = 0; objY = ORBITA_CY + ORBITA_Y; }
+      }
       const k = Math.min(1, SUAVIZADO * dt);
       m.despX += (objX - m.despX) * k;
       m.despY += (objY - m.despY) * k;
-      // SIN CRUZAR PAREDES. La órbita es un desplazamiento fijo alrededor del
-      // jugador, y con él pegado a un muro la mitad de la vuelta cae al otro
-      // lado. Se mide hasta dónde llega el tramo del jugador a su sitio y, si
-      // hay pared, se queda a este lado, a un par de unidades del muro. Se
-      // recorta el DESPLAZAMIENTO y no solo la posición, para que el suavizado
-      // no la empuje contra la pared en cada paso.
+      // Y NUNCA ENCIMA DEL JUGADOR, venga de donde venga el camino: si el
+      // suavizado la lleva a menos de DISTANCIA_MINIMA de él —pasa al cambiar
+      // de sitio de un costado al otro— se la saca radialmente hasta ahí, y
+      // rodea en vez de cruzar por el sprite. Con desplazamiento nulo se saca
+      // hacia arriba, que es por detrás.
+      {
+        const d = hipot(m.despX, m.despY);
+        if (d < DISTANCIA_MINIMA) {
+          if (d < 0.001) { m.despX = 0; m.despY = -DISTANCIA_MINIMA; }
+          else { const f = DISTANCIA_MINIMA / d; m.despX *= f; m.despY *= f; }
+        }
+      }
+      // SIN CRUZAR PAREDES, como red por si el camino suavizado pasa por un
+      // muro: se mide hasta dónde llega el tramo del jugador a su sitio y, si
+      // hay pared, se queda a este lado, a un par de unidades. Se recorta el
+      // DESPLAZAMIENTO y no solo la posición, para que el suavizado no la
+      // empuje contra la pared en cada paso.
       if (RejillaMapa.activa) {
         const d = hipot(m.despX, m.despY);
         if (d > 0.001) {
           const libre = RejillaMapa.alcanceLibre(j.x, j.y, m.despX / d, m.despY / d, d);
           if (libre < d) {
-            const f = Math.max(0, libre - 2) / d;
+            // Nunca a menos de 6 del jugador: antes bajaba hasta cero y la
+            // mascota acababa clavada en su sprite. Si un instante roza el
+            // muro mientras el suavizado la lleva a su sitio nuevo, es un
+            // instante; encima del jugador era todo el rato.
+            const f = Math.max(DISTANCIA_MINIMA, libre - 2) / d;
             m.despX *= f;
             m.despY *= f;
           }

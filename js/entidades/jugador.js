@@ -79,6 +79,17 @@ const PARPADEO = 0.07;     // periodo del destello mientras dura
 // sin pisar al otro.
 const DESTELLO_DANYO = 0.18;
 
+// CUÁNTO SE QUEDA EL CUERPO EN EL SUELO tras el último fotograma de la
+// animación de muerte antes de que lo sustituya el ataúd. Sin esta pausa el
+// ataúd aparecía encima del cuerpo recién caído, en el mismo fotograma, y la
+// caída no llegaba a leerse. Solo dibujo: la mecánica (reanimación, derrota)
+// sigue arrancando en el instante de caer, como siempre.
+const CUERPO_EN_EL_SUELO = 1.2;
+// Y cuánto se queda en el suelo cuando lo que se ha perdido es UNA VIDA (Moneda
+// de Caronte) y va a volver: menos, porque aquí no hay ataúd que esperar y la
+// partida sigue con él dentro.
+const CUERPO_EN_EL_SUELO_CARONTE = 0.4;
+
 // A partir de esta fracción de la vida máxima, un golpe además CONGELA. Un
 // arañazo de serpiente no puede parar el juego, y el mordisco que te deja a la
 // mitad no puede pasar desapercibido: es la misma idea que VIDA_HITSTOP en el
@@ -237,6 +248,16 @@ export class Jugador {
     this.destello = 0;             // segundos que queda enrojecido tras el golpe
     this.brilloRecogida = 0;       // 0..1, halo mientras absorbe gemas
     this.abatido = false;
+    // Segundos desde que cayó. Lleva la ANIMACIÓN DE MUERTE del personaje
+    // (clip `morir` de `<personaje>Muerte`, si el atlas lo trae): al morir del
+    // todo, seguida del ataúd; al perder una vida, seguida del renacer. Solo
+    // dibujo — ver `dibujar`.
+    this.relojMuerte = 0;
+    // Segundos que le quedan TUMBADO tras gastar una Moneda de Caronte: la
+    // animación de muerte entera más el rato en el suelo. Mientras dure no se
+    // mueve ni dispara —está muerto, aunque vaya a volver— y ya es invulnerable.
+    // Al llegar a cero arranca el RENACER de siempre.
+    this.caidoCaronte = 0;
     // Flanco de "ya se han barrido sus armas de la pantalla al caer". Lo lleva
     // limpiarAtaquesDeCaidos() en main.js; se declara aquí y no se crea sobre la
     // marcha para que un jugador nazca siempre con los mismos campos, que es de
@@ -572,9 +593,16 @@ export class Jugador {
       if (this.resurreccionesUsadas < this.resurreccionesMax) {
         this.resurreccionesUsadas++;
         this.levantar();
-        // Y la puesta en escena: desaparece y vuelve. `levantar` ya deja los dos
-        // segundos de invulnerabilidad (INVULNERABILIDAD * 4), así que el
-        // personaje está a salvo durante toda la animación y un rato más.
+        // Y la puesta en escena: LA MISMA MUERTE QUE SI FUERA LA DEFINITIVA
+        // —golpe, caída, cuerpo en el suelo— y después desaparece y vuelve.
+        // Perder una vida tiene que verse como morir, porque es lo que ha
+        // pasado; lo que cambia es lo que viene detrás: el renacer en vez del
+        // ataúd. La invulnerabilidad que deja `levantar` (INVULNERABILIDAD * 4)
+        // se alarga lo que dure el cuerpo en el suelo, para que a salvo lo esté
+        // durante toda la puesta en escena y un rato más, como antes.
+        this.relojMuerte = 0;
+        this.caidoCaronte = this._duracionMuerte(CUERPO_EN_EL_SUELO_CARONTE);
+        this.invulnerable += this.caidoCaronte;
         this.renacer = RENACER;
         // Levantarse apaga el destello —quien sale del ataúd sale entero— y
         // aquí no se ha salido de ningún ataúd: el golpe ha existido y tiene
@@ -588,6 +616,7 @@ export class Jugador {
       } else {
         this.abatido = true;
         this.reanimacion = 0;
+        this.relojMuerte = 0;
         // ÚLTIMO ALIENTO: al caer, lo que te quedaba se lo dejas a los que
         // siguen en pie. Es el único objeto del juego que solo sirve cuando has
         // fallado, y por eso se compra: no cambia cómo juegas, cambia lo que
@@ -678,6 +707,8 @@ export class Jugador {
   levantar() {
     this.abatido = false;
     this.reanimacion = 0;
+    this.relojMuerte = 0;
+    this.caidoCaronte = 0;
     this.destello = 0;
     this.vida = Math.max(1, Math.round(this.vidaMaxima * 0.5));
     this.invulnerable = INVULNERABILIDAD * 4;
@@ -695,6 +726,8 @@ export class Jugador {
     this.destello = 0;
     this.abatido = false;
     this.reanimacion = 0;
+    this.relojMuerte = 0;
+    this.caidoCaronte = 0;
     this.golpesRecibidos = 0;
     this.escudo = this.escudoMax;
     this.relojEscudo = 0;
@@ -713,7 +746,12 @@ export class Jugador {
     this.xPrev = this.x;
     this.yPrev = this.y;
 
-    if (this.renacer > 0) {
+    // El RENACER espera a que el cuerpo haya terminado de morir: primero la
+    // caída, luego el hundirse y volver.
+    if (this.caidoCaronte > 0) {
+      this.caidoCaronte -= dt;
+      if (this.caidoCaronte < 0) this.caidoCaronte = 0;
+    } else if (this.renacer > 0) {
       this.renacer -= dt;
       if (this.renacer < 0) this.renacer = 0;
     }
@@ -730,7 +768,11 @@ export class Jugador {
     if (this.brilloRecogida > 0) {
       this.brilloRecogida = Math.max(0, this.brilloRecogida - dt * 3.2);
     }
-    if (this.abatido) { this.andando = false; return; }
+    if (this.abatido || this.caidoCaronte > 0) {
+      this.andando = false;
+      this.relojMuerte += dt;
+      return;
+    }
 
     // Regeneración de la corona de laurel. Goteo continuo, no por tics: a 0.2/s
     // un tic entero cada segundo se notaría como un parpadeo en la barra.
@@ -937,6 +979,64 @@ export class Jugador {
     this.yVista = this.yPrev + (this.y - this.yPrev) * alpha;
   }
 
+  // ¿Está en el suelo, sea para siempre o por una moneda? Es lo que main.js
+  // mira para no dejarle disparar: `abatido` solo cubre la muerte definitiva.
+  get caido() { return this.abatido || this.caidoCaronte > 0; }
+
+  // Cuánto dura la muerte dibujada: el clip `morir` de su hoja más el rato en
+  // el suelo que se pida. Cero si el héroe no tiene hoja, y entonces no hay
+  // nada que esperar: al ataúd o al renacer directamente, como siempre.
+  _duracionMuerte(enElSuelo) {
+    const meta = Recursos.meta(this.personaje + 'Muerte');
+    const clip = meta && meta.clips && meta.clips.morir;
+    return clip ? clip.n / clip.fps + enElSuelo : 0;
+  }
+
+  // El fotograma de la muerte que toca ahora, dibujado a los pies. Devuelve
+  // false si no hay hoja o no se ha podido dibujar, para que quien llama ponga
+  // lo que va después (ataúd o sprite normal).
+  _dibujarMuerte(ctx, axF, ayF) {
+    const idMuerte = this.personaje + 'Muerte';
+    const metaMuerte = Recursos.meta(idMuerte);
+    const clipMorir = metaMuerte && metaMuerte.clips && metaMuerte.clips.morir;
+    if (!clipMorir) return false;
+    const imgMuerte = this.mirandoDerecha ? Recursos.imagen(idMuerte)
+                                          : Recursos.espejo(idMuerte);
+    if (!imgMuerte) return false;
+    const f = Math.min(clipMorir.n - 1, (this.relojMuerte * clipMorir.fps) | 0);
+    const indice = clipMorir.desde + f;
+    ctx.drawImage(imgMuerte,
+      indice * metaMuerte.w, 0, metaMuerte.w, metaMuerte.h,
+      (axF - metaMuerte.anclaX) / ESCALA_ARTE, (ayF - metaMuerte.anclaY) / ESCALA_ARTE,
+      metaMuerte.w / ESCALA_ARTE, metaMuerte.h / ESCALA_ARTE);
+    return true;
+  }
+
+  // Cuánto queda para levantarse, en un arco a los pies del caído. Va en el
+  // MUNDO y no en el panel de la esquina a propósito: lo que hay que decidir
+  // mirándolo es si te da tiempo a llegar hasta ahí, y eso se decide mirando
+  // el sitio, no una esquina de la pantalla. Solo aparece si el contador ha
+  // arrancado, así que en solitario —donde no hay reanimación— no sale nada.
+  // Se dibuja igual sobre el cuerpo cayendo que sobre el ataúd: el compañero
+  // que viene corriendo no tiene por qué esperar a que aparezca la caja.
+  _dibujarReanimacion(ctx, axF, ayF) {
+    if (this.reanimacion <= 0) return;
+    const cx = axF / ESCALA_ARTE;
+    const cy = ayF / ESCALA_ARTE - 2;
+    const r = 9;
+    ctx.save();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(8,7,10,.65)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = '#e8c23a';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, this.reanimacion));
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Un drawImage y nada más: el fotograma que toca de la hoja.
   //
   // El volteo sale de la copia espejada precacheada, igual que en los enemigos,
@@ -956,28 +1056,28 @@ export class Jugador {
     // Se dibuja SIN parpadeo de i-frames y sin espejo: un ataúd no mira a
     // ningún lado y no está recibiendo golpes.
     if (this.abatido) {
-      // SIN ATAÚD DIBUJADO SE SIGUE ADELANTE, y esto no es una precaución: hay
-      // cuatro héroes que todavía no tienen el suyo (ver datos/personajes.js).
-      // Antes se salía aquí mismo, y salirse se llevaba por delante también el
-      // reloj de la reanimación de más abajo: quien caía desaparecía del mapa
-      // entero, sin ataúd y sin nada que dijera que ahí había alguien a quien
-      // ir a levantar. Sin dibujo se pierde el dibujo, no la mecánica.
-      // EL SUYO SI LO TIENE, Y SI NO EL GENÉRICO. Cuatro de los ocho héroes
-      // todavía no tienen ataúd propio dibujado (ver datos/personajes.js), y
-      // hasta ahora eso significaba que al caer no se veía NADA en el suelo: ni
-      // ataúd ni nada que dijera que allí había alguien a quien ir a levantar.
-      //
-      // `ataudGenerico` es un sarcófago de piedra sin personaje, ARTE
-      // PROVISIONAL pedido a la API de imágenes mientras Sergio dibuja los que
-      // faltan. En cuanto exista `<nombre>-ataud.png` de un héroe, el atlas lo
-      // recoge y esta línea deja de usar el genérico para él sola, sin tocar
-      // nada: el propio va primero.
-      const metaAtaud = Recursos.meta(this.personaje + 'Ataud')
-                     || Recursos.meta('ataudGenerico');
-      const imgAtaud = Recursos.imagen(this.personaje + 'Ataud')
-                    || Recursos.imagen('ataudGenerico');
+      // SIN ATAÚD DIBUJADO SE SIGUE ADELANTE: si al atlas le faltara el de un
+      // héroe se perdería el dibujo, no la mecánica. Antes se salía aquí mismo
+      // y salirse se llevaba por delante también el reloj de la reanimación de
+      // más abajo. (Hoy los ocho tienen el suyo; el sarcófago genérico que
+      // tapaba el hueco de los cuatro de pago se retiró el 21/09/2026.)
       const axF = Math.round(this.xVista * ESCALA_ARTE);
       const ayF = Math.round(this.yVista * ESCALA_ARTE);
+
+      // ANTES DEL ATAÚD, LA CAÍDA. Si el héroe tiene hoja de muerte
+      // (`<personaje>Muerte`, dibujada por Sergio para los ocho), se
+      // reproduce una vez su clip `morir` —el golpe, la caída, el cuerpo en el
+      // suelo— y el último fotograma se queda un rato antes de que lo releve
+      // el ataúd. Mira hacia donde miraba al caer: la hoja es frontal y la
+      // copia espejada de Recursos vale igual que para andar.
+      if (this.relojMuerte < this._duracionMuerte(CUERPO_EN_EL_SUELO) &&
+          this._dibujarMuerte(ctx, axF, ayF)) {
+        this._dibujarReanimacion(ctx, axF, ayF);
+        return;
+      }
+
+      const metaAtaud = Recursos.meta(this.personaje + 'Ataud');
+      const imgAtaud = Recursos.imagen(this.personaje + 'Ataud');
       if (metaAtaud && imgAtaud) {
         ctx.drawImage(imgAtaud,
           0, 0, metaAtaud.w, metaAtaud.h,
@@ -985,27 +1085,7 @@ export class Jugador {
           metaAtaud.w / ESCALA_ARTE, metaAtaud.h / ESCALA_ARTE);
       }
 
-      // Cuánto queda para levantarse, en un arco a los pies del ataúd. Va en el
-      // MUNDO y no en el panel de la esquina a propósito: lo que hay que decidir
-      // mirándolo es si te da tiempo a llegar hasta ahí, y eso se decide mirando
-      // el sitio, no una esquina de la pantalla. Solo aparece si el contador ha
-      // arrancado, así que en solitario —donde no hay reanimación— no sale nada.
-      if (this.reanimacion > 0) {
-        const cx = axF / ESCALA_ARTE;
-        const cy = ayF / ESCALA_ARTE - 2;
-        const r = 9;
-        ctx.save();
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = 'rgba(8,7,10,.65)';
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.strokeStyle = '#e8c23a';
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, this.reanimacion));
-        ctx.stroke();
-        ctx.restore();
-      }
+      this._dibujarReanimacion(ctx, axF, ayF);
       return;
     }
 
@@ -1066,6 +1146,16 @@ export class Jugador {
       }
     }
     if (!meta || !img) return;
+
+    // MONEDA DE CARONTE, primer tiempo: la misma muerte que la definitiva, y
+    // SIN el parpadeo de i-frames de abajo —un cuerpo en el suelo que
+    // intermite parece un fallo, y ya se ve que no le pueden dar—. El renacer
+    // no arranca hasta que esto acaba (ver `actualizar`).
+    if (this.caidoCaronte > 0) {
+      const cxM = Math.round(this.xVista * ESCALA_ARTE);
+      const cyM = Math.round(this.yVista * ESCALA_ARTE);
+      if (this._dibujarMuerte(ctx, cxM, cyM)) return;
+    }
 
     // Parpadeo de los i-frames. Se salta el sprite, no la barra de vida: durante
     // medio segundo hay que poder seguir leyendo cuánta queda.

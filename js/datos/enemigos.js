@@ -387,16 +387,19 @@ export const ENEMIGOS = {
   //     acaba, así que un cofre de niveles no le serviría a nadie —no queda
   //     partida donde gastarlo—. Lo único que vale a esas alturas es lo que te
   //     llevas a mañana.
-  cerbero:    { sprite:'cerbero',    rol:'jefe',      xp:600,  vida:13000, velocidad:27, danyo:15, radio:15.8,   masa:80.0,  vuela:false, inmuneEmpuje:true,  movimiento:'directo', cofreDorado:true },
-  hidra:      { sprite:'hidra',      rol:'jefe',      xp:1000, vida:16000, velocidad:23, danyo:36, radio:21,   masa:100.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo', cofreDorado:true },
+  cerbero:    { sprite:'cerbero',    rol:'jefe',      xp:600,  vida:13000, velocidad:34, danyo:15, radio:15.8,   masa:80.0,  vuela:false, inmuneEmpuje:true,  movimiento:'directo', cofreDorado:true },
+  hidra:      { sprite:'hidra',      rol:'jefe',      xp:1000, vida:16000, velocidad:29, danyo:36, radio:21,   masa:100.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo', cofreDorado:true },
   // UN 50% MÁS RÁPIDOS (Sergio, 21/09/2026): 18/15/12 -> 27/23/18. Eran los
   // más lentos del bestiario con diferencia y en el centro comercial, con
   // rodeos por pasillos, no llegaban nunca. Los gemelos no se tocan: son
   // escolta, no jefe, y ya iban a 30.
+  // Y OTRO 25% (Sergio, mismo día, tras jugarlo): 27/23/18 -> 34/29/23. La
+  // Loba queda ya a la altura de un gladiador (24) y Cerbero por encima de la
+  // arpía (32): un jefe tiene que alcanzarte si te limitas a correr.
   // `directo` y no `acecho`: el acecho se para y mira antes de embestir, y
   // Sergio quiere a los jefes persiguiendo sin descanso. Sus embestidas ya
   // las lleva sistemas/jefes.js.
-  loba:       { sprite:'loba',       rol:'jefe',      xp:1500, vida:26000, velocidad:18, danyo:38, radio:23.6, masa:120.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo', denariosAlMorir:1000 },
+  loba:       { sprite:'loba',       rol:'jefe',      xp:1500, vida:26000, velocidad:23, danyo:38, radio:23.6, masa:120.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo', denariosAlMorir:1000 },
   // `escolta` es lo que sistemas/jefes.js vigila para saber cuándo cae un
   // gemelo: mientras alguno siga vivo, la loba regenera; cada vez que uno cae,
   // se enfurece. Ver datos/jefes.js.

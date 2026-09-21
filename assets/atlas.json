@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260921131117",
+    "version":  "20260921175656",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -460,9 +460,9 @@
                                         "plano":  true,
                                         "solido":  [
                                                        14,
-                                                       21,
-                                                       62,
-                                                       102
+                                                       20,
+                                                       61,
+                                                       103
                                                    ]
                                     },
                       "lucyAtaud":  {
@@ -510,21 +510,186 @@
                                                         99
                                                     ]
                                      },
-                      "ataudGenerico":  {
-                                            "archivo":  "personajes/generico-ataud.png",
-                                            "w":  280,
-                                            "h":  136,
-                                            "anclaX":  140,
-                                            "anclaY":  136,
-                                            "frames":  1,
-                                            "plano":  true,
-                                            "solido":  [
-                                                           29,
-                                                           17,
-                                                           221,
-                                                           105
-                                                       ]
-                                        },
+                      "helenAtaud":  {
+                                         "archivo":  "personajes/helen-ataud.png",
+                                         "w":  72,
+                                         "h":  136,
+                                         "anclaX":  36,
+                                         "anclaY":  136,
+                                         "frames":  1,
+                                         "plano":  true,
+                                         "solido":  [
+                                                        14,
+                                                        17,
+                                                        44,
+                                                        100
+                                                    ]
+                                     },
+                      "julieAtaud":  {
+                                         "archivo":  "personajes/julie-ataud.png",
+                                         "w":  72,
+                                         "h":  136,
+                                         "anclaX":  36,
+                                         "anclaY":  136,
+                                         "frames":  1,
+                                         "plano":  true,
+                                         "solido":  [
+                                                        14,
+                                                        17,
+                                                        45,
+                                                        100
+                                                    ]
+                                     },
+                      "sayAtaud":  {
+                                       "archivo":  "personajes/say-ataud.png",
+                                       "w":  72,
+                                       "h":  136,
+                                       "anclaX":  36,
+                                       "anclaY":  136,
+                                       "frames":  1,
+                                       "plano":  true,
+                                       "solido":  [
+                                                      14,
+                                                      17,
+                                                      44,
+                                                      100
+                                                  ]
+                                   },
+                      "sofiAtaud":  {
+                                        "archivo":  "personajes/sofi-ataud.png",
+                                        "w":  72,
+                                        "h":  136,
+                                        "anclaX":  36,
+                                        "anclaY":  136,
+                                        "frames":  1,
+                                        "plano":  true,
+                                        "solido":  [
+                                                       14,
+                                                       17,
+                                                       44,
+                                                       100
+                                                   ]
+                                    },
+                      "ericMuerte":  {
+                                         "archivo":  "personajes/eric-muerte.png",
+                                         "w":  96,
+                                         "h":  104,
+                                         "anclaX":  48,
+                                         "anclaY":  104,
+                                         "frames":  9,
+                                         "clips":  {
+                                                       "morir":  {
+                                                                     "desde":  0,
+                                                                     "n":  9,
+                                                                     "fps":  10
+                                                                 }
+                                                   }
+                                     },
+                      "lucyMuerte":  {
+                                         "archivo":  "personajes/lucy-muerte.png",
+                                         "w":  144,
+                                         "h":  104,
+                                         "anclaX":  72,
+                                         "anclaY":  104,
+                                         "frames":  8,
+                                         "clips":  {
+                                                       "morir":  {
+                                                                     "desde":  0,
+                                                                     "n":  8,
+                                                                     "fps":  10
+                                                                 }
+                                                   }
+                                     },
+                      "saraMuerte":  {
+                                         "archivo":  "personajes/sara-muerte.png",
+                                         "w":  80,
+                                         "h":  104,
+                                         "anclaX":  40,
+                                         "anclaY":  104,
+                                         "frames":  9,
+                                         "clips":  {
+                                                       "morir":  {
+                                                                     "desde":  0,
+                                                                     "n":  9,
+                                                                     "fps":  10
+                                                                 }
+                                                   }
+                                     },
+                      "vickyMuerte":  {
+                                          "archivo":  "personajes/vicky-muerte.png",
+                                          "w":  94,
+                                          "h":  104,
+                                          "anclaX":  47,
+                                          "anclaY":  104,
+                                          "frames":  9,
+                                          "clips":  {
+                                                        "morir":  {
+                                                                      "desde":  0,
+                                                                      "n":  9,
+                                                                      "fps":  10
+                                                                  }
+                                                    }
+                                      },
+                      "helenMuerte":  {
+                                          "archivo":  "personajes/helen-muerte.png",
+                                          "w":  96,
+                                          "h":  92,
+                                          "anclaX":  48,
+                                          "anclaY":  92,
+                                          "frames":  8,
+                                          "clips":  {
+                                                        "morir":  {
+                                                                      "desde":  0,
+                                                                      "n":  8,
+                                                                      "fps":  10
+                                                                  }
+                                                    }
+                                      },
+                      "julieMuerte":  {
+                                          "archivo":  "personajes/julie-muerte.png",
+                                          "w":  96,
+                                          "h":  100,
+                                          "anclaX":  48,
+                                          "anclaY":  100,
+                                          "frames":  8,
+                                          "clips":  {
+                                                        "morir":  {
+                                                                      "desde":  0,
+                                                                      "n":  8,
+                                                                      "fps":  10
+                                                                  }
+                                                    }
+                                      },
+                      "sayMuerte":  {
+                                        "archivo":  "personajes/say-muerte.png",
+                                        "w":  88,
+                                        "h":  104,
+                                        "anclaX":  44,
+                                        "anclaY":  104,
+                                        "frames":  7,
+                                        "clips":  {
+                                                      "morir":  {
+                                                                    "desde":  0,
+                                                                    "n":  7,
+                                                                    "fps":  10
+                                                                }
+                                                  }
+                                    },
+                      "sofiMuerte":  {
+                                         "archivo":  "personajes/sofi-muerte.png",
+                                         "w":  84,
+                                         "h":  112,
+                                         "anclaX":  42,
+                                         "anclaY":  112,
+                                         "frames":  7,
+                                         "clips":  {
+                                                       "morir":  {
+                                                                     "desde":  0,
+                                                                     "n":  7,
+                                                                     "fps":  10
+                                                                 }
+                                                   }
+                                     },
                       "proyOsito":  {
                                         "archivo":  "efectos/osito-dinamito.png",
                                         "w":  33,

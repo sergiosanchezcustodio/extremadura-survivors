@@ -143,10 +143,12 @@ Treinta minutos, tres jefes por el camino y un contador que no perdona.
 En el panel de cada jugador, bajo el retrato, hay **cinco corazones**: las vidas
 que te quedan. Salen siempre los cinco —el hueco dice cuánto te falta por comprar
 y el apagado cuánto has perdido— y al perder una, el corazón revienta en
-esquirlas. Perder una vida ya no pasa desapercibido: el personaje **se encoge
-hasta desaparecer y vuelve**, con un anillo, chispas y el mando vibrando. La
-Moneda de Caronte te devuelve al sitio en el mismo fotograma en que te matan, y
-eso, que es lo que la hace buena, era también lo que la hacía invisible.
+esquirlas. Perder una vida ya no pasa desapercibido: **el personaje muere de
+verdad** —el golpe, la caída, el cuerpo en el suelo, con una animación dibujada
+para cada héroe— y solo después **se hunde y vuelve**, con un anillo, chispas y
+el mando vibrando. Mientras yace no dispara y no le pueden dar. La Moneda de
+Caronte te devuelve al sitio donde te matan, y eso, que es lo que la hace
+buena, era también lo que la hacía invisible.
 
 Y cuando cae un jefe de los minutos 10, 20 o 30, **la horda sale por patas**: los
 comunes corren a triple velocidad y se esfuman, y mientras el jefe siga en pie no
@@ -177,8 +179,9 @@ pared dejaba el pánico intacto, solo que en silencio.
 ## Cooperativo local
 
 Hasta **cuatro jugadores** en la misma pantalla, cada uno con su panel en una
-esquina. Quien cae deja un ataúd y un contador, y cualquiera puede ir a
-levantarlo.
+esquina. Quien cae muere en pantalla y deja **su ataúd** —cada héroe tiene el
+suyo, y desde el otro lado de la pantalla dice de quién es sin leer un nombre—
+con un contador a los pies, y cualquiera puede ir a levantarlo.
 
 ![Cooperativo](docs/capturas/gameplay_multiplayer_coop.jpg)
 
@@ -235,9 +238,8 @@ más baja de las ocho, Julie un poco más baja que Sara, Say mide lo que Vicky y
 Sofi es la más alta. Es solo el dibujo — el círculo de colisión es el mismo para
 todo el mundo, así que ser más alta no es recibir más golpes.
 
-Lo único que les falta todavía es su ataúd —el dibujo que en cooperativo dice a
-quién hay que ir a levantar—; mientras no lo tengan, quien cae deja en su sitio
-el reloj de la reanimación.
+Y las ocho tienen su ataúd y su animación de muerte, dibujados a mano: el
+juego ya no lleva ningún arte provisional.
 
 ![Selección de personaje](docs/capturas/menu_seleccion_jugadores.jpg)
 
@@ -340,9 +342,11 @@ la que resultara cómoda de maquetar.
 
 ![Bestiario](docs/bestiario.png)
 
-Cerbero entra en el minuto 10, la Hidra en el 20 y la Loba cierra la partida. Los
-demás van llegando por oleadas, con élites que sueltan cofre y variantes doradas
-que huyen en vez de perseguir.
+Cerbero entra en el minuto 10, la Hidra en el 20 y la Loba cierra la partida, y
+los tres persiguen sin descanso: van más rápidos que casi todo el bestiario, así
+que a un jefe no se le escapa corriendo, se le pelea. Los demás van llegando por
+oleadas, con élites que sueltan cofre y variantes doradas que huyen en vez de
+perseguir.
 
 ---
 

@@ -79,20 +79,10 @@ export const PERSONAJES = {
   // ficha, la cara del HUD y el ataúd— porque los cuatro salen del mismo id del
   // atlas. Ver `personaje` en entidades/jugador.js.
   //
-  // TODAVÍA SIN ATAÚD PROPIO. Estas cuatro no tienen `<Nombre>_ataud.png`
-  // dibujado, y el ataúd es lo que en cooperativo dice a quién hay que ir a
-  // levantar sin leer un nombre.
-  //
-  // Ya no se quedan sin nada: caen sobre un SARCÓFAGO GENÉRICO de piedra, sin
-  // personaje dentro (`ataudGenerico`, ver `dibujar` en entidades/jugador.js).
-  // Es ARTE PROVISIONAL pedido a la API de imágenes, no de Sergio, y está aquí
-  // solo para que el sitio donde ha caído alguien se vea. Pierde lo que hace
-  // bueno al ataúd propio —de quién es— pero dice lo más importante, que es que
-  // ahí hay alguien.
-  //
-  // El día que existan los cuatro son cuatro filas en la tabla de ataúdes de
-  // herramientas/procesar-assets.ps1 y ni una línea aquí: el dibujado prueba
-  // primero el propio y solo cae al genérico si falta.
+  // Las cuatro tienen ya su ataúd propio (`<Nombre>_ataud.png`, 21/09/2026),
+  // que en cooperativo es lo que dice a quién hay que ir a levantar sin leer
+  // un nombre. Hasta entonces caían sobre un sarcófago genérico provisional,
+  // que se retiró ese mismo día.
   //
   // EL PRECIO SUBE CON LA LISTA (1500 / 2500 / 3500 / 5000). Una partida deja
   // unos dos mil denarios, así que el primero cae en la segunda o tercera y el

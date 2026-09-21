@@ -60,12 +60,11 @@ el estado `poseido` ya está en el enemigo y el bucle que lo mueve ya es suyo.
 
 ## Arte pendiente
 
-**Solo los ataúdes de Helen, Julie, Say y Sofi.** No existen; el juego aguanta
-sin ellos (`dibujar` en `entidades/jugador.js` sigue pintando el reloj de la
-reanimación), pero en cooperativo el ataúd es lo que dice a quién hay que ir a
-levantar. Cuando estén, son cuatro filas más en la tabla de ATAUDES de
-`herramientas/procesar-assets.ps1`, con el nombre `<Nombre>_ataud.png` en
-`resources/characters/`.
+**Nada.** Los ataúdes de Helen, Julie, Say y Sofi —lo último que faltaba—
+los dibujó Sergio el 21/09/2026, y ese mismo día entraron las animaciones de
+muerte de los ocho héroes (`resources/characters/<Nombre>_sprite_muerte.png`,
+láminas de fotogramas sueltos que `procesar-assets.ps1` lee por islas). El
+sarcófago genérico provisional se retiró.
 
 Todo lo demás que fue provisional —los tres iconos de arma (Petanca, Cayado,
 Campana), los veintiún iconos de pasivos y los cinco potenciadores de tienda

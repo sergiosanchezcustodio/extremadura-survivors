@@ -1419,6 +1419,110 @@ public class Procesador {
     }
 
     // ---------------------------------------------------------------------
+    // Hoja de MUERTE de un personaje (fotogramas sueltos, sin rejilla)
+    // ---------------------------------------------------------------------
+    //
+    // Sergio dibuja la muerte como una lamina de fotogramas SUELTOS: el
+    // personaje de pie recibiendo el golpe, cayendo y acabando tumbado. No
+    // caben en una rejilla regular porque la silueta cambia de forma de arriba
+    // abajo —de 209 de alto y 92 de ancho a 63 de alto y 195 de ancho en la de
+    // Eric— y las celdas se pisarian. Asi que se leen POR ISLAS, en orden de
+    // lectura (arriba-izquierda, luego la fila de abajo de izquierda a derecha,
+    // que es como las dibuja), y no se le pide al arte que respete casillas.
+    //
+    // TODOS LOS FOTOGRAMAS SE ESCALAN CON EL MISMO FACTOR, y ese factor es el
+    // que deja el mas alto —el de pie— en el alto pedido, o sea el mismo alto
+    // que tiene el personaje andando. Si cada fotograma se ajustara a su caja,
+    // el cuerpo tumbado saldria tan alto como el de pie: un gigante tumbado.
+    //
+    // El ancla es el centro de los PIES: cada fotograma se apoya en el borde
+    // inferior de la tira y se centra en horizontal. Al caer, el cuerpo se
+    // desplaza a un lado respecto a donde estaban los pies, y eso lo decide el
+    // dibujo, no el motor.
+    //
+    // Devuelve: frameW|frameH|nFrames
+    public static string RecortarMuerte(string entrada, string salida, int altoFis) {
+        byte[] px; int w, h, stride;
+        CargarPx(entrada, out px, out w, out h, out stride);
+
+        // Un fotograma de verdad tiene 7.000-14.000 px opacos en estas hojas.
+        // Pero hay PIEZAS SUELTAS que son de un fotograma sin tocarlo: el libro
+        // que a Say se le cae de la mano (1.272 px), el pie que asoma por
+        // debajo. Con un area minima a secas se perdian, y son parte del
+        // dibujo. Asi que las islas pequenas —de 200 px para arriba, que por
+        // debajo si son motas— se pegan al fotograma grande que tengan mas
+        // cerca, si esta a menos de 40 px de su caja; las que no tienen a nadie
+        // cerca se tiran.
+        List<int[]> todas = IslasOpacas(px, stride, w, h, 200);
+        List<int[]> islas = new List<int[]>();
+        List<int[]> sueltas = new List<int[]>();
+        foreach (int[] c in todas) {
+            long area = (long)(c[2] - c[0] + 1) * (c[3] - c[1] + 1);
+            // Area de la CAJA, no de la mancha: lo que devuelve IslasOpacas.
+            // Un fotograma de pie ocupa una caja de 90x200 por lo menos.
+            if (area >= 2000 * 2) islas.Add(c); else sueltas.Add(c);
+        }
+        if (islas.Count == 0) return "VACIA";
+        foreach (int[] p in sueltas) {
+            int mejor = -1, mejorGap = int.MaxValue;
+            for (int i = 0; i < islas.Count; i++) {
+                int[] c = islas[i];
+                int gx = Math.Max(0, Math.Max(c[0] - p[2], p[0] - c[2]));
+                int gy = Math.Max(0, Math.Max(c[1] - p[3], p[1] - c[3]));
+                int gap = Math.Max(gx, gy);
+                if (gap < mejorGap) { mejorGap = gap; mejor = i; }
+            }
+            if (mejor < 0 || mejorGap > 40) continue;
+            int[] m = islas[mejor];
+            if (p[0] < m[0]) m[0] = p[0]; if (p[1] < m[1]) m[1] = p[1];
+            if (p[2] > m[2]) m[2] = p[2]; if (p[3] > m[3]) m[3] = p[3];
+        }
+        OrdenarLectura(islas);
+
+        int altoMax = 0, anchoMax = 0;
+        foreach (int[] c in islas) {
+            altoMax = Math.Max(altoMax, c[3] - c[1] + 1);
+        }
+        double factor = (double)altoFis / altoMax;
+        foreach (int[] c in islas) {
+            anchoMax = Math.Max(anchoMax, (int)Math.Round((c[2] - c[0] + 1) * factor));
+        }
+        // Ancho PAR, por lo mismo que en RecortarHoja: el ancla horizontal es
+        // frameW/2 y con impar caeria en medio pixel.
+        int frameW = anchoMax; if ((frameW & 1) == 1) frameW++;
+        int frameH = altoFis;
+        int nf = islas.Count;
+        int tiraW = frameW * nf;
+        int dStride = tiraW * 4;
+        byte[] dst = new byte[dStride * frameH];
+
+        for (int f = 0; f < nf; f++) {
+            int[] c = islas[f];
+            int sw = c[2] - c[0] + 1, sh = c[3] - c[1] + 1;
+            int dw = Math.Max(1, (int)Math.Round(sw * factor));
+            int dh = Math.Max(1, (int)Math.Round(sh * factor));
+            int dx = f * frameW + (frameW - dw) / 2;
+            int dy = frameH - dh;
+            EscalarBloque(px, stride, w, h, c[0], c[1], sw, sh,
+                          dst, dStride, dx, dy, dw, dh);
+        }
+        // Alfa BINARIO, como en el resto de sprites del mundo: la hoja trae un
+        // borde suave y a esta escala un contorno semitransparente se lee como
+        // un halo sucio sobre el suelo.
+        for (int i = 3; i < dst.Length; i += 4) dst[i] = dst[i] < 128 ? (byte)0 : (byte)255;
+
+        using (Bitmap sal = new Bitmap(tiraW, frameH, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0,0,tiraW,frameH),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < frameH; y++)
+                Marshal.Copy(dst, y*dStride, (IntPtr)(dd.Scan0.ToInt64() + y*dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+        return frameW + "|" + frameH + "|" + nf;
+    }
+
+    // ---------------------------------------------------------------------
     // Hojas de animacion dibujadas a mano (rejilla de celdas)
     // ---------------------------------------------------------------------
     //
@@ -3327,31 +3431,41 @@ $CATALOGO = @(
     # borron rojo. A 34 la reduccion baja a 4,4 y el escudo y las rayas
     # sobreviven. Ademas un ataud es mas voluminoso que quien iba dentro, asi
     # que verlo mas alto que el personaje se lee bien.
-    @{ src='characters\Eric_ataud.png';  dst='personajes\eric-ataud.png';  id='ericAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
-    @{ src='characters\Lucy_ataud.png';  dst='personajes\lucy-ataud.png';  id='lucyAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
-    @{ src='characters\Sara_ataud.png';  dst='personajes\sara-ataud.png';  id='saraAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
-    @{ src='characters\Vicky_ataud.png'; dst='personajes\vicky-ataud.png'; id='vickyAtaud'; alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
+    # SIN `dominante` (21/09/2026). Se puso para salvar el escudo del Atleti,
+    # pero a 34 de alto —reduccion de 4,4— el color dominante por bloque lo
+    # que hacia era meter RUIDO: cada pixel del sprite era el color de UN pixel
+    # del original elegido a dedo, y las rayas y el escudo salian a saltos.
+    # Sergio lo vio en el juego: "las imagenes originales son de buena calidad
+    # y las del gameplay mucho peores". Comparados los dos metodos sobre el
+    # de Eric, la media de area gana con claridad: rayas rectas, escudo entero.
+    @{ src='characters\Eric_ataud.png';  dst='personajes\eric-ataud.png';  id='ericAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true }
+    @{ src='characters\Lucy_ataud.png';  dst='personajes\lucy-ataud.png';  id='lucyAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true }
+    @{ src='characters\Sara_ataud.png';  dst='personajes\sara-ataud.png';  id='saraAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true }
+    @{ src='characters\Vicky_ataud.png'; dst='personajes\vicky-ataud.png'; id='vickyAtaud'; alto=34; anchoFijo=0; tol=6; plano=$true }
+    # Los cuatro de pago, dibujados el 21/09/2026. Con estos ya no queda ningun
+    # heroe sin ataud propio y el generico se ha ido (ver mas abajo).
+    @{ src='characters\Helen_ataud.png'; dst='personajes\helen-ataud.png'; id='helenAtaud'; alto=34; anchoFijo=0; tol=6; plano=$true }
+    @{ src='characters\Julie_ataud.png'; dst='personajes\julie-ataud.png'; id='julieAtaud'; alto=34; anchoFijo=0; tol=6; plano=$true }
+    @{ src='characters\Say_ataud.png';   dst='personajes\say-ataud.png';   id='sayAtaud';   alto=34; anchoFijo=0; tol=6; plano=$true }
+    @{ src='characters\Sofi_ataud.png';  dst='personajes\sofi-ataud.png';  id='sofiAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true }
+    # ANIMACION DE MUERTE, una por heroe. `alto` = el de su entrada de andar,
+    # para que el primer fotograma —el del golpe— mida lo que medía un instante
+    # antes. jugador.js busca `<id>Muerte`; un heroe sin ella pasaria directo
+    # al ataud. Diez fotogramas por segundo: entre siete y nueve dibujos son
+    # casi un segundo de caida. Se leen por islas, no por rejilla —ver
+    # RecortarMuerte—, asi que cada hoja puede traer los que Sergio quiera.
+    @{ src='characters\Eric_sprite_muerte.png';  dst='personajes\eric-muerte.png';  id='ericMuerte';  alto=26; muerte=$true; fps=10 }
+    @{ src='characters\Lucy_sprite_muerte.png';  dst='personajes\lucy-muerte.png';  id='lucyMuerte';  alto=26; muerte=$true; fps=10 }
+    @{ src='characters\Sara_sprite_muerte.png';  dst='personajes\sara-muerte.png';  id='saraMuerte';  alto=26; muerte=$true; fps=10 }
+    @{ src='characters\Vicky_sprite_muerte.png'; dst='personajes\vicky-muerte.png'; id='vickyMuerte'; alto=26; muerte=$true; fps=10 }
+    @{ src='characters\Helen_sprite_muerte.png'; dst='personajes\helen-muerte.png'; id='helenMuerte'; alto=23; muerte=$true; fps=10 }
+    @{ src='characters\Julie_sprite_muerte.png'; dst='personajes\julie-muerte.png'; id='julieMuerte'; alto=25; muerte=$true; fps=10 }
+    @{ src='characters\Say_sprite_muerte.png';   dst='personajes\say-muerte.png';   id='sayMuerte';   alto=26; muerte=$true; fps=10 }
+    @{ src='characters\Sofi_sprite_muerte.png';  dst='personajes\sofi-muerte.png';  id='sofiMuerte';  alto=28; muerte=$true; fps=10 }
 
-    # EL ATAUD GENERICO, para los cuatro heroes que todavia no tienen el suyo
-    # (ver datos/personajes.js). ARTE PROVISIONAL: no lo ha dibujado Sergio, se
-    # pidio a la API de imagenes -herramientas/generar-imagen.js- y esta aqui
-    # solo para que el sitio donde ha caido alguien se vea. El dibujado prueba
-    # SIEMPRE primero el ataud propio, asi que en cuanto exista el de un heroe
-    # este deja de usarse para el sin tocar una linea.
-    #
-    # OJO: el fuente NO es como los cuatro de Sergio. Viene del generador con
-    # FONDO ROSA -no blanco- y ACOSTADO, asi que necesita dos cosas que los
-    # otros no: un `tol` mucho mas alto, porque ese rosa no es plano y trae ruido
-    # de compresion, y GIRAR 90 GRADOS, porque el modelo dibuja el sarcofago
-    # tumbado por mas que se le pida vertical y lo que hace falta es un
-    # rectangulo de arriba abajo.
-    #
-    # `girar90` NO EXISTE todavia en Procesar: el PNG de assets/ se genero a
-    # mano esta vez. Esta fila queda escrita para que, cuando alguien vuelva a
-    # pasar el procesador, sepa exactamente que hace falta -o para borrarla
-    # entera el dia que los cuatro ataudes que faltan existan, que es lo que de
-    # verdad tiene que pasar.
-    @{ src='characters\Generico_ataud.png'; dst='personajes\generico-ataud.png'; id='ataudGenerico'; alto=34; anchoFijo=0; tol=30; plano=$true; dominante=$true; girar90=$true }
+    # El ATAUD GENERICO —un sarcofago de piedra pedido a la API de imagenes
+    # mientras faltaban cuatro— se retiro el 21/09/2026, cuando Sergio dibujo
+    # los que faltaban. Su fila estaba aqui; jugador.js ya no lo busca.
 
     # EL OSITO DINAMITO, que es un PROYECTIL y no un bicho, pero sale por aqui
     # porque lo que necesita es exactamente lo que hace esta rama: un GIF de
@@ -3679,6 +3793,30 @@ foreach ($e in $CATALOGO) {
         $informe += [PSCustomObject]@{
             Id=$e.id; Silueta='-'; Ratio='-'; Sprite="${anchoFis}x${lado}"
             Quitado='-'; Estado='PLACEHOLDER'
+        }
+        continue
+    }
+
+    # --- Hoja de muerte de un personaje ------------------------------------
+    # Fotogramas sueltos leidos por islas; ver RecortarMuerte. `alto` es el del
+    # personaje de pie, el mismo que su entrada de andar, para que el primer
+    # fotograma —el del golpe— mida lo que medía un instante antes.
+    if ($e.muerte) {
+        $r = [Procesador]::RecortarMuerte($rutaSrc, $rutaDst, $e.alto * $ESCALA)
+        $p = $r -split '\|'
+        if ($p.Count -ne 3) {
+            $informe += [PSCustomObject]@{ Id=$e.id; Silueta='-'; Ratio='-'; Sprite='-'; Quitado='-'; Estado='VACIA' }
+            continue
+        }
+        $fw=[int]$p[0]; $fh=[int]$p[1]; $nf=[int]$p[2]
+        $atlas[$e.id] = [ordered]@{
+            archivo = $e.dst.Replace('\', '/')
+            w = $fw; h = $fh; anclaX = [int]($fw / 2); anclaY = $fh; frames = $nf
+            clips = [ordered]@{ morir = [ordered]@{ desde = 0; n = $nf; fps = $e.fps } }
+        }
+        $informe += [PSCustomObject]@{
+            Id=$e.id; Silueta='islas'; Ratio=[math]::Round($fw/$fh,2)
+            Sprite="${fw}x${fh} x$nf"; Quitado='-'; Estado='MUERTE OK'
         }
         continue
     }

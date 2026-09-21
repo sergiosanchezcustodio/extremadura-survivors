@@ -2886,7 +2886,9 @@ function avisarVidasPerdidas() {
 function limpiarAtaquesDeCaidos() {
   for (let i = 0; i < jugadores.length; i++) {
     const j = jugadores[i];
-    if (!j.abatido) { j._ataquesLimpiados = false; continue; }
+    // `caido` y no `abatido`: al que gasta una Moneda de Caronte también se
+    // le barre lo que tenía en el aire mientras yace, por lo mismo.
+    if (!j.caido) { j._ataquesLimpiados = false; continue; }
     if (j._ataquesLimpiados) continue;
     j._ataquesLimpiados = true;
     if (arsenales[i]) arsenales[i].apagarEfectos();
@@ -3350,7 +3352,7 @@ function actualizar(dt) {
   // en vez de crearse: cuatro jugadores por sesenta pasos serían 240 objetos
   // por segundo tirados a la basura.
   for (let i = 0; i < jugadores.length; i++) {
-    if (jugadores[i].abatido) continue;      // un caído no dispara
+    if (jugadores[i].caido) continue;        // un caído no dispara (ni el que va a volver)
     ctxArmas.jugador = jugadores[i];
     arsenales[i].actualizar(dt, ctxArmas);
     arsenales[i].actualizarOrbitales(dt, ctxArmas);

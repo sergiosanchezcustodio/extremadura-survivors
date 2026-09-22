@@ -1044,11 +1044,18 @@ export const ARMAS = {
     // fotogramas. Lo pidió Sergio y la genera Pirotecnia.Sismo
     // (herramientas/generar-efectos.ps1).
     spriteOnda: 'ondaSismo',
-    danyo: 22, radio: 140, duracion: 0.7, recarga: 4.0, empuje: 150,
+    // EL RADIO ARRANCA CORTO Y CRECE EN LOS DIEZ NIVELES (Sergio, 22/09/2026).
+    // De salida eran 140 —media pantalla— y el arma se llevaba por delante el
+    // combate desde el primer nivel, sin nada que ganar. Ahora empieza en 35
+    // (la cuarta parte) y sube en CADA subida hasta los 204 de siempre, que es
+    // lo que daba antes en el nivel 10: la misma arma al final del camino, pero
+    // con camino. 35 + 19*7 + 18*2 = 204.
+    danyo: 22, radio: 35, duracion: 0.7, recarga: 4.0, empuje: 150,
     color: '#c0a070',
-    niveles: [{}, { radio: 18 }, { danyo: 7 }, { recarga: -0.5 },
-              { radio: 20 }, { danyo: 9 }, { recarga: -0.4 }, { radio: 26, danyo: 13 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { radio: 19 }, { radio: 19, danyo: 7 }, { radio: 19, recarga: -0.5 },
+              { radio: 19 }, { radio: 19, danyo: 9 }, { radio: 19, recarga: -0.4 },
+              { radio: 19, danyo: 13 }, { radio: 18, danyo: 6 },
+              { radio: 18, danyo: 9, recarga: -0.15 }]
   },
 
   // --- Suelo: dejas rastro y no vuelves sobre él --------------------------

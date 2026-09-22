@@ -242,6 +242,13 @@ Se declaran en el nivel:
 texturasMapa: { '.': 'assets/niveles/lighthouse/pasillo.png', /* símbolo → PNG */ }
 ```
 
+The Lighthouse añade dos cosas encima: **un pasillo por anillo** (`.`, `,` y
+`;`, los tres llamados `pasillo` en la leyenda; el generador cambia el símbolo
+al final, con los anillos repartidos) y **`suelosTiendas`**, una lista de
+texturas que el motor reparte entre las tiendas al cargar —cada trozo conexo
+de suelo de tienda es una tienda y le toca una por turno, sin mezclar dentro
+de ninguna— porque el símbolo del mapa es el tipo de tienda, no su suelo.
+
 Las que no estén se sustituyen por un dibujo de relleno hecho en código a
 partir del color de `coloresMapa` —terrazo, baldosa, tablones, moqueta,
 terracota, estantería con género, mostrador de madera, persiana en las
@@ -264,12 +271,54 @@ pinta sobre las celdas de suelo al sur del tramo, tantas como diga su altura
 mostrador 2, puertas 2; The Lighthouse, con celdas de 4, pone pared y
 estantería a **14** —56 unidades, los paneles de Sergio a su tamaño—,
 mostrador 4 y puertas 6). La cara va en la capa del suelo a propósito: quien
-se arrima por abajo queda delante, como en Mérida. **Y esa franja no se
-pisa**: `RejillaMapa.pie` marca las celdas de cara y `solidoEnCelda` las trata
-como pared para todo (jugadores, horda, disparos, apariciones, navegación);
-se rehace al abrir y cerrar puertas. Los PNG de cara van en
+se arrima por abajo queda delante, como en Mérida. Los PNG de cara van en
 `carasMapa` (repiten en horizontal, se recortan al alto); sin PNG hay una
 cara de relleno por nombre. Cambiar el arte no toca código.
+
+**Y la tapa de un muro es el muro**, no un techo: llevaba una textura gris de
+hormigón y en una tienda abierta se leía como una cubierta. Ahora lleva el
+panel de su tienda —el de siempre en los muros que van de este a oeste, y
+**girado 90°** en los que van de norte a sur, para que se lea como la misma
+pared vista de lado (`_tapaDeMuro` en `sistemas/sueloRejilla.js`).
+
+**Hundirse en un muro.** La cara no se pisa, así que quien SUBE por el pasillo
+se para donde el muro toca el suelo. Pero quien llega **desde el otro lado, por
+arriba**, puede meterse en ella hasta su base: `RejillaMapa.hundible` marca esas
+celdas y `colisionar(..., hundir)` las ignora, y solo lo piden los jugadores
+(la horda choca como siempre, así que el campo de flujo no cambia). Dos seguros. La **última fila** de la cara sigue siendo sólida —es el tope por
+los dos lados—, y sobre todo `_podarHundibles`: al cargar el nivel se miran las
+**zonas** del mapa (los trozos de suelo que se comunican con las puertas que
+estén cerradas, cerradas) y se le quita el hundimiento a todo trozo de cara que
+toque más de una. Sin eso, la cara es un túnel: se entra por un lado, se
+recorre a lo largo y se sale por el extremo del muro, y medido sobre el mapa
+eso dejaba el **99,7%** del centro comercial accesible con las puertas
+cerradas, o sea los cierres de los jefes convertidos en decoración. Con la
+poda, la cuenta es exacta: **cero** celdas de suelo nuevas. Se rehace al abrir
+una puerta —ahí las zonas se funden y esa pared ya no separa nada—, y cuesta
+unos 120 ms, que es lo que tarda un jefe en caer.
+
+También se sube a dos celdas el grueso de la frontera entre anillos
+(`tapiarFrontera`) y se dejan pasar los tabiques de una sola celda entre dos
+caras, para poder recorrer de un tirón el frente de una fila de tiendas. Mientras solo está a medias se dibuja **lo que asoma** por encima de la pared y
+nada más (un recorte del sprite, sin máscaras); cuando el muro lo tapa del
+todo, `dibujar` en `entidades/jugador.js` pinta su **silueta del color de su
+jugador con un halo**, que es lo único que dice dónde está. Su **mascota** hace
+lo mismo y con el mismo color (`_una` en `sistemas/mascotas.js`). Y sigue
+disparando: `lineaLibre` y `alcanceLibre` dejan salir del muro en el que se
+está —antes, un origen dentro de algo sólido devolvía "no hay línea" y el
+jugador hundido se quedaba sin objetivos— pero **solo hacia arriba**, que es
+por donde se entró: lo de abajo está al otro lado de la pared.
+
+**Cuánto de esa cara NO se pisa es otra cosa**, y se declara aparte con
+`pieMapa` (símbolo → celdas; por defecto, la altura entera, que es como se
+comportaba antes). `RejillaMapa.pie` marca esas celdas y `solidoEnCelda` las
+trata como pared para todo (jugadores, horda, disparos, apariciones,
+navegación); se rehace al abrir y cerrar puertas. The Lighthouse lo pone **a
+cero**: con caras de 56 unidades, dejarlas sólidas plantaba al jugador a dos
+cuerpos de cada muro. A cero, la cara es solo dibujo y quien se arrima llega
+hasta la base del muro y se dibuja delante de él. El generador tiene el mismo
+número en `CARA_SOLIDA` y **tiene que coincidir**: si midiera de más, tapiaría
+pasillos por los que sí se pasa.
 
 ### Cada tienda con lo suyo: paredes y estanterías por tipo
 
@@ -279,7 +328,14 @@ Tres tablas más en los datos del nivel, todas símbolo de SUELO → PNG:
 - `paredesMapa` — el panel de pared que enseña una pared vista desde ese
   suelo: dentro de la juguetería, ositos; desde el pasillo, el azulejo.
 - `escaparatesMapa` — lo que enseña al **pasillo** una pared que tiene esa
-  tienda detrás: el rótulo del súper, el cristal a oscuras de una cerrada. De
+  tienda detrás. Son **ventanales de cristal**, uno por tipo de tienda y
+  siempre el mismo color (juguetes, el rosa), con el cristal al **25% de
+  opacidad** y el marco opaco. A través de él se ve **el interior de la
+  tienda**: al componer el trozo, la celda bajo un cristal se repinta con el
+  suelo de la tienda a la que da (o con su techo, si está cerrada) y el
+  cristal encima; sin eso se veía el suelo del pasillo, que es lo que no hay
+  detrás de un ventanal. Por
+  eso ninguna estantería se pega a una pared que dé al pasillo. De
   qué tienda es cada celda sólida lo decide `_calcularDuenyos` al cargar:
   la tienda (o techo) con escaparate más cercana a través de lo sólido, para
   que la estantería que forra la pared o la esquina no rompan el escaparate.
@@ -307,7 +363,8 @@ pero con dibujo propio. Los pone el generador (`amueblar` en
 `herramientas/mapa-lighthouse.js`): los lineales del hipermercado son
 **todas las tiendas iguales y sencillas** (Sergio): las paredes norte y sur
 forradas de estantería por dentro —menos las puertas, un módulo a cada lado
-de ellas y las esquinas—, y filas interiores horizontales de dos celdas de
+de ellas, las esquinas y **las paredes que dan al pasillo**, que son
+escaparates de cristal—, y filas interiores horizontales de dos celdas de
 grueso cada cuatro módulos (estantería, cara y 64 unidades de paso). Nada en
 las paredes verticales ni filas verticales: en 3/4 solo enseñarían la tapa.
 Sin mostradores, sin islas de muro. Y todo local
@@ -349,6 +406,15 @@ ensancha los túneles, separa los lineales y, sobre todo, **mide la
 conectividad y las rendijas como se pisa**: con el pie como sólido. Sin eso
 daba por transitables pasillos que en el juego estaban tapados por la pared de
 arriba.
+
+**Las bocas, al pie del muro.** Un muro se dibuja alto y su cara cubre las
+celdas de abajo, así que el borde entre el suelo de fuera y el de dentro es la
+línea donde la pared toca el suelo, no su tapa. En el hueco de una puerta no
+hay cara, y el suelo del otro lado asomaba por el boquete catorce celdas más
+arriba que en el resto del frente: `uniformarBocas` le da a ese hueco el suelo
+del lado de ARRIBA del muro, y el borde vuelve a ser una línea recta con puerta
+y sin ella. Solo cuentan las sombras de las PAREDES: las de las estanterías
+harían pasar por boca el pasillo que queda entre dos lineales.
 
 **Las tiendas abiertas son intocables**: ni túneles ni fronteras de anillo
 pasan por dentro (cada tienda abierta va entera al anillo donde cae su

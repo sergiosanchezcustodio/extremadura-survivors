@@ -84,6 +84,16 @@ function rgb(c, k = 1, sumar = 0) {
   return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
 
+// Una imagen girada 90° sobre su centro. Se usa para la tapa de los muros
+// verticales (ver `cargar`): el mismo panel, tumbado.
+function girar90(img) {
+  const { c, ctx } = lienzo(img.height, img.width);
+  ctx.translate(img.height / 2, img.width / 2);
+  ctx.rotate(Math.PI / 2);
+  ctx.drawImage(img, -img.width / 2, -img.height / 2);
+  return c;
+}
+
 function lienzo(w, h) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -337,11 +347,15 @@ export const SueloRejilla = {
   caras: null,           // la cara de cada tipo, o null si es plano
   paredes: null,         // cara de pared por tipo de SUELO desde el que se ve
   duenyo: null,          // por celda sólida: tipo de la tienda de la que es (255 = de nadie)
+  panelesGirados: null,  // el escaparate de cada tienda, girado 90° (tapa de los muros verticales)
   escaparates: null,     // cara de pared por tipo de suelo que hay DETRÁS (visto desde el pasillo)
   estanterias: null,     // caras de estantería (varias) por tipo de suelo delante
   tipoPared: -1,         // índices de tipo: la pared, la estantería y el pasillo
   tipoEstanteria: -1,
   tipoPasillo: -1,
+  esPasillo: null,       // por índice de tipo: ¿es pasillo (de cualquier anillo)?
+  suelosTiendas: null,   // texturas de suelo que se reparten entre las tiendas
+  variante: null,        // por celda: qué suelo de `suelosTiendas` pisa (una por tienda)
   abiertaComo: null,     // índice de tipo con que se pinta una puerta abierta
   ranuras: null,
   version: -1,           // la de RejillaMapa.versionSuelo con que se compuso
@@ -384,6 +398,24 @@ export const SueloRejilla = {
     const pasillo = simbolos.indexOf('.');
     this.abiertaComo = pasillo < 0 ? 0 : pasillo;
     this.tipoPasillo = pasillo;
+    // Pasillo es todo lo que la leyenda llame así: el de cada anillo lleva su
+    // símbolo y su suelo (ver PASILLO_1 en herramientas/mapa-lighthouse.js).
+    this.esPasillo = simbolos.map((ch) => !!(leyenda[ch] && leyenda[ch].nombre === 'pasillo'));
+
+    // LOS SUELOS DE LAS TIENDAS: una lista de texturas que se reparte entre
+    // los locales, UNA POR TIENDA y sin mezclar dentro de ninguna (Sergio,
+    // 22/09/2026). El mapa no dice qué suelo pisa cada tienda —su símbolo es
+    // el tipo, y el suelo es independiente del tipo—, así que se decide aquí:
+    // cada trozo conexo de suelo de tienda es una tienda, y le toca el suelo
+    // que diga su orden de aparición. Es función del mapa, igual en todas las
+    // máquinas de un cooperativo (y solo es dibujo).
+    this.suelosTiendas = null;
+    this.variante = null;
+    if (nivel.suelosTiendas && nivel.suelosTiendas.texturas && nivel.suelosTiendas.texturas.length) {
+      const imgs = await Promise.all(nivel.suelosTiendas.texturas.map((r) => Recursos.cargarSuelta(r)));
+      this.suelosTiendas = imgs.filter((i) => i).map((img) => normalizar(img, RejillaMapa.celda));
+      if (this.suelosTiendas.length) this._repartirSuelos(nivel.suelosTiendas.tipos || []);
+    }
 
     // Las caras por tienda. Se buscan los tipos de pared y estantería por el
     // nombre de la leyenda, que es como los distingue todo lo demás.
@@ -397,6 +429,14 @@ export const SueloRejilla = {
       ? await cargarPorTipo(nivel.escaparatesMapa, simbolos, RejillaMapa.celda, altoPared) : null;
     this.estanterias = altoEst > 0 && nivel.estanteriasMapa
       ? await cargarJuegosPorTipo(nivel.estanteriasMapa, simbolos, RejillaMapa.celda, altoEst) : null;
+    // LA TAPA DE UN MURO ES EL MURO, no un techo. Un muro se dibuja con tapa
+    // (lo que se ve desde arriba) y cara (el frente). La tapa llevaba una
+    // textura gris de hormigón y en una tienda abierta eso se leía como un
+    // techo — y una tienda abierta no tiene techo. Ahora la tapa lleva el
+    // panel de esa tienda: el de siempre en los muros que van de este a oeste,
+    // y GIRADO 90° en los que van de norte a sur, para que se lea como la
+    // misma pared vista de lado. Los girados se hornean aquí, una vez.
+    this.panelesGirados = this.escaparates ? this.escaparates.map((img) => img ? girar90(img) : null) : null;
     this._calcularDuenyos();
 
     if (!this.ranuras) {
@@ -437,10 +477,19 @@ export const SueloRejilla = {
         // Cada textura repite a su tamaño: celdas por textura = ancho / celda,
         // todo en píxeles de textura (una celda son c * PX).
         const cp = c * PX;
-        const porTextura = tex[t].width / cp;
-        const sx = (cx % porTextura) * cp;
-        const sy = (cy % porTextura) * cp;
-        ctx.drawImage(tex[t], sx, sy, cp, cp, i * cp, j * cp, cp, cp);
+        // El suelo de una tienda es el que le tocó a ESA tienda (ver
+        // _repartirSuelos); lo demás, la textura de su símbolo.
+        // LA TAPA DE UN MURO lleva el panel de su tienda (ver `cargar`); lo
+        // demás, la textura de su símbolo.
+        if (solido && t === this.tipoPared && this._tapaDeMuro(ctx, idx, cx, cy, i, j, cp)) {
+          // pintada
+        } else {
+          const textura = this._sueloDe(idx, t);
+          const porTextura = textura.width / cp;
+          const sx = (cx % porTextura) * cp;
+          const sy = (cy % porTextura) * cp;
+          ctx.drawImage(textura, sx, sy, cp, cp, i * cp, j * cp, cp, cp);
+        }
 
         // LA CARA. Solo sobre suelo: se mira hacia arriba hasta alturaMax
         // celdas; si en medio hay algo sólido que no llega a esta celda con su
@@ -453,6 +502,22 @@ export const SueloRejilla = {
           const h = R.altura[ta];
           if (k <= h) {
             const cara = this._caraPara(ta, ia, t, cx, cy - k);
+            // POR UN ESCAPARATE SE VE LA TIENDA, NO EL PASILLO. El cristal es
+            // translúcido y se pinta sobre la celda de suelo que tiene
+            // delante, así que sin esto se veía a través de él el suelo del
+            // pasillo — que es justo lo que no hay detrás de un ventanal. Se
+            // repinta esa celda con el suelo de la tienda a la que da el
+            // cristal (o con su techo, si está cerrada) y el cristal encima.
+            if (this.escaparates && this.duenyo && this.duenyo[ia] !== 255 &&
+                this.escaparates[this.duenyo[ia]]) {
+              const dentro = this._celdaDetras(ia);
+              if (dentro >= 0) {
+                const td = this._sueloDe(dentro, R.tipo[dentro]);
+                const pd = td.width / cp;
+                ctx.drawImage(td, (cx % pd) * cp, (((dentro / R.ancho) | 0) % pd) * cp,
+                              cp, cp, i * cp, j * cp, cp, cp);
+              }
+            }
             const porCara = cara.width / cp;
             const fx = (cx % porCara) * cp;
             ctx.drawImage(cara, fx, (k - 1) * cp, cp, cp, i * cp, j * cp, cp, cp);
@@ -463,6 +528,59 @@ export const SueloRejilla = {
     }
     r.tx = tx; r.ty = ty; r.version = R.versionSuelo;
     this.trozosCompuestos++;
+  },
+
+  // El suelo que pisa la celda `i`: el de su tienda si le tocó uno (ver
+  // `_repartirSuelos`), y si no la textura de su símbolo.
+  _sueloDe(i, t) {
+    if (this.variante && this.variante[i] !== 255) return this.suelosTiendas[this.variante[i]];
+    return this.texturas[t];
+  },
+
+  // LA CELDA DE DENTRO de la tienda a la que da una pared: subiendo desde la
+  // pared, la primera que sea de un tipo con escaparate (suelo de tienda o
+  // techo de una cerrada). -1 si no la hay en un tramo razonable.
+  _celdaDetras(ia) {
+    const R = RejillaMapa;
+    for (let k = 1; k <= 24; k++) {
+      const i = ia - k * R.ancho;
+      if (i < 0) return -1;
+      if (this.escaparates[R.tipo[i]]) return i;
+    }
+    return -1;
+  },
+
+  // UNA TIENDA, UN SUELO. Ver `suelosTiendas` en `cargar`.
+  _repartirSuelos(tipos) {
+    const R = RejillaMapa;
+    const n = R.ancho * R.alto;
+    const esTienda = R.simbolos.map((ch) => tipos.indexOf(ch) >= 0);
+    this.variante = new Uint8Array(n).fill(255);
+    const cola = new Int32Array(n);
+    const W = R.ancho;
+    let tienda = 0;
+    for (let s = 0; s < n; s++) {
+      if (this.variante[s] !== 255 || R.solido[s] === 1 || !esTienda[R.tipo[s]]) continue;
+      const v = tienda % this.suelosTiendas.length;
+      tienda++;
+      let ini = 0, fin = 0;
+      cola[fin++] = s; this.variante[s] = v;
+      while (ini < fin) {
+        const i = cola[ini++];
+        const x = i % W;
+        for (let k = 0; k < 4; k++) {
+          let j;
+          if (k === 0) j = i - W;
+          else if (k === 1) j = i + W;
+          else if (k === 2) j = x > 0 ? i - 1 : -1;
+          else j = x < W - 1 ? i + 1 : -1;
+          if (j < 0 || j >= n) continue;
+          if (this.variante[j] !== 255 || R.solido[j] === 1 || !esTienda[R.tipo[j]]) continue;
+          this.variante[j] = v;
+          cola[fin++] = j;
+        }
+      }
+    }
   },
 
   // DE QUÉ TIENDA ES CADA CELDA SÓLIDA. Una pared enseña al pasillo el
@@ -513,6 +631,41 @@ export const SueloRejilla = {
     }
   },
 
+  // LA TAPA DE UN MURO. Devuelve si la ha pintado. El panel es el de la tienda
+  // de la que es el muro (ver `_calcularDuenyos`); si el muro corre de norte a
+  // sur se usa el panel girado, y si va de este a oeste, el normal recortado
+  // por su parte de arriba —tantas filas como grueso tenga el muro—, que es lo
+  // que se vería de un panel visto desde arriba y un poco de lado.
+  _tapaDeMuro(ctx, idx, cx, cy, i, j, cp) {
+    if (!this.escaparates || !this.duenyo) return false;
+    const dueno = this.duenyo[idx];
+    if (dueno === 255) return false;
+    const panel = this.escaparates[dueno];
+    if (!panel) return false;
+    const R = RejillaMapa;
+    const arriba = cy > 0 && R.solido[idx - R.ancho] === 1;
+    const abajo = cy < R.alto - 1 && R.solido[idx + R.ancho] === 1;
+    const izq = cx > 0 && R.solido[idx - 1] === 1;
+    const der = cx < R.ancho - 1 && R.solido[idx + 1] === 1;
+    if (arriba && abajo && !(izq && der)) {
+      const g = this.panelesGirados && this.panelesGirados[dueno];
+      if (!g) return false;
+      // Tumbado: lo que repite es el alto, y lo que recorta es el grueso.
+      const porAlto = g.height / cp;
+      let grueso = 0;
+      while (grueso < 8 && cx - grueso > 0 && R.solido[idx - grueso - 1] === 1) grueso++;
+      ctx.drawImage(g, Math.min(g.width - cp, grueso * cp), (cy % porAlto) * cp,
+                    cp, cp, i * cp, j * cp, cp, cp);
+      return true;
+    }
+    const porAncho = panel.width / cp;
+    let hondo = 0;
+    while (hondo < 8 && cy - hondo > 0 && R.solido[idx - hondo * R.ancho - R.ancho] === 1) hondo++;
+    ctx.drawImage(panel, (cx % porAncho) * cp, Math.min(panel.height - cp, hondo * cp),
+                  cp, cp, i * cp, j * cp, cp, cp);
+    return true;
+  },
+
   // QUÉ CARA ENSEÑA la celda sólida `ia` (de tipo `ta`) a la celda de suelo de
   // tipo `tSuelo` que la mira desde el sur. Es la regla de "cada tienda con lo
   // suyo": la pared enseña el panel del local desde el que se ve; si se ve
@@ -524,7 +677,7 @@ export const SueloRejilla = {
   // genérica del tipo, que es la de siempre.
   _caraPara(ta, ia, tSuelo, ax, ay) {
     if (ta === this.tipoPared && this.paredes) {
-      if (tSuelo === this.tipoPasillo && this.escaparates && this.duenyo) {
+      if (this.esPasillo[tSuelo] && this.escaparates && this.duenyo) {
         // Desde el pasillo: el escaparate de la tienda de la que es la pared
         // (ver _calcularDuenyos). Sin dueño, el azulejo del pasillo.
         const dueno = this.duenyo[ia];

@@ -37,6 +37,7 @@ export const Recursos = {
   imagenes: new Map(),      // id -> HTMLImageElement | HTMLCanvasElement
   espejos: new Map(),       // id -> canvas volteado en horizontal
   tintes: new Map(),        // id -> silueta en rojo (iluminación de golpe, sobre el sprite)
+  siluetas: new Map(),      // `id|color` -> silueta y halo del color de un jugador
   halos: new Map(),         // id -> halo rojo alrededor de la silueta (golpe)
   halosEspejo: new Map(),   // id -> el mismo, volteado
   tintesEspejo: new Map(),  // id -> el mismo, volteado
@@ -496,6 +497,61 @@ export const Recursos = {
   tinte(id) { return this.tintes.get(id); },
   tinteEspejo(id) { return this.tintesEspejo.get(id); },
   halo(id) { return this.halos.get(id); },
+
+  // LA SILUETA DE COLOR de un personaje, para cuando se hunde en un muro y la
+  // pared lo tapa del todo: la figura maciza del color de su jugador con un
+  // halo del mismo color alrededor, que es lo único que se ve de él.
+  //
+  // Se hornea UNA vez por personaje y color, la primera vez que hace falta, y
+  // se queda en el mapa: son dos lienzos por jugador y por partida. No entra
+  // en el bucle de dibujo nada que no sea un drawImage.
+  // `espejo` a true para la copia mirando a la izquierda: una silueta no tiene
+  // cara, pero sí tiene postura, y con la hoja sin voltear un personaje que
+  // anda hacia la izquierda movía las piernas al revés.
+  silueta(id, color, espejo = false) {
+    const clave = id + '|' + color + (espejo ? '|e' : '');
+    let s = this.siluetas.get(clave);
+    if (s !== undefined) return s;
+    const fuente = espejo ? this.espejos.get(id) : this.imagenes.get(id);
+    const meta = this.meta(id);
+    if (!fuente || !meta) { this.siluetas.set(clave, null); return null; }
+    s = { figura: this._tinte(fuente, meta, color), halo: this._haloColor(fuente, meta, color) };
+    this.siluetas.set(clave, s);
+    return s;
+  },
+
+  // El mismo anillo que `_halo` pero del color que se pida. Se separa en vez
+  // de parametrizar `_halo` porque aquel es el del golpe y su color no se
+  // elige: es parte de lo que significa.
+  _haloColor(fuente, meta, color) {
+    const frames = meta.frames || 1;
+    const P = HALO_PX;
+    const cw = meta.w + 2 * P, ch = meta.h + 2 * P;
+    const tinte = this._tinte(fuente, meta, color);
+    const c = document.createElement('canvas');
+    c.width = cw * frames;
+    c.height = ch;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    for (let f = 0; f < frames; f++) {
+      g.globalAlpha = 0.5;
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * Math.PI * 2;
+        const ox = Math.round(Math.cos(a) * P), oy = Math.round(Math.sin(a) * P);
+        g.drawImage(tinte, f * meta.w, 0, meta.w, meta.h,
+                    f * cw + P + ox, P + oy, meta.w, meta.h);
+      }
+      g.globalAlpha = 1;
+      const Pi = Math.max(1, P - 1);
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * Math.PI * 2;
+        const ox = Math.round(Math.cos(a) * Pi), oy = Math.round(Math.sin(a) * Pi);
+        g.drawImage(tinte, f * meta.w, 0, meta.w, meta.h,
+                    f * cw + P + ox, P + oy, meta.w, meta.h);
+      }
+    }
+    return c;
+  },
   haloEspejo(id) { return this.halosEspejo.get(id); },
   tinteDanyo(id) { return this.tintesDanyo.get(id); },
   tinteDanyoEspejo(id) { return this.tintesDanyoEspejo.get(id); }

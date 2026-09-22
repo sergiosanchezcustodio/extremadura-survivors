@@ -228,13 +228,11 @@ export const Expendedoras = {
       if (i < 0) continue;
       const cx = i % ancho, cy = (i / ancho) | 0;
       const x = cx * c + c / 2;
-      // Los pies en el borde SUPERIOR de la celda: justo donde acaba la cara
-      // del muro. Antes iban en el inferior, y como además la caja de la
-      // máquina chocaba contra el pie del muro y la empujaba, quedaba una
-      // celda y pico de suelo entre la máquina y la pared. Sergio quiere las
-      // máquinas completamente pegadas al muro, y una máquina no se mueve en
-      // toda la partida, así que ni la caja necesita chocar con la pared (ver
-      // colisionarParedes en main.js).
+      // Los pies en el borde SUPERIOR de la primera celda pisable, que con la
+      // cara sólida es justo donde el muro toca el suelo: ahí es donde se
+      // apoya una máquina para que se vea pegada a él. Una máquina no se mueve
+      // en toda la partida y tampoco choca contra las paredes (ver
+      // colisionarParedes en main.js), así que nada la va a despegar.
       const y = cy * c;
       // Dos parcelas vecinas pueden dar dos sitios pegados en la costura: se
       // respeta la separación mínima igual.

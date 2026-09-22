@@ -317,7 +317,8 @@ final abre la puerta de la calle.
 regalos, tecnología, alimentos, droguería, juguetes—, cada uno con **su pared de
 dentro, su escaparate y sus estanterías**, dibujados a mano y a su tamaño, más
 altos que dos personajes, sin repetir un panel entre dos tipos: ositos en la
-juguetería, el rótulo verde del súper visto desde el pasillo. Todas las tiendas
+juguetería por dentro y, desde el pasillo, un **ventanal de cristal** del color
+de esa tienda —el rosa es siempre la juguetería— por el que se ve el suelo. Todas las tiendas
 son rectángulos con el mismo trazado: las paredes del fondo forradas de
 estantería y filas horizontales por dentro. Seis de cada diez están
 **cerradas**: se ve su techo y su escaparate a oscuras, y no se entra. Los
@@ -329,9 +330,10 @@ cerrarlo. Solo enseña **lo que ya se ha pisado**: el resto del centro comercial
 se descubre andando. Se acerca y aleja con **+** y **-**, o con los gatillos de
 abajo del mando, y entra al aumento mayor con el que cabe entero.
 
-Todavía es un **prototipo**: la geometría es la buena y ya se juega, los
-suelos llevan una hoja de texturas provisional hasta que lleguen los de
-Sergio, y la curva de oleadas está copiada de Mérida y se ajustará jugándola.
+Los suelos también son de Sergio: uno por anillo en los pasillos —no entra en
+ninguna tienda— y diez más repartidos entre las tiendas, uno por tienda, sin
+mezclar. Todavía es un **prototipo** en lo jugable: la curva de oleadas está
+copiada de Mérida y se ajustará jugándola.
 
 ---
 

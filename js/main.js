@@ -45,7 +45,7 @@ import { dibujarMapa, acercarMapa, reiniciarZoomMapa } from './ui/mapa.js';
 import { dibujarTienda } from './ui/tienda.js';
 import { dibujarFinal, dibujarCartelFinal } from './ui/final.js';
 import { dibujarPaneles, dibujarReloj, dibujarBarraJefe,
-         dibujarCuentaAtrasReloj, reiniciarVidasHud } from './ui/hud.js';
+         dibujarCuentaAtrasReloj, reiniciarVidasHud, COLOR_JUGADOR } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje, dibujarDespedida } from './ui/pantallas.js';
 import { dibujarConfig, dibujarConfirmacion } from './ui/configuracion.js';
 import { dibujarControles, numeroDeFilas } from './ui/controles.js';
@@ -370,7 +370,8 @@ async function usarNivel(nivel) {
   // la traen: sin el `apagar`, volver a Mérida después del centro comercial
   // dejaría sus paredes puestas en mitad de la calzada.
   if (nivel.mapa) {
-    RejillaMapa.iniciar(nivel.mapa.rejilla, nivel.mapa.leyenda, nivel.mapa.celda, nivel.alturasMapa);
+    RejillaMapa.iniciar(nivel.mapa.rejilla, nivel.mapa.leyenda, nivel.mapa.celda,
+                        nivel.alturasMapa, nivel.pieMapa);
     prepararColoresRejilla(nivel);
     // Y sus texturas: los PNG que haya y un dibujo de relleno para el resto.
     // Ver sistemas/sueloRejilla.js. Los colores planos de arriba se quedan para
@@ -696,6 +697,11 @@ function anyadirJugador(idPersonaje, idMascota, meta) {
   const cy = i === 0 ? ALTO_LOGICO / 2 : jugadores[0].y;
   j.x = j.xPrev = j.xVista = cx + (i === 0 ? 0 : cos(ang) * 26);
   j.y = j.yPrev = j.yVista = cy + (i === 0 ? 0 : sen(ang) * 26);
+  // Su PUESTO y su COLOR (P1 azul, P2 ámbar, P3 verde, P4 magenta). El color
+  // lo usa la silueta de cuando se hunde en un muro; el panel y la ficha lo
+  // sacan de la misma tabla por el índice.
+  j.puesto = i;
+  j.color = COLOR_JUGADOR[i % COLOR_JUGADOR.length];
   jugadores.push(j);
 
   // Arsenal propio, con el arma que le toca a su personaje. Eso ya garantiza
@@ -2549,6 +2555,12 @@ function empezarPartida() {
   // Que mascota lleva cada uno se decide en su pantalla y no cambia en toda la
   // partida: se lee una vez aqui.
   Mascotas.releer(mascotasPorJugador);
+  // El color de cada mascota es el de su jugador: es lo único que dice de
+  // quién es la silueta que asoma dentro de un muro (ver `_una` en
+  // sistemas/mascotas.js).
+  for (let i = 0; i < Mascotas.activas.length; i++) {
+    Mascotas.activas[i].color = COLOR_JUGADOR[i % COLOR_JUGADOR.length];
+  }
   Director.reiniciar();
   // El mapa, otra vez virgen: las antorchas y los enemigos colocados en la
   // decoración se invocan una vez por fila y hay que olvidar las de la partida
@@ -2660,7 +2672,10 @@ function colisionarParedes() {
   for (let i = 0; i < jugadores.length; i++) {
     const j = jugadores[i];
     // Semialto de dos: los pies tocan el muro de abajo. Ver `colisionar`.
-    RejillaMapa.colisionar(j, j.radioCuerpo || j.radio, PIES_CONTRA_PARED);
+    // Y con `hundir`: un jugador que llega a un muro DESDE ARRIBA puede
+    // meterse en su cara hasta la base (ver MARGEN_HUNDIR en
+    // sistemas/rejillaMapa.js). La horda no.
+    RejillaMapa.colisionar(j, j.radioCuerpo || j.radio, PIES_CONTRA_PARED, true);
   }
   const items = enemigos.pool.items;
   const n = enemigos.pool.activos;
@@ -2672,7 +2687,11 @@ function colisionarParedes() {
     // cara: chocar contra la pared solo servía para despegarlos de ella.
     if (e.def && e.def.esObjeto) continue;
     const r = e.radioCuerpo || e.radio;
-    RejillaMapa.colisionar(e, r > PARED_SEMILADO_MAX ? PARED_SEMILADO_MAX : r);
+    // Con `hundir`, como los jugadores: la horda también se mete en la cara de
+    // un muro cuando llega desde arriba (Sergio). No cambia la navegación —el
+    // campo de flujo sigue viendo la cara como pared y los rodea— pero ya no
+    // se quedan clavados en el canto cuando el empuje los mete ahí.
+    RejillaMapa.colisionar(e, r > PARED_SEMILADO_MAX ? PARED_SEMILADO_MAX : r, undefined, true);
   }
 }
 

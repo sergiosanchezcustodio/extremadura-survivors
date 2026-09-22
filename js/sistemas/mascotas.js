@@ -1,6 +1,6 @@
 import { MASCOTAS, factorMascota } from '../datos/mascotas.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
-import { Recursos } from '../core/recursos.js';
+import { Recursos, HALO_PX } from '../core/recursos.js';
 import { ESCALA_ARTE } from '../core/constantes.js';
 import { enemigoMasCercano, enemigosEnRadio } from './colisiones.js';
 import { VFX } from './vfx.js';
@@ -139,6 +139,9 @@ export const Mascotas = {
       const nivel = id ? MetaProgreso.nivelMascota(id) : 0;
 
       m.id = nivel > 0 ? id : '';
+      // El color de SU jugador, para la silueta de cuando se hunde en un muro.
+      // Se lo pone main.js al empezar la partida (ver `colorearMascotas`); si
+      // no hay, la silueta no se dibuja y se ve la mascota de siempre.
       m.def = m.id ? MASCOTAS[m.id] : null;
       m.nivel = nivel;
       // Cuánto rinde su nivel. Se resuelve aquí y no en cada golpe: es un
@@ -427,6 +430,43 @@ export const Mascotas = {
     const y = d.vuela ? m.y + sen(m.fase) * FLOTE : m.y;
 
     if (meta) {
+      const w0 = meta.w / ESCALA_ARTE, h0 = meta.h / ESCALA_ARTE;
+      // HUNDIDA EN UN MURO, igual que su jugador (ver `dibujar` en
+      // entidades/jugador.js): cuando la pared la tapa del todo se dibuja su
+      // silueta con el halo del color de SU jugador, que es lo que dice de
+      // quién es el bulto que se ve dentro del muro.
+      // Igual que su jugador (ver `dibujar` en entidades/jugador.js): hundida
+      // es tener los pies dentro de la cara del muro; a medias asoma la parte
+      // de arriba y del todo, la silueta.
+      const topeCara = RejillaMapa.topeCaraSobre(m.x, y);
+      const baseCara = RejillaMapa.caraBase;
+      const hundida = topeCara >= 0 && y > topeCara && y < baseCara;
+      if (hundida && y - h0 < topeCara) {
+        const img0 = m.mirandoDerecha ? Recursos.imagen(idAtlas) : Recursos.espejo(idAtlas);
+        if (img0) {
+          const alto = Math.max(1, Math.round((topeCara - (y - h0)) * ESCALA_ARTE));
+          ctx.drawImage(img0, m.frame * meta.w, 0, meta.w, alto,
+                        m.x - w0 / 2, y - h0, w0, alto / ESCALA_ARTE);
+          ctx.restore();
+          return;
+        }
+      }
+      if (hundida && m.color) {
+        const sil = Recursos.silueta(idAtlas, m.color, !m.mirandoDerecha);
+        if (sil) {
+          const ox = m.x - w0 / 2, oy = y - h0;
+          const p = HALO_PX / ESCALA_ARTE;
+          const cw = meta.w + 2 * HALO_PX, ch = meta.h + 2 * HALO_PX;
+          ctx.globalAlpha = 0.85;
+          ctx.drawImage(sil.halo, m.frame * cw, 0, cw, ch,
+                        ox - p, oy - p, cw / ESCALA_ARTE, ch / ESCALA_ARTE);
+          ctx.globalAlpha = 1;
+          ctx.drawImage(sil.figura, m.frame * meta.w, 0, meta.w, meta.h,
+                        ox, oy, w0, h0);
+          ctx.restore();
+          return;
+        }
+      }
       const img = m.mirandoDerecha ? Recursos.imagen(idAtlas) : Recursos.espejo(idAtlas);
       if (img) {
         const w = meta.w / ESCALA_ARTE;

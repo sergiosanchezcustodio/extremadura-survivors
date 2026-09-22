@@ -82,6 +82,13 @@ const CARA = 14;
 const CARA_MOSTRADOR = 4;
 const CARA_PUERTA = 6;
 
+// CUÁNTO DE ESA CARA NO SE PISA. Tiene que coincidir con `pieMapa` en
+// datos/niveles/lighthouse.js (que no lo declara, o sea: la cara entera). Si
+// aquí se midiera de menos, el generador daría por transitables pasillos que
+// en el juego están tapados por la cara del muro de arriba; de más, tapiaría
+// pasillos por los que sí se pasa.
+const CARA_SOLIDA = CARA;
+
 // El alfabeto del mapa. El juego solo distingue PARED de lo demás; los otros
 // símbolos son el TIPO de suelo, y de momento solo sirven para pintarlo de un
 // color distinto en el prototipo (y para saber dónde está cada cosa al mirar el
@@ -123,6 +130,15 @@ const TIENDAS = [JUGUETES, REGALOS, DROGUERIA, TECNOLOGIA, FRUTERIA];
 // Seis de cada diez tiendas van cerradas (CERRADAS).
 const TECHO = 'T';
 const CERRADAS = 0.6;
+
+// EL PASILLO DE CADA ANILLO (Sergio, 22/09/2026): los pasillos del anillo 1 y
+// del 2 llevan su propio suelo —suelo2.png y suelo3.png; el 1 es el de
+// siempre, `.`—, y ese suelo nunca entra en una tienda. El trazado se hace
+// entero con `.` y al final, con los anillos ya repartidos, cada celda de
+// pasillo se cambia por el símbolo de su anillo. Los tres se llaman `pasillo`
+// en la leyenda, y el motor los trata igual salvo para elegir la textura.
+const PASILLO_1 = ',';
+const PASILLO_2 = ';';
 
 // LAS PUERTAS, que son lo que le da forma a la partida. Están CERRADAS —son
 // pared— hasta que cae el jefe que las abre, y hasta entonces el centro
@@ -167,7 +183,8 @@ const esMuro = (ch) => ch === PARED || ch === ESTANTERIA || ch === MOSTRADOR || 
 // AL FINAL para que los gids de lo que ya estaba no se muevan.
 const ORDEN = [PARED, PASILLO, HIPER, IKEA, TIENDA, OCIO, PLAZA, SALIDA,
                PUERTA_GRIS, PUERTA_AZUL, ESTANTERIA, MOSTRADOR,
-               ROPA, JUGUETES, LIBROS, REGALOS, DROGUERIA, TECNOLOGIA, FRUTERIA, TECHO];
+               ROPA, JUGUETES, LIBROS, REGALOS, DROGUERIA, TECNOLOGIA, FRUTERIA, TECHO,
+               PASILLO_1, PASILLO_2];
 const COLORES = {
   [PARED]:   [0x3a, 0x3f, 0x4a],
   [PASILLO]: [0xd8, 0xd4, 0xcc],
@@ -190,7 +207,9 @@ const COLORES = {
   [DROGUERIA]:   [0xd0, 0xd0, 0xd8],
   [TECNOLOGIA]:  [0xc0, 0xc8, 0xd0],
   [FRUTERIA]:    [0xcc, 0xd8, 0xc0],
-  [TECHO]:       [0x55, 0x58, 0x60]
+  [TECHO]:       [0x55, 0x58, 0x60],
+  [PASILLO_1]:   [0xd0, 0xd4, 0xd8],
+  [PASILLO_2]:   [0xc8, 0xd4, 0xcc]
 };
 
 // --- Azar reproducible --------------------------------------------------------
@@ -254,7 +273,10 @@ function partir(g, x0, y0, w, h, profundidad, rng, hojas) {
   let porAncho = w >= h;
   if (porAncho && w < MIN * 2) porAncho = false;
   else if (!porAncho && h < MIN * 2) porAncho = true;
-  const anchoPasillo = rnd(rng, 3 * F, 4 * F);   // "pasillos anchos": 96 o 128 unidades
+  // UN 50% MÁS ANCHOS (Sergio, 22/09/2026): de 3-4 módulos a 4,5-6. Con los
+  // muros dibujados altos, la cara se come 56 unidades del pasillo por cada
+  // pared que dé a él, y lo que quedaba para andar era una rendija.
+  const anchoPasillo = rnd(rng, Math.round(4.5 * F), 6 * F);
 
   if (porAncho) {
     // El corte no va nunca al 50%: locales todos iguales se leen como un almacén.
@@ -431,8 +453,9 @@ function amueblar(g, local, rng) {
   const G = GRUESO_ESTANTE;
 
   // ¿Hay puerta en esta celda del contorno (el tabique)? Las puertas se abren
-  // antes de amueblar y son PASILLO en el tabique.
-  const puertaEn = (cx, cy) => dentro(cx, cy) && g[cy][cx] === PASILLO;
+  // antes de amueblar, y su hueco lleva el suelo de la tienda (ver
+  // `abrirPuerta`): lo que las distingue del tabique es que no son muro.
+  const puertaEn = (cx, cy) => dentro(cx, cy) && !esMuro(g[cy][cx]);
   // Margen que se deja libre a cada lado de una puerta, en celdas.
   const M = F;
 
@@ -445,18 +468,37 @@ function amueblar(g, local, rng) {
     for (let k = -M; k <= M; k++) if (puertaEn(cx + k, cyTabique)) return false;
     return true;
   };
+  // NADA PEGADO A UN ESCAPARATE (Sergio, 22/09/2026). La pared que da al
+  // pasillo es un ventanal de cristal, y una estantería delante lo tapa y
+  // encima se ve a través de él. Así que una pared solo se forra si al otro
+  // lado NO hay pasillo. Se mira tres celdas más allá del tabique: si en ese
+  // margen aparece pasillo, esa pared es escaparate.
+  const daAlPasillo = (cx, cyTabique, dir) => {
+    for (let k = 0; k <= 3; k++) {
+      const cy = cyTabique + dir * k;
+      if (!dentro(cx, cy)) return true;              // la fachada, como si lo fuera
+      if (g[cy][cx] === PASILLO) return true;
+    }
+    return false;
+  };
   const x0 = Math.ceil((x + 2 * F) / 4) * 4, x1 = Math.floor((x + w - 2 * F) / 4) * 4;
   for (let cx = x0; cx < x1; cx++) {
-    if (libreH(cx, y - 1))     for (let k = 0; k < G; k++) g[y + k][cx] = ESTANTERIA;
-    if (libreH(cx, y + h))     for (let k = 0; k < G; k++) g[y + h - 1 - k][cx] = ESTANTERIA;
+    if (libreH(cx, y - 1) && !daAlPasillo(cx, y - 1, -1)) {
+      for (let k = 0; k < G; k++) g[y + k][cx] = ESTANTERIA;
+    }
+    if (libreH(cx, y + h) && !daAlPasillo(cx, y + h, 1)) {
+      for (let k = 0; k < G; k++) g[y + h - 1 - k][cx] = ESTANTERIA;
+    }
   }
 
   // 2. Las filas interiores. Dejan 4 módulos desde la pared norte (la cara de
   //    la estantería pegada a ella mide 14 celdas, y 16 más de paso) y 4 hasta
   //    la sur (su propia cara más el paso), y 2 módulos a este y oeste para
   //    dar la vuelta.
+  // Y los pasillos de dentro, otro 50%: de 4 módulos de paso entre lineales a
+  // 5 (ver `anchoPasillo`).
   let filas = 0;
-  for (let cy = y + 4 * F; cy + G <= y + h - 4 * F; cy += 4 * F) {
+  for (let cy = y + 4 * F; cy + G <= y + h - 4 * F; cy += 5 * F) {
     for (let k = 0; k < G; k++) for (let cx = x0; cx < x1; cx++) g[cy + k][cx] = ESTANTERIA;
     filas++;
   }
@@ -520,6 +562,7 @@ function abrirPuerta(g, local, rng) {
     if (!hay) continue;
 
     // Y se taladra el hueco entero, de PUERTA celdas de ancho, hasta el pasillo.
+    // Qué suelo se ve por el hueco lo decide después `uniformarBocas`.
     for (let k = 0; k <= ALCANCE; k++) {
       const tx = px + dx * k, ty = py + dy * k;
       if (!dentro(tx, ty)) break;
@@ -576,10 +619,12 @@ function marcarPie(g, abiertas) {
   const n = ANCHO * ALTO;
   const pie = new Uint8Array(n);
   const alturaDe = (ch) => {
-    if (ch === PARED || ch === ESTANTERIA) return CARA;
-    if (ch === MOSTRADOR) return CARA_MOSTRADOR;
     if (ch === TECHO) return 0;           // un techo no tiene cara
-    return CARA_PUERTA;                   // una puerta cerrada
+    // Ver CARA_SOLIDA: hoy nada de la cara estorba, así que esto da 0 siempre
+    // y `pie` sale vacío. Queda escrito para el día que algo vuelva a tapar.
+    if (ch === PARED || ch === ESTANTERIA) return Math.min(CARA, CARA_SOLIDA);
+    if (ch === MOSTRADOR) return Math.min(CARA_MOSTRADOR, CARA_SOLIDA);
+    return Math.min(CARA_PUERTA, CARA_SOLIDA);
   };
   for (let y = 0; y < ALTO; y++) {
     for (let x = 0; x < ANCHO; x++) {
@@ -1121,23 +1166,35 @@ function zonificar(g, inicio, locales) {
 // Tapiar la frontera entre el anillo `k` y los de fuera. Devuelve las celdas
 // tapiadas, que son las candidatas a convertirse en cierre, y deja marcada la
 // frontera ENTERA —muro incluido— en `protegidas`.
+// DOS CELDAS DE GRUESO, no una. Con una, la frontera era un tabique fino, y
+// desde el 22/09/2026 un jugador puede meterse en la cara de un muro y cruzar
+// los tabiques finos de una celda (ver `hundible` en sistemas/rejillaMapa.js):
+// con la frontera de una celda, eso sería colarse al anillo siguiente sin
+// esperar al jefe que abre el cierre. Las dos capas entran en la lista, así
+// que un cierre abre las dos y sigue siendo una puerta y no media.
 function tapiarFrontera(g, zona, k, protegidas) {
   const frontera = [];
+  const meter = (i) => {
+    protegidas[i] = 1;
+    if (g[(i / ANCHO) | 0][i % ANCHO] !== PARED) frontera.push(i);
+  };
   for (let y = 1; y < ALTO - 1; y++) {
     for (let x = 1; x < ANCHO - 1; x++) {
       const i = y * ANCHO + x;
       if (zona[i] !== k) continue;
       let toca = false;
-      for (let v = 0; v < 4 && !toca; v++) {
+      for (let v = 0; v < 4; v++) {
         const nx = x + [1, -1, 0, 0][v], ny = y + [0, 0, 1, -1][v];
         // "Mayor que k" y no "igual a k+1": con los anillos metidos en la pared
         // puede haber un punto donde el 0 toque directamente al 2, y ese punto
         // también hay que cerrarlo.
-        if (zona[ny * ANCHO + nx] > k) toca = true;
+        const ni = ny * ANCHO + nx;
+        if (zona[ni] <= k) continue;
+        toca = true;
+        meter(ni);                      // la segunda capa, ya del otro anillo
       }
       if (!toca) continue;
-      protegidas[i] = 1;
-      if (g[y][x] !== PARED) frontera.push(i);
+      meter(i);
     }
   }
   for (const i of frontera) g[(i / ANCHO) | 0][i % ANCHO] = PARED;
@@ -1440,6 +1497,81 @@ function cuadrarEsquinas(g) {
   return total;
 }
 
+// LAS BOCAS, IGUALADAS AL PIE DEL MURO.
+//
+// Un muro se dibuja ALTO: su tapa arriba y su cara colgando CARA celdas hacia
+// abajo, así que la línea donde la pared toca el suelo está CARA celdas por
+// debajo de su tapa. Ese es el borde de verdad entre lo de arriba y lo de
+// abajo, y todo el frente de una tienda lo respeta... menos el hueco de la
+// puerta: allí no hay muro, no se dibuja cara, y el suelo de dentro asomaba
+// por el boquete hasta la TAPA — o sea, catorce celdas más arriba que en el
+// resto del frente. Visto desde el pasillo, el suelo de la tienda trepaba por
+// la puerta. Lo cazó Sergio.
+//
+// Aquí se le da al hueco el suelo del lado de ARRIBA del muro, que es el que
+// le toca: por una puerta en la pared de arriba de una tienda se ve el suelo
+// del pasillo hasta el pie del muro, y por una en la de abajo, el de la
+// tienda. Con eso el borde entre los dos suelos es una sola línea recta a lo
+// largo de todo el frente, con puerta y sin ella.
+//
+// Solo se tocan celdas que estén metidas en un hueco —con muro a los dos lados
+// a menos de ANCHO_BOCA celdas— y que no tengan muro encima: las que lo tienen
+// ya llevan la cara pintada encima y no se ven.
+const ANCHO_BOCA = 12;
+
+function uniformarBocas(g) {
+  let n = 0;
+  // Suelo de verdad: ni muro ni hoja de puerta. Una puerta NO es `esMuro` pero
+  // empieza cerrada y es sólida, así que copiar su símbolo a una celda de
+  // suelo tapiaba el paso — y el generador cerraba el mapa a cal y canto.
+  const esSuelo = (ch) => !esMuro(ch) && ch !== PUERTA_GRIS && ch !== PUERTA_AZUL && ch !== SALIDA;
+  // LA SOMBRA DE LAS PAREDES, y solo de ellas: el muro y las CARA celdas que
+  // cubre su cara. Las estanterías también tienen cara, pero no cuentan aquí —
+  // los pasillos que quedan entre dos lineales son huecos con sombra a los dos
+  // lados y se tomaban por bocas: el suelo del pasillo acababa pintado en
+  // tiras por dentro de las tiendas.
+  const sombra = new Uint8Array(ANCHO * ALTO);
+  for (let y = 0; y < ALTO; y++) {
+    for (let x = 0; x < ANCHO; x++) {
+      if (g[y][x] !== PARED) continue;
+      sombra[y * ANCHO + x] = 1;
+      for (let k = 1; k <= CARA; k++) {
+        const cy = y + k;
+        if (cy >= ALTO) break;
+        if (g[cy][x] === PARED) break;        // otra pared: su cara empieza ahí
+        sombra[cy * ANCHO + x] = 1;
+      }
+    }
+  }
+  const enSombra = (x, y) => dentro(x, y) && sombra[y * ANCHO + x] === 1;
+  // El suelo que hay por encima de esa sombra, subiendo hasta salir de ella.
+  const sueloEncima = (x, y) => {
+    for (let k = 0; k <= CARA + 4; k++) {
+      const cy = y - k;
+      if (cy < 0) return '';
+      if (enSombra(x, cy) || esMuro(g[cy][x])) continue;
+      return esSuelo(g[cy][x]) ? g[cy][x] : '';
+    }
+    return '';
+  };
+  for (let y = 1; y < ALTO - 1; y++) {
+    for (let x = 1; x < ANCHO - 1; x++) {
+      const ch = g[y][x];
+      if (!esSuelo(ch) || enSombra(x, y)) continue;
+      let ix = -1, dx = -1;
+      for (let k = 1; k <= ANCHO_BOCA && ix < 0; k++) if (enSombra(x - k, y)) ix = x - k;
+      if (ix < 0) continue;
+      for (let k = 1; k <= ANCHO_BOCA && dx < 0; k++) if (enSombra(x + k, y)) dx = x + k;
+      if (dx < 0) continue;
+      const suelo = sueloEncima(ix, y) || sueloEncima(dx, y);
+      if (!suelo || suelo === ch) continue;
+      g[y][x] = suelo;
+      n++;
+    }
+  }
+  return n;
+}
+
 // --- El trazado completo ------------------------------------------------------
 function trazar(semilla) {
   const rng = crearRng(semilla);
@@ -1572,6 +1704,22 @@ function trazar(semilla) {
   rendijas += cerrarHuecosEstrechos(g, false, true);
   rendijas += cerrarHuecosEstrechos(g, false, false);
 
+  // Las bocas, igualadas al pie del muro (ver `uniformarBocas`). Va al final:
+  // necesita el mapa con todos sus muros puestos, y lo que cambia es el suelo,
+  // no lo que se pisa.
+  const bocas = uniformarBocas(g);
+
+  // EL PASILLO DE CADA ANILLO (ver PASILLO_1): ya no se toca nada más del
+  // trazado, así que se puede cambiar el símbolo sin que nadie lo eche de
+  // menos. Los cierres y las salidas se quedan como están.
+  for (let y = 0; y < ALTO; y++) {
+    for (let x = 0; x < ANCHO; x++) {
+      if (g[y][x] !== PASILLO) continue;
+      const z = zona[y * ANCHO + x];
+      if (z === 1) g[y][x] = PASILLO_1; else if (z === 2) g[y][x] = PASILLO_2;
+    }
+  }
+
   // Y LA ÚLTIMA COMPROBACIÓN, con el mapa ya cerrado del todo: que a cada
   // salida se llegue de verdad. El punto
   // que apunta `abrirSalidas` es el pasillo de detrás de la puerta, y ese pasillo
@@ -1607,7 +1755,7 @@ function trazar(semilla) {
   }
 
 
-  return { g, locales, salidas, inicio, zona, tunelesAnillo, galerias, rendijas, cierresRescate, esquinas,
+  return { g, locales, salidas, inicio, zona, tunelesAnillo, galerias, rendijas, cierresRescate, esquinas, bocas,
            taladros: taladros + taladros2, cierresGrises, cierresAzules };
 }
 
@@ -1801,6 +1949,10 @@ function escribirDatos(filas, salidas, inicio, semilla) {
     '  // EL TECHO de una tienda cerrada: sólido y sin cara, no se entra ni se ve.',
     "  '" + TECHO + "': { nombre: 'techo',        solido: true  },",
     '',
+    '  // EL PASILLO DE LOS ANILLOS 1 y 2: pasillo igual que `.`, con otro suelo.',
+    "  '" + PASILLO_1 + "': { nombre: 'pasillo',      solido: false },",
+    "  '" + PASILLO_2 + "': { nombre: 'pasillo',      solido: false },",
+    '',
     '  // LAS PUERTAS. Empiezan SOLIDAS y las abre quien dice `abre`:',
     "  //   '10min' el jefe intermedio, '20min' el segundo, 'final' el jefe final,",
     '  // y con ese se acaba la fase. Quien avisa de que ha caido es main.js; aqui',
@@ -1851,7 +2003,8 @@ function resumen(g, locales, salidas, taladros, zona, trazado) {
   const sinFila = abiertas.filter((l) => !l.lineales).length;
   console.log('  tiendas: ' + abiertas.length + ' abiertas, ' + cerradas + ' cerradas (techo); ' +
               'abiertas sin filas interiores: ' + sinFila);
-  console.log('  esquinas en diagonal rellenadas: ' + trazado.esquinas);
+  console.log('  esquinas en diagonal rellenadas: ' + trazado.esquinas +
+              '; celdas de boca igualadas: ' + trazado.bocas);
   console.log('  galerías: ' + trazado.galerias + ' celdas abiertas; ' +
               'túneles de repaso: ' + trazado.tunelesAnillo);
   const quedanAbierto = contarHuecosEstrechos(g, true);

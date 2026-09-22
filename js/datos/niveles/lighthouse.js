@@ -73,6 +73,8 @@ export const NIVEL = {
     't': '#9ca4ac',    // tecnología
     'u': '#a8b49c',    // alimentos
     'T': '#4a4d55',    // techo de una tienda cerrada
+    ',': '#b5b9bd',    // pasillo del anillo 1
+    ';': '#b0bdb3',    // pasillo del anillo 2
 
     // Las puertas. Se pintan del color de su juego para que, al verlas de lejos
     // en el suelo, se lean igual que en el plano.
@@ -82,40 +84,47 @@ export const NIVEL = {
   },
 
   // LAS TEXTURAS DEL SUELO, símbolo → PNG. Cada una es una imagen que REPITE,
-  // de 32x32 (cuatro celdas; otro tamaño se repite o se recorta a ese), que el
-  // motor trocea por celdas: ver sistemas/sueloRejilla.js. Las que no estén
-  // —hoy ninguna— se sustituyen por un dibujo de relleno hecho en código a
-  // partir del color de arriba, para que el mapa ya se lea: terrazo en el
-  // pasillo, baldosa en el híper, tablones en la mueblería, moqueta en las
-  // tiendas, terracota en la plaza, y estanterías y mostradores con su dibujo.
+  // de 32x32 unidades (cuatro celdas de 8 u ocho de 4; otro tamaño se repite
+  // o se recorta a ese), que el motor trocea por celdas: ver
+  // sistemas/sueloRejilla.js. Lo que no esté aquí se sustituye por un dibujo
+  // de relleno hecho en código a partir del color de arriba.
   //
-  // Cuando Sergio dibuje una, es dejar el PNG en assets/niveles/lighthouse/ y
-  // apuntarlo aquí: `'.': 'assets/niveles/lighthouse/pasillo.png'`.
-  //
-  // LAS DE HOY salen de la hoja que devolvió una IA con ese prompt
-  // (resources/stages/2/imagenes_nivel2.png), recortada con
-  // herramientas/recortar-hoja-texturas.ps1. Son PROVISIONALES hasta que
-  // Sergio las dé por buenas o las dibuje.
+  // LOS SUELOS SON DE SERGIO (22/09/2026): `resources/stages/2/sueloN.png`,
+  // llevados a 128x128 por herramientas/paneles-lighthouse.ps1. Los tres
+  // primeros son LOS PASILLOS, uno por anillo y nunca dentro de una tienda:
+  // suelo1 el de partida (`.`), suelo2 el del anillo intermedio (`,`), suelo3
+  // el de fuera (`;`). El resto se reparte entre las tiendas, más abajo.
   texturasMapa: {
-    '.': 'assets/niveles/lighthouse/pasillo.png',
-    'a': 'assets/niveles/lighthouse/hipermercado.png',
-    'b': 'assets/niveles/lighthouse/muebleria.png',
-    'c': 'assets/niveles/lighthouse/tienda.png',
-    // Las siete tiendas pisan hoy la misma moqueta: Sergio tiene pendientes
-    // los suelos (baldosas, moquetas...) y hasta entonces se mantiene lo que
-    // hay. Cuando lleguen, es cambiar la ruta de cada una.
-    'j': 'assets/niveles/lighthouse/tienda.png',
-    'g': 'assets/niveles/lighthouse/tienda.png',
-    'q': 'assets/niveles/lighthouse/tienda.png',
-    't': 'assets/niveles/lighthouse/tienda.png',
-    'u': 'assets/niveles/lighthouse/tienda.png',
-    'd': 'assets/niveles/lighthouse/ocio.png',
+    '.': 'assets/niveles/lighthouse/suelos/suelo1.png',
+    ',': 'assets/niveles/lighthouse/suelos/suelo2.png',
+    ';': 'assets/niveles/lighthouse/suelos/suelo3.png',
     'f': 'assets/niveles/lighthouse/plaza.png',
     '#': 'assets/niveles/lighthouse/pared.png',
     'M': 'assets/niveles/lighthouse/mostrador.png',
     'G': 'assets/niveles/lighthouse/cierre_gris.png',
     'Z': 'assets/niveles/lighthouse/cierre_azul.png',
     'S': 'assets/niveles/lighthouse/salida.png'
+  },
+
+  // LOS SUELOS DE LAS TIENDAS: los diez que quedan, repartidos por igual entre
+  // los locales de estos tipos, UNO POR TIENDA y sin mezclar dentro de una.
+  // Qué tienda pisa cuál lo decide el motor al cargar (cada trozo conexo de
+  // suelo de tienda es una tienda, y van por turno): el símbolo del mapa es
+  // el tipo, no el suelo. Ver `_repartirSuelos` en sistemas/sueloRejilla.js.
+  suelosTiendas: {
+    tipos: ['a', 'g', 't', 'u', 'q', 'j'],
+    texturas: [
+      'assets/niveles/lighthouse/suelos/suelo6.png',
+      'assets/niveles/lighthouse/suelos/suelo7.png',
+      'assets/niveles/lighthouse/suelos/suelo8.png',
+      'assets/niveles/lighthouse/suelos/suelo9.png',
+      'assets/niveles/lighthouse/suelos/suelo10.png',
+      'assets/niveles/lighthouse/suelos/suelo11.png',
+      'assets/niveles/lighthouse/suelos/suelo12.png',
+      'assets/niveles/lighthouse/suelos/suelo13.png',
+      'assets/niveles/lighthouse/suelos/suelo14.png',
+      'assets/niveles/lighthouse/suelos/suelo15.png'
+    ]
   },
 
   // LAS CARAS de lo que tiene altura (perspectiva 3/4, ver sueloRejilla.js):
@@ -134,6 +143,14 @@ export const NIVEL = {
   // contando con ella. Mostradores y puertas, más bajos.
   alturasMapa: { '#': 14, 'E': 14, 'M': 4, 'G': 6, 'Z': 6, 'S': 6 },
 
+  // CUÁNTO DE ESA CARA NO SE PISA se declara aparte, con `pieMapa` (ver
+  // PIE_POR_NOMBRE en sistemas/rejillaMapa.js). Aquí no se declara, así que
+  // vale lo que dice la altura: la cara entera es sólida y quien sube por el
+  // pasillo se para donde el muro toca el suelo, que es el pie de la cara.
+  //
+  // Se probó a ponerla a cero —cara solo dibujo— y NO es lo que se quiere:
+  // dejaba subir al jugador por encima de la pared hasta el otro lado.
+
   // LOS PANELES DE PARED, POR TIENDA (Sergio, 21/09/2026). SEIS TIPOS DE
   // TIENDA —supermercado, regalos, tecnología, alimentos, droguería,
   // juguetes— y cada una tiene UNA pared y no se mezclan: la cara de una pared
@@ -147,6 +164,8 @@ export const NIVEL = {
   // assets/niveles/lighthouse/paredes/ para cuando haga falta cambiar uno.
   paredesMapa: {
     '.': 'assets/niveles/lighthouse/paredes/tipo1.png',    // azulejo blanco: el pasillo
+    ',': 'assets/niveles/lighthouse/paredes/tipo1.png',    // (el mismo en los tres anillos)
+    ';': 'assets/niveles/lighthouse/paredes/tipo1.png',
     'f': 'assets/niveles/lighthouse/paredes/tipo11.png',   // ladrillo arena: la plaza
     'a': 'assets/niveles/lighthouse/paredes/tipo9.png',    // blanco liso: supermercado
     'g': 'assets/niveles/lighthouse/paredes/tipo17.png',   // damasco azul: regalos
@@ -156,21 +175,32 @@ export const NIVEL = {
     'j': 'assets/niveles/lighthouse/paredes/tipo21.png'    // ositos: juguetes
   },
 
-  // LOS ESCAPARATES: la pared de una tienda vista DESDE EL PASILLO. Una pared
-  // entre el pasillo y una tienda enseña al pasillo el frente de esa tienda,
-  // no el azulejo del centro comercial, y así se sabe qué hay dentro antes de
-  // entrar. Se elige por lo que hay al otro lado del tabique. SIEMPRE DISTINTO
-  // de la pared de dentro de esa tienda, y ningún panel repetido entre dos
-  // tiendas (Sergio). Una tienda CERRADA enseña su techo al otro lado, y su
-  // escaparate es el de cierre: el cristal oscuro con los maniquíes a oscuras.
+  // LOS ESCAPARATES: la pared de una tienda vista DESDE EL PASILLO. Son los
+  // VENTANALES DE CRISTAL que dibujó Sergio (`pared_tienda1..8.png`), con el
+  // cristal al 25% de opacidad —75% transparente, lo pidió él— y el marco
+  // opaco: ver herramientas/paneles-lighthouse.ps1. Cada tipo de tienda tiene
+  // SU COLOR y no varía nunca: juguetes siempre el rosa. Queda libre el gris
+  // (tienda6) por si hace falta un tipo más.
+  //
+  // El cristal se pinta sobre la celda de suelo que tiene delante, así que a
+  // través de él se ve el suelo del pasillo — que es lo que hace un cristal.
+  // Y por eso NINGUNA estantería se pega a estas paredes (ver `amueblar` en
+  // herramientas/mapa-lighthouse.js): taparía el ventanal.
+  //
+  // De qué tienda es cada celda de pared lo decide `_calcularDuenyos` en
+  // sistemas/sueloRejilla.js. Una tienda CERRADA enseña su techo al otro
+  // lado, y su escaparate es el del cristal a oscuras.
   escaparatesMapa: {
-    'a': 'assets/niveles/lighthouse/paredes/tipo8.png',    // el rótulo verde del súper
-    'g': 'assets/niveles/lighthouse/paredes/tipo7.png',    // cristalera clara: regalos
-    't': 'assets/niveles/lighthouse/paredes/tipo15.png',   // cristal oscuro: tecnología
-    'u': 'assets/niveles/lighthouse/paredes/tipo6.png',    // piedra blanca: alimentos
-    'q': 'assets/niveles/lighthouse/paredes/tipo4.png',    // azul con tubería: droguería
-    'j': 'assets/niveles/lighthouse/paredes/tipo18.png',   // flores menta: juguetes
-    'T': 'assets/niveles/lighthouse/paredes/tipo5.png'     // escaparate a oscuras: tienda cerrada
+    'a': 'assets/niveles/lighthouse/escaparates/tienda4.png',   // verde menta: supermercado
+    'g': 'assets/niveles/lighthouse/escaparates/tienda3.png',   // lila: regalos
+    't': 'assets/niveles/lighthouse/escaparates/tienda1.png',   // azul: tecnología
+    'u': 'assets/niveles/lighthouse/escaparates/tienda2.png',   // crema: alimentos
+    'q': 'assets/niveles/lighthouse/escaparates/tienda5.png',   // blanco: droguería
+    'j': 'assets/niveles/lighthouse/escaparates/tienda8.png',   // rosa: juguetes
+    // LA TIENDA CERRADA NO LLEVA CRISTALERA (Sergio): si el local está cerrado
+    // no hay escaparate que mirar, hay tablas. Este es el panel de madera
+    // oscura, y de paso es el único que no comparte con ninguna tienda.
+    'T': 'assets/niveles/lighthouse/paredes/tipo10.png'         // tablas: tienda cerrada
   },
 
   // LAS ESTANTERÍAS, POR TIENDA: tres dibujos de cada, que se van alternando a

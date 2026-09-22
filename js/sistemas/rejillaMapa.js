@@ -26,6 +26,55 @@ const PASOS_POR_CAMPO = 6;
 // aquí ni allí es plano: solo tapa, y su pie no ocupa nada.
 export const ALTURA_POR_NOMBRE = { pared: 2, 'estantería': 3, mostrador: 2, puerta: 2 };
 
+// CUÁNTAS DE ESAS CELDAS NO SE PISAN. Es otra cosa que la altura, y separarlas
+// es lo que permite paredes ALTAS por las que además se puede pasar por
+// delante (Sergio, 22/09/2026: "cuando un personaje está por encima de una
+// pared, podría bajar para estar junto a la pared").
+//
+// La cara de una pared se pinta sobre las celdas de suelo que tiene al sur.
+// Con caras de dos celdas, esa franja era el grosor del muro visto en
+// perspectiva y tenía sentido que no se pisara. Con las caras de catorce
+// celdas del CC The Lighthouse —56 unidades, más de dos personajes— la franja
+// se comía un trozo de pasillo delante de CADA muro y el jugador se quedaba
+// clavado a dos cuerpos de la pared.
+//
+// Por defecto sigue siendo la altura entera, que es como se comportaba antes.
+// Un nivel lo baja con `pieMapa`; a cero, la cara es solo dibujo y quien se
+// arrima queda DELANTE de ella, que es lo que hace un personaje delante de un
+// muro alto en una vista 3/4 (las entidades se dibujan después del suelo).
+export const PIE_POR_NOMBRE = {};
+
+// HUNDIRSE EN UN MURO (Sergio, 22/09/2026). La cara de una pared es alta —en
+// el CC The Lighthouse, catorce celdas— y no se pisa: quien SUBE por el
+// pasillo se para donde el muro toca el suelo, que es lo correcto. Pero quien
+// llega desde el OTRO LADO, por arriba, se paraba en el borde de arriba del
+// muro, y lo que se quiere es que pueda meterse en él —"hundirse"— hasta su
+// base, como quien se asoma por detrás de una tapia.
+//
+// Que la franja deje pasar tiene un peligro: es suelo del otro lado, así que
+// al llegar al EXTREMO de la pared se saldría por ahí, cruzándola sin puerta
+// —y con eso se saltaría el cierre de un anillo—. Por eso:
+//
+//   - la ÚLTIMA fila de la cara (la que toca el suelo) sigue siendo sólida:
+//     es el tope por los dos lados, y es donde para el que sube;
+//   - y el borde lateral: ver MARGEN_HUNDIR.
+//
+// Solo lo usan los JUGADORES (ver colisionarParedes en main.js): la horda
+// choca con los muros como siempre, y así el campo de flujo no cambia.
+// MARGEN LATERAL, EN CELDAS, en el que no se puede entrar a la cara de un
+// muro. Se puso a 4 para que nadie rodeara la pared saliendo por el extremo de
+// su cara, y Sergio lo cazó enseguida jugando: estando hundido y andando de
+// lado, el hueco de la puerta de una tienda se sentía como un muro invisible
+// —que es lo que era—. A cero, la cara se recorre entera y por la puerta se
+// pasa, que es lo suyo: al fin y al cabo, por donde acaba una pared se puede
+// rodear andando de todas formas, y por una puerta se entra.
+const MARGEN_HUNDIR = 0;
+
+// Lo más gordo que puede ser un muro para poder atravesarlo hundiéndose, en
+// celdas. Un tabique mide una; la fachada, tres. Con este tope, un techo —que
+// es un bloque macizo enorme— no se vuelve transitable por el borde.
+const GRUESO_HUNDIBLE = 4;
+
 // Distancia "infinita" del campo: una celda a la que no se llega. Cabe en el
 // Uint16Array y ninguna distancia real se le acerca (el mapa entero son 8064
 // celdas, así que el camino más largo posible es mucho menor).
@@ -148,7 +197,7 @@ export const RejillaMapa = {
   // `mapa` es el objeto de datos/niveles/<nivel>-mapa.js tal cual.
   // `alturas` es símbolo → celdas de CARA que enseña lo sólido de ese símbolo
   // en la perspectiva 3/4 (ver `pie`). Lo que no venga usa lo de su nombre.
-  iniciar(mapa, leyenda, celda, alturas = {}) {
+  iniciar(mapa, leyenda, celda, alturas = {}, pies = null) {
     this.celda = celda;
     this.ancho = mapa.ancho;
     this.alto = mapa.alto;
@@ -166,6 +215,7 @@ export const RejillaMapa = {
     // tiene que salir de la leyenda y del nivel, nunca de una imagen que
     // pueda no cargar — dos máquinas de un cooperativo han de coincidir.
     this.altura = new Uint8Array(this.simbolos.length);
+    this.alturaPie = new Uint8Array(this.simbolos.length);
     this.alturaMax = 0;
     for (let k = 0; k < this.simbolos.length; k++) {
       const ch = this.simbolos[k];
@@ -175,6 +225,10 @@ export const RejillaMapa = {
         : (def.puerta ? ALTURA_POR_NOMBRE.puerta : (ALTURA_POR_NOMBRE[def.nombre] || 0));
       this.altura[k] = h;
       if (h > this.alturaMax) this.alturaMax = h;
+      // Y cuánto de esa cara no se pisa. Ver PIE_POR_NOMBRE.
+      const p = pies && pies[ch] !== undefined ? pies[ch]
+        : (PIE_POR_NOMBRE[def.nombre] !== undefined ? PIE_POR_NOMBRE[def.nombre] : h);
+      this.alturaPie[k] = Math.min(h, p);
     }
 
     // Qué grupo de puerta es cada símbolo, resuelto UNA vez a un número por
@@ -222,6 +276,7 @@ export const RejillaMapa = {
     // que es lo único que cambia lo sólido en partida.
     this.pie = new Uint8Array(n);
     for (let i = 0; i < n; i++) this.pie[i] = this._pieDe(i);
+    this._calcularHundibles();
     // Y, por puerta, las celdas de pie que dependen de ella: las de debajo de
     // cada una de sus celdas hasta la altura máxima. Se apuntan aquí para no
     // reservar nada al abrirla.
@@ -284,7 +339,7 @@ export const RejillaMapa = {
       const a = i - k * this.ancho;
       if (a < 0) return 0;
       if (this.solido[a] !== 1) continue;
-      return k <= this.altura[this.tipo[a]] ? 1 : 0;
+      return k <= this.alturaPie[this.tipo[a]] ? 1 : 0;
     }
     return 0;
   },
@@ -296,6 +351,7 @@ export const RejillaMapa = {
     for (const i of p.celdasPie) this.pie[i] = this._pieDe(i);
     this._rehacerNavegacionDe(p.celdas);
     this._rehacerNavegacionDe(p.celdasPie);
+    this._calcularHundibles();
   },
 
   // ABRIR UN GRUPO DE PUERTAS. `quien` es lo que dice la leyenda en `abre`:
@@ -425,15 +481,20 @@ export const RejillaMapa = {
   // pared, pero eso es lo que hace un personaje delante de un muro visto desde
   // arriba: taparlo. Los enemigos siguen con la caja cuadrada, que es la que
   // los reparte por los pasillos sin apelotonarse en las esquinas.
-  colisionar(e, r, ry = r) {
+  colisionar(e, r, ry = r, hundir = false) {
     if (!this.activa) return;
     const c = this.celda;
+    // `hundir`: esta entidad puede meterse en la cara de un muro (ver
+    // MARGEN_HUNDIR). Para ella, esas celdas no existen.
+    const bloquea = hundir
+      ? (cx, cy) => this.solidoEnCelda(cx, cy) && !this.hundibleEn(cx, cy)
+      : (cx, cy) => this.solidoEnCelda(cx, cy);
     const cx0 = ((e.x - r) / c) | 0, cx1 = ((e.x + r) / c) | 0;
     const cy0 = ((e.y - ry) / c) | 0, cy1 = ((e.y + ry) / c) | 0;
 
     for (let cy = cy0; cy <= cy1; cy++) {
       for (let cx = cx0; cx <= cx1; cx++) {
-        if (!this.solidoEnCelda(cx, cy)) continue;
+        if (!bloquea(cx, cy)) continue;
 
         const mx = cx * c + c / 2;              // centro de la celda
         const my = cy * c + c / 2;
@@ -446,8 +507,8 @@ export const RejillaMapa = {
 
         const sx = dx < 0 ? -1 : 1;
         const sy = dy < 0 ? -1 : 1;
-        const libreX = !this.solidoEnCelda(cx + sx, cy);
-        const libreY = !this.solidoEnCelda(cx, cy + sy);
+        const libreX = !bloquea(cx + sx, cy);
+        const libreY = !bloquea(cx, cy + sy);
 
         if (px < py) {
           if (libreX) e.x = mx + sx * (c / 2 + r);
@@ -596,6 +657,183 @@ export const RejillaMapa = {
     this.visto = new Uint8Array(n);
     this.celdasVistas = 0;
     this.transitablesVistas = 0;
+  },
+
+  // QUÉ CELDAS DEJAN HUNDIRSE. Ver MARGEN_HUNDIR. Se calcula al cargar y se
+  // rehace al abrir o cerrar una puerta, que es lo único que cambia lo sólido
+  // durante la partida.
+  _calcularHundibles() {
+    const n = this.ancho * this.alto;
+    if (!this.hundible || this.hundible.length !== n) this.hundible = new Uint8Array(n);
+    const h = this.hundible;
+    h.fill(0);
+
+    // 1. La cara, menos su última fila: esa es el tope contra el suelo.
+    for (let i = 0; i < n; i++) {
+      if (this.pie[i] !== 1) continue;
+      const abajo = i + this.ancho;
+      if (abajo < n && this.pie[abajo] === 1) h[i] = 1;
+    }
+    // 2. Y el muro del que cuelga esa cara, para poder entrar desde arriba.
+    //    Solo lo que tenga cara propia (un techo no la tiene) y solo unas
+    //    pocas celdas de grueso.
+    for (let i = 0; i < n; i++) {
+      if (h[i] !== 1) continue;
+      for (let k = 1; k <= GRUESO_HUNDIBLE; k++) {
+        const a = i - k * this.ancho;
+        if (a < 0) break;
+        if (this.solido[a] !== 1) break;
+        if (this.altura[this.tipo[a]] === 0) break;    // techo: no se entra
+        h[a] = 1;
+      }
+    }
+    // 3. LOS TABIQUES DE UNA CELDA que separan dos caras, para poder recorrer
+    //    de un tirón el frente de toda una fila de tiendas. Al llegar al final
+    //    de una tienda, lo que hay es el tabique con la de al lado o la pared
+    //    de su costado: una celda de nada que, estando metido en el muro, se
+    //    sentía como toparse con el aire.
+    //
+    //    SOLO UNA CELDA, y esa es la garantía de que esto no abre el mapa: la
+    //    frontera entre dos anillos se tapia con DOS celdas de grueso a
+    //    propósito (ver `tapiarFrontera` en herramientas/mapa-lighthouse.js),
+    //    así que por ahí no se cuela nadie sin esperar al jefe que abre el
+    //    cierre. La fachada son tres.
+    for (let y = 0; y < this.alto; y++) {
+      const fila = y * this.ancho;
+      for (let x = 1; x < this.ancho - 1; x++) {
+        const i = fila + x;
+        if (h[i] === 1 || this.solido[i] !== 1) continue;
+        if (h[i - 1] !== 1 || h[i + 1] !== 1) continue;
+        h[i] = 1;
+      }
+    }
+
+    // 4. Y LA COMPROBACIÓN QUE LO SOSTIENE TODO: ningún trozo de muro deja
+    //    hundirse si por él se pasa de una zona del mapa a otra.
+    this._podarHundibles();
+
+    // 5. El margen lateral, si lo hay (ver MARGEN_HUNDIR).
+    if (MARGEN_HUNDIR > 0) {
+      const copia = h.slice();
+      for (let y = 0; y < this.alto; y++) {
+        const fila = y * this.ancho;
+        for (let x = 0; x < this.ancho; x++) {
+          if (copia[fila + x] !== 1) continue;
+          let vale = true;
+          for (let k = 1; k <= MARGEN_HUNDIR && vale; k++) {
+            if (x - k < 0 || copia[fila + x - k] !== 1) vale = false;
+            else if (x + k >= this.ancho || copia[fila + x + k] !== 1) vale = false;
+          }
+          if (!vale) h[fila + x] = 0;
+        }
+      }
+    }
+  },
+
+  // QUITAR DEL HUNDIMIENTO LO QUE ABRIRÍA EL MAPA.
+  //
+  // Una cara se pinta sobre el suelo del OTRO LADO del muro, así que meterse en
+  // ella es estar del otro lado. Mientras solo se pueda entrar y salir por
+  // arriba da igual —el tope de abajo lo impide—, pero la cara se recorre de
+  // lado, y por el extremo de un muro, o por debajo de la punta de uno
+  // vertical, se sale al otro lado. Medido sobre el mapa: con las puertas
+  // cerradas se recorría el 99,7% del centro comercial, o sea que los cierres
+  // que abren los jefes no cerraban nada.
+  //
+  // Se arregla sin tocar el trazado y sin muros invisibles donde no hacen
+  // falta: se miran las ZONAS del mapa —los trozos de suelo que se comunican
+  // entre sí tal y como está ahora mismo, con las puertas que estén cerradas,
+  // cerradas— y se le quita el hundimiento a todo trozo de cara que toque más
+  // de una. Lo que queda es justo lo que no comunica nada nuevo: el frente de
+  // una tienda, con su puerta, se recorre entero; el muro que separa dos
+  // anillos, no.
+  //
+  // Se rehace al abrir una puerta, que es cuando las zonas se funden: a partir
+  // de ahí, esa pared ya no separa nada y se puede recorrer.
+  _podarHundibles() {
+    const n = this.ancho * this.alto, W = this.ancho;
+    const h = this.hundible;
+    // Zonas del suelo de verdad (sin contar el hundimiento).
+    const zona = new Int32Array(n).fill(-1);
+    const cola = this._colaPoda || (this._colaPoda = new Int32Array(n));
+    let zonas = 0;
+    const abierto = (i) => this.solido[i] !== 1 && this.pie[i] !== 1;
+    for (let s = 0; s < n; s++) {
+      if (zona[s] !== -1 || !abierto(s)) continue;
+      const z = zonas++;
+      let fin = 0, ini = 0;
+      cola[fin++] = s; zona[s] = z;
+      while (ini < fin) {
+        const i = cola[ini++], x = i % W;
+        for (let k = 0; k < 4; k++) {
+          let v;
+          if (k === 0) v = i - W; else if (k === 1) v = i + W;
+          else if (k === 2) v = x > 0 ? i - 1 : -1; else v = x < W - 1 ? i + 1 : -1;
+          if (v < 0 || v >= n || zona[v] !== -1 || !abierto(v)) continue;
+          zona[v] = z; cola[fin++] = v;
+        }
+      }
+    }
+    // Trozos de cara, y a qué zonas tocan.
+    const visto = new Uint8Array(n);
+    for (let s = 0; s < n; s++) {
+      if (visto[s] || h[s] !== 1) continue;
+      let fin = 0, ini = 0;
+      cola[fin++] = s; visto[s] = 1;
+      let zonaTocada = -1, abre = false;
+      const trozo = [];
+      while (ini < fin) {
+        const i = cola[ini++], x = i % W;
+        trozo.push(i);
+        for (let k = 0; k < 4; k++) {
+          let v;
+          if (k === 0) v = i - W; else if (k === 1) v = i + W;
+          else if (k === 2) v = x > 0 ? i - 1 : -1; else v = x < W - 1 ? i + 1 : -1;
+          if (v < 0 || v >= n) continue;
+          if (h[v] === 1) {
+            if (!visto[v]) { visto[v] = 1; cola[fin++] = v; }
+          } else if (zona[v] >= 0) {
+            if (zonaTocada < 0) zonaTocada = zona[v];
+            else if (zona[v] !== zonaTocada) abre = true;
+          }
+        }
+      }
+      if (abre) for (let k = 0; k < trozo.length; k++) h[trozo[k]] = 0;
+    }
+  },
+
+  hundibleEn(cx, cy) {
+    if (cx < 0 || cy < 0 || cx >= this.ancho || cy >= this.alto) return false;
+    return this.hundible[cy * this.ancho + cx] === 1;
+  },
+
+  // EL BORDE DE ARRIBA DE LA CARA que tapa esta posición, en unidades, o -1 si
+  // no hay muro encima. Con él, quien dibuja sabe cuánto de un personaje ha
+  // quedado metido en la pared (ver `dibujar` en entidades/jugador.js).
+  //
+  // Y de paso deja en `caraBase` el borde de ABAJO de esa cara, que es donde el
+  // muro toca el suelo. Hacen falta los dos: el que está de pie contra la
+  // pared, por fuera, tiene los pies justo en `caraBase` y NO está hundido; el
+  // que se ha metido los tiene entre `tope` y `caraBase`. Se deja en un campo
+  // en vez de devolver un par para no crear un objeto por fotograma y bicho.
+  caraBase: -1,
+
+  topeCaraSobre(x, y) {
+    this.caraBase = -1;
+    if (!this.activa) return -1;
+    const cx = (x / this.celda) | 0, cy = (y / this.celda) | 0;
+    if (cx < 0 || cy < 0 || cx >= this.ancho || cy >= this.alto) return -1;
+    for (let k = 0; k <= this.alturaMax; k++) {
+      const fy = cy - k;
+      if (fy < 0) return -1;
+      const a = fy * this.ancho + cx;
+      if (this.solido[a] !== 1) continue;
+      const h = this.altura[this.tipo[a]];
+      if (h === 0) return -1;
+      this.caraBase = (fy + 1 + h) * this.celda;
+      return (fy + 1) * this.celda;              // borde sur de la celda del muro
+    }
+    return -1;
   },
 
   navSolidoEn(nx, ny) {
@@ -879,11 +1117,17 @@ export const RejillaMapa = {
   lineaLibre(x0, y0, x1, y1) {
     if (!this.activa) return true;
     const c = this.celda;
+    const dy0 = y1 - y0;
     let cx = (x0 / c) | 0, cy = (y0 / c) | 0;
     const cx1 = (x1 / c) | 0, cy1 = (y1 / c) | 0;
-    if (this.solidoEnCelda(cx, cy)) return false;
-
-    const dx = x1 - x0, dy = y1 - y0;
+    // SALIR DEL MURO EN EL QUE SE ESTÁ, Y SOLO HACIA ARRIBA. Un origen dentro
+    // de algo sólido devolvía "no hay línea" y punto, y eso dejaba MUDO al
+    // jugador hundido en una pared (ver `hundible`): sus armas preguntan todas
+    // desde sus pies. Pero la salida es por donde se entró —a un muro solo se
+    // entra desde arriba—, así que la línea sale hacia el norte y nada más: lo
+    // de abajo está al otro lado de la pared y ahí no se dispara.
+    const dx = x1 - x0, dy = dy0;
+    let saliendo = this.solidoEnCelda(cx, cy) && dy < 0;
     const pasoX = dx > 0 ? 1 : -1;
     const pasoY = dy > 0 ? 1 : -1;
     const tDeltaX = dx === 0 ? Infinity : Math.abs(c / dx);
@@ -900,7 +1144,8 @@ export const RejillaMapa = {
       if (cx === cx1 && cy === cy1) return true;
       if (tMaxX < tMaxY) { cx += pasoX; tMaxX += tDeltaX; }
       else { cy += pasoY; tMaxY += tDeltaY; }
-      if (this.solidoEnCelda(cx, cy)) return false;
+      if (this.solidoEnCelda(cx, cy)) { if (!saliendo) return false; }
+      else saliendo = false;
       if (tMaxX > 1 && tMaxY > 1) return true;    // se pasó del destino
     }
     return false;
@@ -919,7 +1164,9 @@ export const RejillaMapa = {
     if (!this.activa) return max;
     const c = this.celda;
     let cx = (x0 / c) | 0, cy = (y0 / c) | 0;
-    if (this.solidoEnCelda(cx, cy)) return 0;
+    // Igual que en `lineaLibre`: el muro en el que uno está metido no le frena
+    // el rayo nada más salir de los pies, y solo hacia arriba.
+    let saliendo = this.solidoEnCelda(cx, cy) && uy < 0;
 
     const pasoX = ux > 0 ? 1 : -1;
     const pasoY = uy > 0 ? 1 : -1;
@@ -937,7 +1184,8 @@ export const RejillaMapa = {
       if (tMaxX < tMaxY) { t = tMaxX; cx += pasoX; tMaxX += tDeltaX; }
       else { t = tMaxY; cy += pasoY; tMaxY += tDeltaY; }
       if (t >= max) return max;
-      if (this.solidoEnCelda(cx, cy)) return t;
+      if (this.solidoEnCelda(cx, cy)) { if (!saliendo) return t; }
+      else saliendo = false;
     }
     return max;
   }

@@ -347,6 +347,7 @@ export const SueloRejilla = {
   caras: null,           // la cara de cada tipo, o null si es plano
   paredes: null,         // cara de pared por tipo de SUELO desde el que se ve
   duenyo: null,          // por celda sólida: tipo de la tienda de la que es (255 = de nadie)
+  tocaPasillo: null,     // por celda sólida: ¿tiene el pasillo al otro lado?
   panelesGirados: null,  // el escaparate de cada tienda, girado 90° (tapa de los muros verticales)
   escaparates: null,     // cara de pared por tipo de suelo que hay DETRÁS (visto desde el pasillo)
   estanterias: null,     // caras de estantería (varias) por tipo de suelo delante
@@ -597,38 +598,53 @@ export const SueloRejilla = {
     const R = RejillaMapa;
     const n = R.ancho * R.alto;
     this.duenyo = new Uint8Array(n).fill(255);
+    this.tocaPasillo = new Uint8Array(n);
     if (!this.escaparates) return;
     const DUENYO_ALCANCE = 12;
     const cola = new Int32Array(n);
     const paso = new Uint8Array(n);
-    let fin = 0;
-    // Fuentes: toda celda cuyo tipo tenga escaparate (suelo de tienda o techo).
-    for (let i = 0; i < n; i++) {
-      if (this.escaparates[R.tipo[i]]) { this.duenyo[i] = R.tipo[i]; cola[fin++] = i; }
-    }
-    let ini = 0;
     const W = R.ancho;
-    while (ini < fin) {
-      const i = cola[ini++];
-      const d = paso[i];
-      if (d >= DUENYO_ALCANCE) continue;
-      const x = i % W;
-      for (let k = 0; k < 4; k++) {
-        let v;
-        if (k === 0) v = i - W;
-        else if (k === 1) v = i + W;
-        else if (k === 2) v = x > 0 ? i - 1 : -1;
-        else v = x < W - 1 ? i + 1 : -1;
-        if (v < 0 || v >= n) continue;
-        if (this.duenyo[v] !== 255) continue;
-        if (R.solido[v] !== 1) continue;          // solo se propaga por lo sólido
-        // Una puerta no es de nadie: se pinta como puerta.
-        if (R.grupoDe[R.tipo[v]] >= 0) continue;
-        this.duenyo[v] = this.duenyo[i];
-        paso[v] = d + 1;
-        cola[fin++] = v;
+
+    // La misma propagación dos veces: de quién es cada celda sólida, y si
+    // tiene el PASILLO al otro lado. Se camina solo por lo sólido y unas pocas
+    // celdas, que es el grueso de un muro.
+    const propagar = (semilla, marca) => {
+      let fin = 0, ini = 0;
+      paso.fill(0);
+      for (let i = 0; i < n; i++) if (semilla(i)) { marca(i, i); cola[fin++] = i; }
+      while (ini < fin) {
+        const i = cola[ini++];
+        const d = paso[i];
+        if (d >= DUENYO_ALCANCE) continue;
+        const x = i % W;
+        for (let k = 0; k < 4; k++) {
+          let v;
+          if (k === 0) v = i - W;
+          else if (k === 1) v = i + W;
+          else if (k === 2) v = x > 0 ? i - 1 : -1;
+          else v = x < W - 1 ? i + 1 : -1;
+          if (v < 0 || v >= n) continue;
+          if (R.solido[v] !== 1) continue;          // solo se propaga por lo sólido
+          if (R.grupoDe[R.tipo[v]] >= 0) continue;  // una puerta no es de nadie
+          if (!marca(v, i)) continue;
+          paso[v] = d + 1;
+          cola[fin++] = v;
+        }
       }
-    }
+    };
+
+    propagar((i) => !!this.escaparates[R.tipo[i]],
+             (v, desde) => {
+               if (this.duenyo[v] !== 255) return false;
+               this.duenyo[v] = v === desde ? R.tipo[v] : this.duenyo[desde];
+               return true;
+             });
+    propagar((i) => R.solido[i] !== 1 && this.esPasillo[R.tipo[i]],
+             (v) => {
+               if (this.tocaPasillo[v] === 1) return false;
+               this.tocaPasillo[v] = 1;
+               return true;
+             });
   },
 
   // LA TAPA DE UN MURO. Devuelve si la ha pintado. El panel es el de la tienda
@@ -640,7 +656,10 @@ export const SueloRejilla = {
     if (!this.escaparates || !this.duenyo) return false;
     const dueno = this.duenyo[idx];
     if (dueno === 255) return false;
-    const panel = this.escaparates[dueno];
+    // El mismo criterio que la cara: con el pasillo al otro lado, el ventanal;
+    // si no, el panel de dentro de esa tienda.
+    const panel = (this.tocaPasillo && this.tocaPasillo[idx] === 1 ? this.escaparates[dueno] : null)
+                || (this.paredes && this.paredes[dueno]) || this.escaparates[dueno];
     if (!panel) return false;
     const R = RejillaMapa;
     const arriba = cy > 0 && R.solido[idx - R.ancho] === 1;
@@ -648,7 +667,8 @@ export const SueloRejilla = {
     const izq = cx > 0 && R.solido[idx - 1] === 1;
     const der = cx < R.ancho - 1 && R.solido[idx + 1] === 1;
     if (arriba && abajo && !(izq && der)) {
-      const g = this.panelesGirados && this.panelesGirados[dueno];
+      const g = panel === this.escaparates[dueno]
+        ? (this.panelesGirados && this.panelesGirados[dueno]) : null;
       if (!g) return false;
       // Tumbado: lo que repite es el alto, y lo que recorta es el grueso.
       const porAlto = g.height / cp;
@@ -677,9 +697,13 @@ export const SueloRejilla = {
   // genérica del tipo, que es la de siempre.
   _caraPara(ta, ia, tSuelo, ax, ay) {
     if (ta === this.tipoPared && this.paredes) {
-      if (this.esPasillo[tSuelo] && this.escaparates && this.duenyo) {
-        // Desde el pasillo: el escaparate de la tienda de la que es la pared
-        // (ver _calcularDuenyos). Sin dueño, el azulejo del pasillo.
+      // UNA PARED CON EL PASILLO AL OTRO LADO ES UN ESCAPARATE, se mire desde
+      // donde se mire (Sergio, 22/09/2026). Antes solo salía el cristal cuando
+      // se miraba DESDE el pasillo, y como la cara de un muro se pinta hacia
+      // abajo, eso dejaba sin ventanal a todas las tiendas que están DEBAJO de
+      // su pasillo: su cara cae dentro de la tienda y llevaba el panel de
+      // dentro. Que son la mitad largas de las tiendas del mapa.
+      if (this.escaparates && this.duenyo && this.tocaPasillo && this.tocaPasillo[ia] === 1) {
         const dueno = this.duenyo[ia];
         if (dueno !== 255) {
           const e = this.escaparates[dueno];

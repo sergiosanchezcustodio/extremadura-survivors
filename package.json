@@ -7,7 +7,8 @@
     "probar": "node herramientas/probar-mate.js && node herramientas/probar-codigo.js && node herramientas/probar-lockstep.js && node herramientas/probar-sincro.js && node herramientas/probar-progreso.js && node herramientas/probar-nube.js && node herramientas/probar-nube-cliente.js",
     "probar-partida": "node herramientas/probar-partida-en-red.js",
     "probar-menus": "node herramientas/probar-navegacion.js",
-    "jugar-en-red": "node herramientas/jugar-en-red.js"
+    "jugar-en-red": "node herramientas/jugar-en-red.js",
+    "probar-nivel2": "node herramientas/probar-nivel2.js"
   },
   "devDependencies": {
     "playwright": "^1.49.0"

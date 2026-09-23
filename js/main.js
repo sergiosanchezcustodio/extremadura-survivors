@@ -2672,10 +2672,7 @@ function colisionarParedes() {
   for (let i = 0; i < jugadores.length; i++) {
     const j = jugadores[i];
     // Semialto de dos: los pies tocan el muro de abajo. Ver `colisionar`.
-    // Y con `hundir`: un jugador que llega a un muro DESDE ARRIBA puede
-    // meterse en su cara hasta la base (ver MARGEN_HUNDIR en
-    // sistemas/rejillaMapa.js). La horda no.
-    RejillaMapa.colisionar(j, j.radioCuerpo || j.radio, PIES_CONTRA_PARED, true);
+    RejillaMapa.colisionar(j, j.radioCuerpo || j.radio, PIES_CONTRA_PARED);
   }
   const items = enemigos.pool.items;
   const n = enemigos.pool.activos;
@@ -2687,11 +2684,7 @@ function colisionarParedes() {
     // cara: chocar contra la pared solo servía para despegarlos de ella.
     if (e.def && e.def.esObjeto) continue;
     const r = e.radioCuerpo || e.radio;
-    // Con `hundir`, como los jugadores: la horda también se mete en la cara de
-    // un muro cuando llega desde arriba (Sergio). No cambia la navegación —el
-    // campo de flujo sigue viendo la cara como pared y los rodea— pero ya no
-    // se quedan clavados en el canto cuando el empuje los mete ahí.
-    RejillaMapa.colisionar(e, r > PARED_SEMILADO_MAX ? PARED_SEMILADO_MAX : r, undefined, true);
+    RejillaMapa.colisionar(e, r > PARED_SEMILADO_MAX ? PARED_SEMILADO_MAX : r);
   }
 }
 

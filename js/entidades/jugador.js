@@ -1177,54 +1177,12 @@ export class Jugador {
     const anchoLog = meta.w / ESCALA_ARTE;
     const altoLog = meta.h / ESCALA_ARTE;
 
-    // --- HUNDIDO EN UN MURO -------------------------------------------------
-    //
-    // Al llegar a una pared desde el otro lado se puede seguir bajando, y el
-    // muro va tapando al personaje (ver MARGEN_HUNDIR en
-    // sistemas/rejillaMapa.js). Cuando lo tapa DEL TODO no se dibuja el
-    // sprite: se dibuja su silueta del color de su jugador, con un halo del
-    // mismo color, que es lo único que dice dónde está. Sin esto, un jugador
-    // metido en una pared desaparecía de la pantalla.
-    //
-    // HUNDIDO ES TENER LOS PIES DENTRO DE LA CARA, entre su borde de arriba y
-    // el de abajo. Quien está de pie contra la pared por fuera tiene los pies
-    // JUSTO en el borde de abajo y no está hundido: se dibuja entero, tapando
-    // la pared, como cualquiera delante de un muro.
-    //
-    // A medias, se dibuja SOLO LO QUE ASOMA por encima de la pared y lo demás
-    // no se pinta: es un recorte del propio sprite, sin lienzos ni máscaras.
-    // Del todo dentro, la silueta.
-    const topeCara = RejillaMapa.topeCaraSobre(this.xVista, this.yVista);
-    const baseCara = RejillaMapa.caraBase;
-    const hundido = topeCara >= 0 && this.yVista > topeCara && this.yVista < baseCara;
-    if (hundido && this.yVista - altoLog < topeCara) {
-      // Lo que asoma: de la coronilla hasta el borde de arriba de la pared.
-      const asoma = topeCara - (this.yVista - altoLog);
-      const alto = Math.max(1, Math.round(asoma * ESCALA_ARTE));
-      ctx.drawImage(img,
-        indice * meta.w, 0, meta.w, alto,
-        (cxF - (meta.w >> 1)) / ESCALA_ARTE, (cyF - meta.h) / ESCALA_ARTE,
-        anchoLog, alto / ESCALA_ARTE);
-      return;
-    }
-    if (hundido && this.color) {
-      const sil = Recursos.silueta(this.personaje, this.color, !this.mirandoDerecha);
-      if (sil) {
-        const ox = (cxF - (meta.w >> 1)) / ESCALA_ARTE;
-        const oy = (cyF - meta.h) / ESCALA_ARTE;
-        const p = HALO_PX / ESCALA_ARTE;
-        const cw = meta.w + 2 * HALO_PX, ch = meta.h + 2 * HALO_PX;
-        ctx.save();
-        ctx.globalAlpha = 0.85;
-        ctx.drawImage(sil.halo, indice * cw, 0, cw, ch,
-                      ox - p, oy - p, cw / ESCALA_ARTE, ch / ESCALA_ARTE);
-        ctx.globalAlpha = 1;
-        ctx.drawImage(sil.figura, indice * meta.w, 0, meta.w, meta.h,
-                      ox, oy, anchoLog, altoLog);
-        ctx.restore();
-        return;
-      }
-    }
+    // (Aquí se dibujaba al personaje metido en un muro: lo que asomaba por
+    // encima de la pared, y del todo dentro su silueta con halo. Se ha ido con
+    // el hundimiento —ver la nota de la cara en sistemas/rejillaMapa.js—:
+    // la cara de una pared es la pared, no suelo, y ahí no puede estar nadie.
+    // Lo que sigue pendiente, y es otra cosa, es que una pared TAPE a quien
+    // queda detrás de ella: eso es dibujo, no colisión.)
 
     // --- EL RENACER: se va y vuelve ----------------------------------------
     //

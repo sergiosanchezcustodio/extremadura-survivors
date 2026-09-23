@@ -133,3 +133,11 @@ foreach ($f in Get-ChildItem (Join-Path $Origen 'suelo*.png')) {
   }
 }
 Write-Host "$ns suelos a 128x128 en $dirSuelos"
+
+# EL TECHO de las tiendas cerradas, que lo dibujó Sergio aparte: una baldosa
+# más, del mismo tamaño que los suelos (32 unidades) y por el mismo camino.
+$techo = Join-Path $Origen 'techo.png'
+if (Test-Path $techo) {
+  Reducir $techo (Join-Path $Salida 'techo.png') 128 128
+  Write-Host "  techo a 128x128 en $Salida\techo.png"
+}

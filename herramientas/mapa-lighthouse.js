@@ -115,15 +115,17 @@ const REGALOS    = 'g';
 const DROGUERIA  = 'q';
 const TECNOLOGIA = 't';
 const FRUTERIA   = 'u';
-// SEIS TIPOS Y NO MÁS (Sergio, 21/09/2026, segunda pasada): supermercado,
-// regalos, tecnología, alimentos, droguería y juguetes. Cada uno con SUS
-// estanterías, SU pared de dentro y SU escaparate, y sin repetir un panel
-// entre dos tipos (ver paredesMapa y escaparatesMapa en lighthouse.js). Ropa
-// y libros, la mueblería y el ocio se quedan en la leyenda por si un mapa
-// viejo los trae, pero el generador ya no los escribe: las tiendas tienen que
-// ser sencillas y parecidas entre sí, y cambiar solo en paredes y género.
-// `u` pasa a llamarse ALIMENTOS (las estanterías de frutería son de comida).
-const TIENDAS = [JUGUETES, REGALOS, DROGUERIA, TECNOLOGIA, FRUTERIA];
+// OCHO TIPOS DE TIENDA, que son los ocho juegos de estanterías que dibujó
+// Sergio: supermercado, regalos, tecnología, alimentos, droguería, juguetes,
+// ropa y libros. Cada uno con SUS estanterías, SU pared de dentro y SU
+// escaparate —uno de los ocho ventanales, sin repetir— (ver paredesMapa y
+// escaparatesMapa en lighthouse.js). Fueron seis entre el 21 y el 22/09/2026,
+// hasta que Sergio pidió los ocho ventanales, uno por tipo.
+//
+// La mueblería y el ocio siguen fuera: son otra cosa y no tienen ni
+// estanterías ni ventanal propios. Se quedan en la leyenda por si un mapa
+// viejo los trae. `u` es ALIMENTOS (las estanterías de frutería son comida).
+const TIENDAS = [JUGUETES, REGALOS, DROGUERIA, TECNOLOGIA, FRUTERIA, ROPA, LIBROS];
 
 // EL TECHO: una tienda CERRADA no enseña el interior, enseña su techo. Es
 // sólido —no se entra, no se ve, no aparece nadie dentro— y no tiene cara.
@@ -1166,12 +1168,10 @@ function zonificar(g, inicio, locales) {
 // Tapiar la frontera entre el anillo `k` y los de fuera. Devuelve las celdas
 // tapiadas, que son las candidatas a convertirse en cierre, y deja marcada la
 // frontera ENTERA —muro incluido— en `protegidas`.
-// DOS CELDAS DE GRUESO, no una. Con una, la frontera era un tabique fino, y
-// desde el 22/09/2026 un jugador puede meterse en la cara de un muro y cruzar
-// los tabiques finos de una celda (ver `hundible` en sistemas/rejillaMapa.js):
-// con la frontera de una celda, eso sería colarse al anillo siguiente sin
-// esperar al jefe que abre el cierre. Las dos capas entran en la lista, así
-// que un cierre abre las dos y sigue siendo una puerta y no media.
+// DOS CELDAS DE GRUESO, no una. Con una, la frontera era un tabique fino, y un
+// tabique fino se cruza en cuanto algo empuja: sería colarse al anillo
+// siguiente sin esperar al jefe que abre el cierre. Las dos capas entran en la
+// lista, así que un cierre abre las dos y sigue siendo una puerta y no media.
 function tapiarFrontera(g, zona, k, protegidas) {
   const frontera = [];
   const meter = (i) => {

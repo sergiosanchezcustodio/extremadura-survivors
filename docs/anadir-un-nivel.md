@@ -281,33 +281,28 @@ panel de su tienda —el de siempre en los muros que van de este a oeste, y
 **girado 90°** en los que van de norte a sur, para que se lea como la misma
 pared vista de lado (`_tapaDeMuro` en `sistemas/sueloRejilla.js`).
 
-**Hundirse en un muro.** La cara no se pisa, así que quien SUBE por el pasillo
-se para donde el muro toca el suelo. Pero quien llega **desde el otro lado, por
-arriba**, puede meterse en ella hasta su base: `RejillaMapa.hundible` marca esas
-celdas y `colisionar(..., hundir)` las ignora, y solo lo piden los jugadores
-(la horda choca como siempre, así que el campo de flujo no cambia). Dos seguros. La **última fila** de la cara sigue siendo sólida —es el tope por
-los dos lados—, y sobre todo `_podarHundibles`: al cargar el nivel se miran las
-**zonas** del mapa (los trozos de suelo que se comunican con las puertas que
-estén cerradas, cerradas) y se le quita el hundimiento a todo trozo de cara que
-toque más de una. Sin eso, la cara es un túnel: se entra por un lado, se
-recorre a lo largo y se sale por el extremo del muro, y medido sobre el mapa
-eso dejaba el **99,7%** del centro comercial accesible con las puertas
-cerradas, o sea los cierres de los jefes convertidos en decoración. Con la
-poda, la cuenta es exacta: **cero** celdas de suelo nuevas. Se rehace al abrir
-una puerta —ahí las zonas se funden y esa pared ya no separa nada—, y cuesta
-unos 120 ms, que es lo que tarda un jefe en caer.
+**LA CARA DE UN MURO ES EL MURO, y ahí no puede estar nadie.** En esta
+perspectiva —cenital con algo de inclinación— la franja donde se pinta la cara
+no es el suelo del otro lado: es la pared vista de frente. Un personaje puede
+quedar **detrás** de una pared y verse tapado por ella, que es cosa del dibujo,
+pero nunca **dentro**.
 
-También se sube a dos celdas el grueso de la frontera entre anillos
-(`tapiarFrontera`) y se dejan pasar los tabiques de una sola celda entre dos
-caras, para poder recorrer de un tirón el frente de una fila de tiendas. Mientras solo está a medias se dibuja **lo que asoma** por encima de la pared y
-nada más (un recorte del sprite, sin máscaras); cuando el muro lo tapa del
-todo, `dibujar` en `entidades/jugador.js` pinta su **silueta del color de su
-jugador con un halo**, que es lo único que dice dónde está. Su **mascota** hace
-lo mismo y con el mismo color (`_una` en `sistemas/mascotas.js`). Y sigue
-disparando: `lineaLibre` y `alcanceLibre` dejan salir del muro en el que se
-está —antes, un origen dentro de algo sólido devolvía "no hay línea" y el
-jugador hundido se quedaba sin objetivos— pero **solo hacia arriba**, que es
-por donde se entró: lo de abajo está al otro lado de la pared.
+El 21 y el 22/09/2026 se probó lo contrario: dejar que quien llegaba desde
+arriba se metiera en la cara hasta la base ("hundirse"). De esa idea salieron,
+uno detrás de otro, todos estos agujeros: entrar a las tiendas por las esquinas
+de abajo, cruzar por debajo de la punta de una pared vertical y —el peor—
+recorrer el **99,7%** del centro comercial con los cierres de los jefes
+cerrados, o sea los tres jefes convertidos en decoración. Cada parche tapaba
+uno y abría el siguiente. Está quitado entero: `pie` marca la cara como sólida
+y `colisionar` no tiene excepciones.
+
+Esto lo comprueba `npm run probar-nivel2` en un navegador y **con las teclas**,
+que es la única forma que vale: moviendo al jugador a dedo se pisa la variable
+de la que depende la colisión y las pruebas dan por bueno un juego que no
+existe. Lo que vigila: bajando contra una pared el jugador se queda fuera, no
+se atraviesa ninguna pared vertical de esquina, toda tienda tiene por dónde
+entrar, ninguna celda de cara es transitable y con los cierres puestos solo se
+llega a un tercio del suelo.
 
 **Cuánto de esa cara NO se pisa es otra cosa**, y se declara aparte con
 `pieMapa` (símbolo → celdas; por defecto, la altura entera, que es como se
@@ -327,8 +322,11 @@ Tres tablas más en los datos del nivel, todas símbolo de SUELO → PNG:
 
 - `paredesMapa` — el panel de pared que enseña una pared vista desde ese
   suelo: dentro de la juguetería, ositos; desde el pasillo, el azulejo.
-- `escaparatesMapa` — lo que enseña al **pasillo** una pared que tiene esa
-  tienda detrás. Son **ventanales de cristal**, uno por tipo de tienda y
+- `escaparatesMapa` — el ventanal de una tienda. Lo lleva **toda pared que
+  tenga el pasillo al otro lado**, se mire desde donde se mire: la cara de un
+  muro se pinta hacia abajo, así que la tienda que está DEBAJO de su pasillo
+  tiene la cara dentro de sí misma, y mirando solo desde el pasillo se quedaba
+  sin ventanal (`tocaPasillo` en `sueloRejilla.js`). Son **ventanales de cristal**, uno por tipo de tienda y
   siempre el mismo color (juguetes, el rosa), con el cristal al **25% de
   opacidad** y el marco opaco. A través de él se ve **el interior de la
   tienda**: al componer el trozo, la celda bajo un cristal se repinta con el
@@ -343,13 +341,14 @@ Tres tablas más en los datos del nivel, todas símbolo de SUELO → PNG:
   las de la tienda en la que está, alternándolas a lo largo del lineal por la
   posición de la celda. Nunca las de otra tienda.
 
-Por eso las tiendas ya no son todas `c`: hay **seis tipos** —`a` supermercado,
-`g` regalos, `t` tecnología, `u` alimentos, `q` droguería, `j` juguetes—, cada
-uno con su pared de dentro, su escaparate (siempre distinto de la de dentro) y
-sus estanterías, sin repetir un panel entre dos tipos; el generador reparte
-uno a cada local. Y **seis de cada diez tiendas van cerradas**: su interior es
-`T`, techo —sólido, sin cara, no se entra ni se ve—, y su escaparate es el de
-cierre. (`r`, `l`, `b`, `d` y `c` siguen en la leyenda por si un mapa viejo
+Por eso las tiendas ya no son todas `c`: hay **ocho tipos** —`a` supermercado,
+`g` regalos, `t` tecnología, `u` alimentos, `q` droguería, `j` juguetes, `r`
+ropa, `l` libros—, que son los ocho juegos de estanterías que dibujó Sergio;
+cada uno con su pared de dentro, su escaparate —uno de los ocho ventanales de
+cristal, sin repetir— y sus estanterías; el generador reparte uno a cada
+local. Y **seis de cada diez tiendas van cerradas**: su interior es
+`T`, techo —sólido, sin cara, no se entra ni se ve—, y su escaparate son unas tablas y su techo, el
+que dibujó Sergio. (`b`, `d` y `c` siguen en la leyenda por si un mapa viejo
 los trae.) Los paneles los
 dibuja Sergio como láminas verticales (`resources/stages/2/pared_tipoN.png`,
 `estanteria_<tienda>N.png`) y `herramientas/paneles-lighthouse.ps1` los

@@ -103,7 +103,11 @@ export const NIVEL = {
     'M': 'assets/niveles/lighthouse/mostrador.png',
     'G': 'assets/niveles/lighthouse/cierre_gris.png',
     'Z': 'assets/niveles/lighthouse/cierre_azul.png',
-    'S': 'assets/niveles/lighthouse/salida.png'
+    'S': 'assets/niveles/lighthouse/salida.png',
+    // EL TECHO de una tienda cerrada, dibujado por Sergio (22/09/2026). Es lo
+    // único que se ve de un local cerrado, y antes era un relleno hecho en
+    // código a partir de su color.
+    'T': 'assets/niveles/lighthouse/techo.png'
   },
 
   // LOS SUELOS DE LAS TIENDAS: los diez que quedan, repartidos por igual entre
@@ -112,7 +116,7 @@ export const NIVEL = {
   // suelo de tienda es una tienda, y van por turno): el símbolo del mapa es
   // el tipo, no el suelo. Ver `_repartirSuelos` en sistemas/sueloRejilla.js.
   suelosTiendas: {
-    tipos: ['a', 'g', 't', 'u', 'q', 'j'],
+    tipos: ['a', 'g', 't', 'u', 'q', 'j', 'r', 'l'],
     texturas: [
       'assets/niveles/lighthouse/suelos/suelo6.png',
       'assets/niveles/lighthouse/suelos/suelo7.png',
@@ -151,9 +155,10 @@ export const NIVEL = {
   // Se probó a ponerla a cero —cara solo dibujo— y NO es lo que se quiere:
   // dejaba subir al jugador por encima de la pared hasta el otro lado.
 
-  // LOS PANELES DE PARED, POR TIENDA (Sergio, 21/09/2026). SEIS TIPOS DE
+  // LOS PANELES DE PARED, POR TIENDA (Sergio, 21/09/2026). OCHO TIPOS DE
   // TIENDA —supermercado, regalos, tecnología, alimentos, droguería,
-  // juguetes— y cada una tiene UNA pared y no se mezclan: la cara de una pared
+  // juguetes, ropa y libros, que son los ocho juegos de estanterías que
+  // dibujó— y cada una tiene UNA pared y no se mezclan: la cara de una pared
   // se elige por el suelo desde el que se ve —dentro de la juguetería, ositos;
   // en el pasillo, el azulejo del centro comercial—. Son los `pared_tipoN.png` de resources/stages/2,
   // reducidos por herramientas/paneles-lighthouse.ps1 a 64x224 —cuatro celdas
@@ -172,6 +177,8 @@ export const NIVEL = {
     't': 'assets/niveles/lighthouse/paredes/tipo19.png',   // triángulos grises: tecnología
     'u': 'assets/niveles/lighthouse/paredes/tipo20.png',   // hojas: alimentos
     'q': 'assets/niveles/lighthouse/paredes/tipo14.png',   // piedra clara: droguería
+    'r': 'assets/niveles/lighthouse/paredes/tipo22.png',   // rayas marineras: ropa
+    'l': 'assets/niveles/lighthouse/paredes/tipo23.png',   // ondas: libros
     'j': 'assets/niveles/lighthouse/paredes/tipo21.png'    // ositos: juguetes
   },
 
@@ -179,8 +186,9 @@ export const NIVEL = {
   // VENTANALES DE CRISTAL que dibujó Sergio (`pared_tienda1..8.png`), con el
   // cristal al 25% de opacidad —75% transparente, lo pidió él— y el marco
   // opaco: ver herramientas/paneles-lighthouse.ps1. Cada tipo de tienda tiene
-  // SU COLOR y no varía nunca: juguetes siempre el rosa. Queda libre el gris
-  // (tienda6) por si hace falta un tipo más.
+  // SU COLOR y no varía nunca: juguetes siempre el rosa. LOS OCHO VENTANALES
+  // PARA LOS OCHO TIPOS DE TIENDA, uno cada uno y sin repetir (Sergio,
+  // 22/09/2026).
   //
   // El cristal se pinta sobre la celda de suelo que tiene delante, así que a
   // través de él se ve el suelo del pasillo — que es lo que hace un cristal.
@@ -197,6 +205,8 @@ export const NIVEL = {
     'u': 'assets/niveles/lighthouse/escaparates/tienda2.png',   // crema: alimentos
     'q': 'assets/niveles/lighthouse/escaparates/tienda5.png',   // blanco: droguería
     'j': 'assets/niveles/lighthouse/escaparates/tienda8.png',   // rosa: juguetes
+    'r': 'assets/niveles/lighthouse/escaparates/tienda6.png',   // gris: ropa
+    'l': 'assets/niveles/lighthouse/escaparates/tienda7.png',   // azul noche: libros
     // LA TIENDA CERRADA NO LLEVA CRISTALERA (Sergio): si el local está cerrado
     // no hay escaparate que mirar, hay tablas. Este es el panel de madera
     // oscura, y de paso es el único que no comparte con ninguna tienda.
@@ -224,7 +234,13 @@ export const NIVEL = {
           'assets/niveles/lighthouse/estanterias/drogueria3.png'],
     'j': ['assets/niveles/lighthouse/estanterias/juguetes1.png',
           'assets/niveles/lighthouse/estanterias/juguetes2.png',
-          'assets/niveles/lighthouse/estanterias/juguetes3.png']
+          'assets/niveles/lighthouse/estanterias/juguetes3.png'],
+    'r': ['assets/niveles/lighthouse/estanterias/ropa1.png',
+          'assets/niveles/lighthouse/estanterias/ropa2.png',
+          'assets/niveles/lighthouse/estanterias/ropa3.png'],
+    'l': ['assets/niveles/lighthouse/estanterias/libros1.png',
+          'assets/niveles/lighthouse/estanterias/libros2.png',
+          'assets/niveles/lighthouse/estanterias/libros3.png']
   },
 
   // Paleta del suelo procedural. Aquí no se usa —el mapa manda—, pero

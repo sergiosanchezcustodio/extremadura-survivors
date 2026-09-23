@@ -17,11 +17,19 @@
 #   .\herramientas\instalar-lanzador.ps1
 #   .\herramientas\instalar-lanzador.ps1 -AgregarAlPath   si .local\bin no esta en el PATH
 #   .\herramientas\instalar-lanzador.ps1 -Ajustes         ademas fija el esfuerzo recomendado
+#   .\herramientas\instalar-lanzador.ps1 -Agente codex    el lanzador abre Codex y no Claude
+#
+# CON QUE AGENTE. Por defecto `extremadura` abre Claude Code; con `-Agente codex`
+# abre el CLI de Codex de OpenAI, que lee AGENTS.md igual que Claude lee
+# CLAUDE.md (ver docs/migrar-a-codex.md). Se reinstala con el otro valor para
+# volver. En los dos, `extremadura -c` retoma la ultima sesion.
 # ---------------------------------------------------------------------------
 param(
     [string]$Destino = (Join-Path $env:USERPROFILE '.local\bin'),
     [switch]$AgregarAlPath,
-    [switch]$Ajustes
+    [switch]$Ajustes,
+    [ValidateSet('claude', 'codex')]
+    [string]$Agente = 'claude'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -32,6 +40,21 @@ $repo = Split-Path -Parent $PSScriptRoot
 # 15/08/2026, y el cambio no es capricho: con `--continue` por defecto nunca se
 # empezaba limpio, una sola sesion vivio trece dias y su contexto llego a 940k
 # tokens que se releian en cada llamada. Ver "Coste de contexto" en CLAUDE.md.
+if ($Agente -eq 'codex') {
+# `-c` en Codex es otra cosa (sobrescribir una clave de config), asi que aqui se
+# traduce: `extremadura -c` es `codex resume --last`, como en el de Claude.
+$cmd = @"
+@echo off
+REM Lanzador de Codex para Extremadura Survivors.
+REM GENERADO por herramientas\instalar-lanzador.ps1 -Agente codex - no editar a mano.
+REM Sin argumentos: abre una sesion NUEVA, con el contexto limpio.
+REM   extremadura -c        retoma la ultima sesion (codex resume --last)
+REM   extremadura resume    elige sesion de una lista
+REM Cualquier otro argumento se pasa tal cual a codex.
+cd /d "$repo"
+if "%~1"=="" (codex) else if "%~1"=="-c" (codex resume --last) else (codex %*)
+"@
+} else {
 $cmd = @"
 @echo off
 REM Lanzador de Claude Code para Extremadura Survivors.
@@ -43,6 +66,7 @@ REM Cualquier otro argumento se pasa tal cual a claude.
 cd /d "$repo"
 if "%~1"=="" (claude --permission-mode auto) else (claude --permission-mode auto %*)
 "@
+}
 
 if (-not (Test-Path -LiteralPath $Destino)) {
     New-Item -ItemType Directory -Force -Path $Destino | Out-Null
@@ -59,7 +83,7 @@ Set-Content -LiteralPath $ruta -Value $cmd -Encoding ascii
 if ($null -eq $previo)            { Write-Output "Instalado  $ruta" }
 elseif ($previo -ne ($cmd + "`r`n")) { Write-Output "Actualizado $ruta" }
 else                              { Write-Output "Sin cambios $ruta" }
-Write-Output "  apunta a $repo"
+Write-Output "  apunta a $repo, y abre $Agente"
 
 # --- 2. El PATH -------------------------------------------------------------
 # Se comprueba contra el PATH PERSISTENTE del usuario y no contra $env:PATH: el
@@ -79,10 +103,12 @@ if ($enPath) {
 }
 
 # --- 3. Ajustes de Claude Code (opcional) -----------------------------------
+# Solo con Claude: Codex guarda los suyos en %USERPROFILE%\.codex\config.toml y
+# el proyecto trae su parte en .codex\config.toml.
 # Solo se toca la clave del esfuerzo y se respeta todo lo demas: este fichero es
 # GLOBAL del usuario, no del proyecto, y sobrescribirlo entero se llevaria por
 # delante la configuracion de los otros repos.
-if ($Ajustes) {
+if ($Ajustes -and $Agente -eq 'claude') {
     $cfg = Join-Path $env:USERPROFILE '.claude\settings.json'
     if (Test-Path -LiteralPath $cfg) {
         $j = Get-Content -LiteralPath $cfg -Raw | ConvertFrom-Json

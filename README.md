@@ -313,8 +313,8 @@ los jugadores, ni los bichos, ni las armas—. Se empieza encerrado en el centro
 cada jefe abre un cierre: el del minuto 10 da paso al anillo siguiente, y el
 final abre la puerta de la calle.
 
-**Cada tienda es de lo suyo, y todas son sencillas.** Seis tipos —supermercado,
-regalos, tecnología, alimentos, droguería, juguetes—, cada uno con **su pared de
+**Cada tienda es de lo suyo, y todas son sencillas.** Ocho tipos —supermercado,
+regalos, tecnología, alimentos, droguería, juguetes, ropa y libros—, cada uno con **su pared de
 dentro, su escaparate y sus estanterías**, dibujados a mano y a su tamaño, más
 altos que dos personajes, sin repetir un panel entre dos tipos: ositos en la
 juguetería por dentro y, desde el pasillo, un **ventanal de cristal** del color

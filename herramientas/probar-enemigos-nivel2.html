@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enemigos del nivel 2 — prueba</title>
+<style>
+  html,body { margin:0; min-height:100%; background:#10151d; color:#f5f2e9; font:16px system-ui,sans-serif; }
+  body { display:grid; place-items:center; padding:20px; box-sizing:border-box; }
+  main { width:min(1100px,100%); text-align:center; }
+  p { color:#c8d0dc; }
+  iframe { width:min(960px,100%); height:600px; border:1px solid #657080; }
+  #estado { color:#a8e2b2; }
+</style>
+<main>
+  <h1>CC The Lighthouse · enemigos propios</h1>
+  <p>Partida de prueba del nivel 2. Los valores de combate aún son provisionales; no hay ataques a distancia. Pulsa dentro del juego y usa WASD o las flechas.</p>
+  <iframe id="juego" src="../index.html"></iframe>
+  <p id="estado">Cargando el nivel...</p>
+</main>
+<script>
+const marco = document.querySelector('#juego');
+marco.addEventListener('load', async () => {
+  const w = marco.contentWindow;
+  for (let i=0; i<100 && !(w.EMERITA && w.EMERITA.niveles); i++) await new Promise(r=>setTimeout(r,100));
+  try {
+    const E=w.EMERITA;
+    E.puestos.fill(null); E.puestos[0]={personaje:0,listo:true};
+    E.mascotasElegidas.fill('');
+    await E.usarNivel(E.niveles.lista.find(n=>n.id==='lighthouse'));
+    E.empezarPartida();
+    E.jugador.inmortal=true;
+    const vistos=new Set();
+    const nombres={
+      n2ChicaPoseida:'Chica poseída',n2ChicoPoseido:'Chico poseído',n2RobotPersona:'Robot humanoide',
+      n2Robotin:'Robotín',n2SuperRobotin:'Súper robotín',n2PoliFlaco:'Policía flaco',
+      n2AntiDisturbios:'Anti-disturbios',n2SenoraCarro:'Señora del carro',n2PoliGordo:'Policía corpulento',
+      n2PoliRobot:'Policía robot',n2SuperPoli:'Súper policía',n2MegaRobot:'Mega robot'
+    };
+    document.querySelector('#estado').textContent='Partida iniciada. Enemigos detectados: esperando oleada...';
+    setInterval(()=>{
+      const pool=E.enemigos.pool;
+      let vivosNivel2=0, animando=0;
+      for(let i=0;i<pool.activos;i++) {
+        const e=pool.items[i];
+        if(!e.tipo.startsWith('n2')) continue;
+        vivosNivel2++; vistos.add(e.tipo);
+        if(e.frames>1 && e.frame>0) animando++;
+      }
+      const lista=[...vistos].map(id=>nombres[id]||id);
+      document.querySelector('#estado').textContent=`Partida activa · ${vivosNivel2} enemigos propios vivos · ${animando} con ciclo en marcha · vistos: ${lista.join(', ')||'esperando oleada'}`;
+    },500);
+  } catch(e) { document.querySelector('#estado').textContent=`No se pudo iniciar la prueba: ${e.message}`; }
+});
+</script>
+</html>

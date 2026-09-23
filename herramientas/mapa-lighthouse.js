@@ -129,9 +129,9 @@ const TIENDAS = [JUGUETES, REGALOS, DROGUERIA, TECNOLOGIA, FRUTERIA, ROPA, LIBRO
 
 // EL TECHO: una tienda CERRADA no enseña el interior, enseña su techo. Es
 // sólido —no se entra, no se ve, no aparece nadie dentro— y no tiene cara.
-// Seis de cada diez tiendas van cerradas (CERRADAS).
+// Aproximadamente un tercio de las tiendas va cerrado; la mayoría queda accesible.
 const TECHO = 'T';
-const CERRADAS = 0.6;
+const CERRADAS = 0.35;
 
 // EL PASILLO DE CADA ANILLO (Sergio, 22/09/2026): los pasillos del anillo 1 y
 // del 2 llevan su propio suelo —suelo2.png y suelo3.png; el 1 es el de
@@ -249,22 +249,19 @@ function rellenar(g, x0, y0, w, h, ch) {
 // construcción —no hay que unir nada después— y cada hoja que queda es el hueco
 // donde cabe un local.
 //
-// Los cortes alternan según el lado más largo, que es lo que da la retícula
-// irregular de un centro comercial de verdad en vez de un tablero de ajedrez.
+// Los cortes siguen una retícula ortogonal con ligera variación alrededor del centro.
+// Así las galerías quedan rectas y los bloques conservan plantas comerciales claras.
 function partir(g, x0, y0, w, h, profundidad, rng, hojas) {
-  const MIN = 11 * F;                 // por debajo de esto ya no cabe local + pasillo
-  if (profundidad === 0 || (w < MIN * 2 && h < MIN * 2)) {
+  const MIN = 14 * F;                 // por debajo de esto ya no cabe local + pasillo
+  if (profundidad === 0 || (w < MIN * 2 + 6 * F && h < MIN * 2 + 6 * F)) {
     hojas.push({ x: x0, y: y0, w, h });
     return;
   }
 
-  // PARAR ANTES DE TIEMPO, A VECES. Partiendo siempre hasta el fondo salen
-  // treinta locales del mismo tamaño y un centro comercial no es eso: es dos
-  // moles —el IKEA y el hipermercado— y veinte cosas pequeñas colgando de los
-  // pasillos. Dejando de partir de vez en cuando cuando la región ya es grande,
-  // esas moles aparecen solas.
+  // PARAR ANTES DE TIEMPO, A VECES. Los bloques grandes dejan espacio para
+  // supermercados y tiendas con pasillos interiores transitables.
   const area = w * h;
-  if (area >= 520 * F * F && area <= 980 * F * F && rng() < 0.55) {
+  if (area >= 850 * F * F && area <= 1550 * F * F && rng() < 0.65) {
     hojas.push({ x: x0, y: y0, w, h });
     return;
   }
@@ -273,22 +270,28 @@ function partir(g, x0, y0, w, h, profundidad, rng, hojas) {
   // ese caso se corta por el otro, que es el único que queda. Que los dos sean
   // demasiado cortos es imposible aquí: eso ya salió por arriba como hoja.
   let porAncho = w >= h;
-  if (porAncho && w < MIN * 2) porAncho = false;
-  else if (!porAncho && h < MIN * 2) porAncho = true;
-  // UN 50% MÁS ANCHOS (Sergio, 22/09/2026): de 3-4 módulos a 4,5-6. Con los
-  // muros dibujados altos, la cara se come 56 unidades del pasillo por cada
-  // pared que dé a él, y lo que quedaba para andar era una rendija.
-  const anchoPasillo = rnd(rng, Math.round(4.5 * F), 6 * F);
+  if (porAncho && w < MIN * 2 + 6 * F) porAncho = false;
+  else if (!porAncho && h < MIN * 2 + 6 * F) porAncho = true;
+  // LAS GALERÍAS PRINCIPALES SON ANCHAS y las calles secundarias mantienen
+  // suficiente espacio libre tras descontar las caras altas de las fachadas.
+  const longitudCorte = porAncho ? w : h;
+  const disponible = longitudCorte - 2 * MIN;
+  const anchoMinimo = Math.min(5 * F, disponible);
+  const anchoObjetivo = profundidad >= 7 ? 10 * F : profundidad >= 5 ? 8 * F : 6 * F;
+  const anchoMaximo = Math.min(anchoObjetivo, Math.floor(disponible * 0.9));
+  const anchoPasillo = rnd(rng, anchoMinimo, anchoMaximo);
 
   if (porAncho) {
-    // El corte no va nunca al 50%: locales todos iguales se leen como un almacén.
-    const corte = x0 + Math.floor(w * (0.34 + rng() * 0.32));
+    // El corte queda cerca del centro del bloque para mantener tramos rectos y locales amplios.
+    const tramo = w - 2 * MIN - anchoPasillo;
+    const corte = x0 + MIN + Math.floor(tramo * (0.46 + rng() * 0.08));
     rellenar(g, corte, y0, anchoPasillo, h, PASILLO);
     partir(g, x0, y0, corte - x0, h, profundidad - 1, rng, hojas);
     const dcha = x0 + w - (corte + anchoPasillo);
     partir(g, corte + anchoPasillo, y0, dcha, h, profundidad - 1, rng, hojas);
   } else {
-    const corte = y0 + Math.floor(h * (0.34 + rng() * 0.32));
+    const tramo = h - 2 * MIN - anchoPasillo;
+    const corte = y0 + MIN + Math.floor(tramo * (0.46 + rng() * 0.08));
     rellenar(g, x0, corte, w, anchoPasillo, PASILLO);
     partir(g, x0, y0, w, corte - y0, profundidad - 1, rng, hojas);
     const abajo = y0 + h - (corte + anchoPasillo);
@@ -1578,10 +1581,9 @@ function trazar(semilla) {
   const g = crearRejilla();
   const hojas = [];
 
-  // 8 niveles de partición sobre 316x204 módulos dan del orden de 130-180
-  // locales, que es lo que le toca a un centro comercial ocho veces mayor que el
-  // de 19 locales que tenía el primer trazado.
-  partir(g, FACHADA, FACHADA, ANCHO - FACHADA * 2, ALTO - FACHADA * 2, 8, rng, hojas);
+  // 7 niveles de partición sobre 316x204 módulos dejan bloques grandes para un
+  // centro comercial extenso, pero con tiendas reconocibles y recorrido legible.
+  partir(g, FACHADA, FACHADA, ANCHO - FACHADA * 2, ALTO - FACHADA * 2, 7, rng, hojas);
 
   const locales = [];
   for (const hoja of hojas) carvarLocal(g, hoja, rng, locales);

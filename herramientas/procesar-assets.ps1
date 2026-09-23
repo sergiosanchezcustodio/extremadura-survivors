@@ -3327,6 +3327,25 @@ $CATALOGO = @(
     # tiene que verse un jefe final— así que voltearla no cambiaría nada.
     @{ src='enemies\loba_capitolina.gif';  dst='enemigos\loba.png';      id='loba';      alto=68;  anchoFijo=0;  tol=0; gif=$true }
     @{ src='enemies\gemelo.gif';           dst='enemigos\gemelo.png';    id='gemelo';    alto=20;  anchoFijo=0;  tol=0; gif=$true }
+    # ENEMIGOS DEL CC THE LIGHTHOUSE. Son las ilustraciones transparentes de
+    # resources/enemies/nivel2. Aún no se añaden al bestiario jugable: esta
+    # pasada prepara sus hojas animadas para que el nivel pueda incorporarlos
+    # cuando Sergio cierre sus datos y oleadas. Se hornea el paso desde la pose
+    # original, igual que en el antiguo camino procedural de los personajes.
+    # La cadera se ajusta al dibujo; los robots con ruedas desplazan el tren
+    # inferior como una banda, y los humanoides alternan el apoyo de piernas.
+    @{ src='enemies\nivel2\anti-disturbios.png'; dst='enemigos\nivel2\anti-disturbios.png'; id='n2AntiDisturbios'; alto=21; anchoFijo=0; tol=0; andarCadera=0.68; ampPierna=3; ampEscora=0 }
+    @{ src='enemies\nivel2\chica_poseido.png';  dst='enemigos\nivel2\chica-poseida.png'; id='n2ChicaPoseida'; alto=18; anchoFijo=0; tol=0; andarCadera=0.69; ampPierna=3; ampEscora=0 }
+    @{ src='enemies\nivel2\chico_poseido.png';  dst='enemigos\nivel2\chico-poseido.png'; id='n2ChicoPoseido'; alto=18; anchoFijo=0; tol=0; andarCadera=0.69; ampPierna=3; ampEscora=0 }
+    @{ src='enemies\nivel2\mega_robot.png'; dst='enemigos\nivel2\mega-robot.png'; id='n2MegaRobot'; alto=26; anchoFijo=0; tol=0; andarCadera=0.69; ampPierna=3; ampEscora=0 }
+    @{ src='enemies\nivel2\poli_flaco.png'; dst='enemigos\nivel2\poli-flaco.png'; id='n2PoliFlaco'; alto=21; anchoFijo=0; tol=0; andarCadera=0.68; ampPierna=3; ampEscora=0 }
+    @{ src='enemies\nivel2\poli_gordo.png'; dst='enemigos\nivel2\poli-gordo.png'; id='n2PoliGordo'; alto=23; anchoFijo=0; tol=0; andarCadera=0.70; ampPierna=3; ampEscora=0 }
+    @{ src='enemies\nivel2\poli_robot.png'; dst='enemigos\nivel2\poli-robot.png'; id='n2PoliRobot'; alto=23; anchoFijo=0; tol=0; andarCadera=0.71; ampPierna=3; ampEscora=0 }
+    @{ src='enemies\nivel2\robot_persona.png'; dst='enemigos\nivel2\robot-persona.png'; id='n2RobotPersona'; alto=19; anchoFijo=0; tol=0; andarCadera=0.70; ampPierna=3; ampEscora=0 }
+    @{ src='enemies\nivel2\robotin.png'; dst='enemigos\nivel2\robotin.png'; id='n2Robotin'; alto=13; anchoFijo=0; tol=0; andarCadera=0.72; ampPierna=2; ampEscora=0; falda=$true }
+    @{ src=('enemies\nivel2\se' + [char]0x00F1 + 'ora_carro.png'); dst='enemigos\nivel2\senora-carro.png'; id='n2SenoraCarro'; alto=22; anchoFijo=0; tol=0; andarCadera=0.69; ampPierna=3; ampEscora=0 }
+    @{ src='enemies\nivel2\super_poli.png'; dst='enemigos\nivel2\super-poli.png'; id='n2SuperPoli'; alto=26; anchoFijo=0; tol=0; andarCadera=0.69; ampPierna=3; ampEscora=0 }
+    @{ src='enemies\nivel2\super_robotin.png'; dst='enemigos\nivel2\super-robotin.png'; id='n2SuperRobotin'; alto=14; anchoFijo=0; tol=0; andarCadera=0.72; ampPierna=2; ampEscora=0; falda=$true }
     # Personajes: MISMO ALTO logico, ancho derivado de su silueta. Encajar
     # la figura dentro de un cuadrado comun hacia que las poses anchas salieran
     # mas bajas: a Vicky, con ratio 1.43, la limitaba el ancho y se quedaba más
@@ -3752,6 +3771,7 @@ $atlas = [ordered]@{}
 foreach ($e in $CATALOGO) {
     $rutaSrc = Join-Path $ORIGEN $e.src
     $rutaDst = Join-Path $DESTINO $e.dst
+    New-Item -ItemType Directory -Force -Path ([System.IO.Path]::GetDirectoryName($rutaDst)) | Out-Null
 
     # `celda`: la fuente es UNA CASILLA de una lamina de cols x filas, no un
     # archivo entero. Se extrae a un temporal y de ahi sigue por el mismo
@@ -3872,7 +3892,7 @@ foreach ($e in $CATALOGO) {
     try {
         $r = [Procesador]::Procesar($rutaSrc, $rutaDst, $e.alto, $ESCALA, $tolAsset, $e.anchoFijo, [bool]$e.dominante, [bool]$e.centrado, [bool]$e.huecos, $rutaAlfa)
     } catch {
-        $informe += [PSCustomObject]@{ Id=$e.id; Silueta='-'; Ratio='-'; Sprite='-'; Quitado='-'; Estado='ERROR' }
+        $informe += [PSCustomObject]@{ Id=$e.id; Silueta='-'; Ratio='-'; Sprite='-'; Quitado='-'; Estado="ERROR: $($_.Exception.Message)" }
         continue
     }
 
@@ -4051,8 +4071,11 @@ foreach ($e in $CATALOGO) {
         }
     }
     # Personajes sin hoja: expandir la pose unica a una tira de 10.
-    elseif ($null -ne $e.cadera) {
-        $ra = [Procesador]::AnimarPersonaje($rutaDst, [double]$e.cadera,
+    elseif ($null -ne $e.cadera -or $null -ne $e.andarCadera) {
+        # `andarCadera` comparte el horneado de la pose con los personajes,
+        # pero no activa sus retratos ni sus cuerpos de ficha.
+        $caderaAnim = if ($null -ne $e.andarCadera) { $e.andarCadera } else { $e.cadera }
+        $ra = [Procesador]::AnimarPersonaje($rutaDst, [double]$caderaAnim,
                                             [int]$e.ampPierna, [bool]$e.falda,
                                             [int]$e.ampEscora)
         $nFrames = [int](($ra -split '\|')[2])

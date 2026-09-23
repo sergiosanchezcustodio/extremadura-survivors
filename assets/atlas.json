@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260921175656",
+    "version":  "20260923202935",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -106,6 +106,378 @@
                                      "anclaY":  80,
                                      "frames":  8
                                  },
+                      "n2AntiDisturbios":  {
+                                               "archivo":  "enemigos/nivel2/anti-disturbios.png",
+                                               "w":  48,
+                                               "h":  84,
+                                               "anclaX":  24,
+                                               "anclaY":  84,
+                                               "frames":  10,
+                                               "clips":  {
+                                                             "quieto":  {
+                                                                            "desde":  0,
+                                                                            "n":  2,
+                                                                            "fps":  3
+                                                                        },
+                                                             "andar":  {
+                                                                           "desde":  2,
+                                                                           "n":  4,
+                                                                           "fps":  8
+                                                                       },
+                                                             "andar_lateral":  {
+                                                                                   "desde":  6,
+                                                                                   "n":  4,
+                                                                                   "fps":  8
+                                                                               }
+                                                         },
+                                               "solido":  [
+                                                              8,
+                                                              16,
+                                                              32,
+                                                              55
+                                                          ]
+                                           },
+                      "n2ChicaPoseida":  {
+                                             "archivo":  "enemigos/nivel2/chica-poseida.png",
+                                             "w":  24,
+                                             "h":  72,
+                                             "anclaX":  12,
+                                             "anclaY":  72,
+                                             "frames":  10,
+                                             "clips":  {
+                                                           "quieto":  {
+                                                                          "desde":  0,
+                                                                          "n":  2,
+                                                                          "fps":  3
+                                                                      },
+                                                           "andar":  {
+                                                                         "desde":  2,
+                                                                         "n":  4,
+                                                                         "fps":  8
+                                                                     },
+                                                           "andar_lateral":  {
+                                                                                 "desde":  6,
+                                                                                 "n":  4,
+                                                                                 "fps":  8
+                                                                             }
+                                                       },
+                                             "solido":  [
+                                                            5,
+                                                            11,
+                                                            14,
+                                                            51
+                                                        ]
+                                         },
+                      "n2ChicoPoseido":  {
+                                             "archivo":  "enemigos/nivel2/chico-poseido.png",
+                                             "w":  24,
+                                             "h":  72,
+                                             "anclaX":  12,
+                                             "anclaY":  72,
+                                             "frames":  10,
+                                             "clips":  {
+                                                           "quieto":  {
+                                                                          "desde":  0,
+                                                                          "n":  2,
+                                                                          "fps":  3
+                                                                      },
+                                                           "andar":  {
+                                                                         "desde":  2,
+                                                                         "n":  4,
+                                                                         "fps":  8
+                                                                     },
+                                                           "andar_lateral":  {
+                                                                                 "desde":  6,
+                                                                                 "n":  4,
+                                                                                 "fps":  8
+                                                                             }
+                                                       },
+                                             "solido":  [
+                                                            4,
+                                                            11,
+                                                            16,
+                                                            53
+                                                        ]
+                                         },
+                      "n2MegaRobot":  {
+                                          "archivo":  "enemigos/nivel2/mega-robot.png",
+                                          "w":  88,
+                                          "h":  104,
+                                          "anclaX":  44,
+                                          "anclaY":  104,
+                                          "frames":  10,
+                                          "clips":  {
+                                                        "quieto":  {
+                                                                       "desde":  0,
+                                                                       "n":  2,
+                                                                       "fps":  3
+                                                                   },
+                                                        "andar":  {
+                                                                      "desde":  2,
+                                                                      "n":  4,
+                                                                      "fps":  8
+                                                                  },
+                                                        "andar_lateral":  {
+                                                                              "desde":  6,
+                                                                              "n":  4,
+                                                                              "fps":  8
+                                                                          }
+                                                    },
+                                          "solido":  [
+                                                         13,
+                                                         19,
+                                                         62,
+                                                         71
+                                                     ]
+                                      },
+                      "n2PoliFlaco":  {
+                                          "archivo":  "enemigos/nivel2/poli-flaco.png",
+                                          "w":  40,
+                                          "h":  84,
+                                          "anclaX":  20,
+                                          "anclaY":  84,
+                                          "frames":  10,
+                                          "clips":  {
+                                                        "quieto":  {
+                                                                       "desde":  0,
+                                                                       "n":  2,
+                                                                       "fps":  3
+                                                                   },
+                                                        "andar":  {
+                                                                      "desde":  2,
+                                                                      "n":  4,
+                                                                      "fps":  8
+                                                                  },
+                                                        "andar_lateral":  {
+                                                                              "desde":  6,
+                                                                              "n":  4,
+                                                                              "fps":  8
+                                                                          }
+                                                    },
+                                          "solido":  [
+                                                         7,
+                                                         17,
+                                                         26,
+                                                         56
+                                                     ]
+                                      },
+                      "n2PoliGordo":  {
+                                          "archivo":  "enemigos/nivel2/poli-gordo.png",
+                                          "w":  56,
+                                          "h":  92,
+                                          "anclaX":  28,
+                                          "anclaY":  92,
+                                          "frames":  10,
+                                          "clips":  {
+                                                        "quieto":  {
+                                                                       "desde":  0,
+                                                                       "n":  2,
+                                                                       "fps":  3
+                                                                   },
+                                                        "andar":  {
+                                                                      "desde":  2,
+                                                                      "n":  4,
+                                                                      "fps":  8
+                                                                  },
+                                                        "andar_lateral":  {
+                                                                              "desde":  6,
+                                                                              "n":  4,
+                                                                              "fps":  8
+                                                                          }
+                                                    },
+                                          "solido":  [
+                                                         9,
+                                                         18,
+                                                         38,
+                                                         60
+                                                     ]
+                                      },
+                      "n2PoliRobot":  {
+                                          "archivo":  "enemigos/nivel2/poli-robot.png",
+                                          "w":  72,
+                                          "h":  92,
+                                          "anclaX":  36,
+                                          "anclaY":  92,
+                                          "frames":  10,
+                                          "clips":  {
+                                                        "quieto":  {
+                                                                       "desde":  0,
+                                                                       "n":  2,
+                                                                       "fps":  3
+                                                                   },
+                                                        "andar":  {
+                                                                      "desde":  2,
+                                                                      "n":  4,
+                                                                      "fps":  8
+                                                                  },
+                                                        "andar_lateral":  {
+                                                                              "desde":  6,
+                                                                              "n":  4,
+                                                                              "fps":  8
+                                                                          }
+                                                    },
+                                          "solido":  [
+                                                         11,
+                                                         14,
+                                                         50,
+                                                         68
+                                                     ]
+                                      },
+                      "n2RobotPersona":  {
+                                             "archivo":  "enemigos/nivel2/robot-persona.png",
+                                             "w":  32,
+                                             "h":  76,
+                                             "anclaX":  16,
+                                             "anclaY":  76,
+                                             "frames":  10,
+                                             "clips":  {
+                                                           "quieto":  {
+                                                                          "desde":  0,
+                                                                          "n":  2,
+                                                                          "fps":  3
+                                                                      },
+                                                           "andar":  {
+                                                                         "desde":  2,
+                                                                         "n":  4,
+                                                                         "fps":  8
+                                                                     },
+                                                           "andar_lateral":  {
+                                                                                 "desde":  6,
+                                                                                 "n":  4,
+                                                                                 "fps":  8
+                                                                             }
+                                                       },
+                                             "solido":  [
+                                                            6,
+                                                            10,
+                                                            20,
+                                                            54
+                                                        ]
+                                         },
+                      "n2Robotin":  {
+                                        "archivo":  "enemigos/nivel2/robotin.png",
+                                        "w":  32,
+                                        "h":  52,
+                                        "anclaX":  16,
+                                        "anclaY":  52,
+                                        "frames":  10,
+                                        "clips":  {
+                                                      "quieto":  {
+                                                                     "desde":  0,
+                                                                     "n":  2,
+                                                                     "fps":  3
+                                                                 },
+                                                      "andar":  {
+                                                                    "desde":  2,
+                                                                    "n":  4,
+                                                                    "fps":  8
+                                                                },
+                                                      "andar_lateral":  {
+                                                                            "desde":  6,
+                                                                            "n":  4,
+                                                                            "fps":  8
+                                                                        }
+                                                  },
+                                        "solido":  [
+                                                       5,
+                                                       17,
+                                                       22,
+                                                       31
+                                                   ]
+                                    },
+                      "n2SenoraCarro":  {
+                                            "archivo":  "enemigos/nivel2/senora-carro.png",
+                                            "w":  56,
+                                            "h":  88,
+                                            "anclaX":  28,
+                                            "anclaY":  88,
+                                            "frames":  10,
+                                            "clips":  {
+                                                          "quieto":  {
+                                                                         "desde":  0,
+                                                                         "n":  2,
+                                                                         "fps":  3
+                                                                     },
+                                                          "andar":  {
+                                                                        "desde":  2,
+                                                                        "n":  4,
+                                                                        "fps":  8
+                                                                    },
+                                                          "andar_lateral":  {
+                                                                                "desde":  6,
+                                                                                "n":  4,
+                                                                                "fps":  8
+                                                                            }
+                                                      },
+                                            "solido":  [
+                                                           9,
+                                                           17,
+                                                           36,
+                                                           59
+                                                       ]
+                                        },
+                      "n2SuperPoli":  {
+                                          "archivo":  "enemigos/nivel2/super-poli.png",
+                                          "w":  72,
+                                          "h":  104,
+                                          "anclaX":  36,
+                                          "anclaY":  104,
+                                          "frames":  10,
+                                          "clips":  {
+                                                        "quieto":  {
+                                                                       "desde":  0,
+                                                                       "n":  2,
+                                                                       "fps":  3
+                                                                   },
+                                                        "andar":  {
+                                                                      "desde":  2,
+                                                                      "n":  4,
+                                                                      "fps":  8
+                                                                  },
+                                                        "andar_lateral":  {
+                                                                              "desde":  6,
+                                                                              "n":  4,
+                                                                              "fps":  8
+                                                                          }
+                                                    },
+                                          "solido":  [
+                                                         12,
+                                                         20,
+                                                         49,
+                                                         67
+                                                     ]
+                                      },
+                      "n2SuperRobotin":  {
+                                             "archivo":  "enemigos/nivel2/super-robotin.png",
+                                             "w":  40,
+                                             "h":  56,
+                                             "anclaX":  20,
+                                             "anclaY":  56,
+                                             "frames":  10,
+                                             "clips":  {
+                                                           "quieto":  {
+                                                                          "desde":  0,
+                                                                          "n":  2,
+                                                                          "fps":  3
+                                                                      },
+                                                           "andar":  {
+                                                                         "desde":  2,
+                                                                         "n":  4,
+                                                                         "fps":  8
+                                                                     },
+                                                           "andar_lateral":  {
+                                                                                 "desde":  6,
+                                                                                 "n":  4,
+                                                                                 "fps":  8
+                                                                             }
+                                                       },
+                                             "solido":  [
+                                                            6,
+                                                            9,
+                                                            29,
+                                                            41
+                                                        ]
+                                         },
                       "ericCara":  {
                                        "archivo":  "personajes/eric-cara.png",
                                        "w":  288,

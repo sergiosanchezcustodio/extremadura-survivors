@@ -285,6 +285,15 @@ function normalizarCara(img, celda, altoUnidades) {
   return c;
 }
 
+// Une varios paneles ya normalizados en una franja de escaparate más ancha.
+// Solo se prepara al cargar el nivel; durante la partida se dibuja 1:1 como
+// cualquier otra cara y no se crean lienzos por fotograma.
+function ensancharCara(img, repeticiones) {
+  const { c, ctx } = lienzo(img.width * repeticiones, img.height);
+  for (let i = 0; i < repeticiones; i++) ctx.drawImage(img, i * img.width, 0);
+  return c;
+}
+
 // Qué dibujo de relleno le toca a cada símbolo: por el `nombre` de la leyenda,
 // y si no hay uno con ese nombre, la moqueta lisa (que es un color con grano).
 function dibujoDe(def) {
@@ -350,6 +359,7 @@ export const SueloRejilla = {
   tocaPasillo: null,     // por celda sólida: ¿tiene el pasillo al otro lado?
   panelesGirados: null,  // el escaparate de cada tienda, girado 90° (tapa de los muros verticales)
   escaparates: null,     // cara de pared por tipo de suelo que hay DETRÁS (visto desde el pasillo)
+  ventanalesAnchos: null,// prueba de franjas anchas, por tipo de tienda
   estanterias: null,     // caras de estantería (varias) por tipo de suelo delante
   tipoPared: -1,         // índices de tipo: la pared, la estantería y el pasillo
   tipoEstanteria: -1,
@@ -428,6 +438,16 @@ export const SueloRejilla = {
       ? await cargarPorTipo(nivel.paredesMapa, simbolos, RejillaMapa.celda, altoPared) : null;
     this.escaparates = altoPared > 0 && nivel.escaparatesMapa
       ? await cargarPorTipo(nivel.escaparatesMapa, simbolos, RejillaMapa.celda, altoPared) : null;
+    // PRUEBA DE CONCEPTO: algunos tipos pueden pedir una franja formada por
+    // varios paneles de cristal contiguos. De momento solo tecnología usa el
+    // escaparate 1, duplicado para que el ventanal mida el doble de ancho.
+    const anchosVentana = nivel.ventanalesAnchosMapa || {};
+    this.ventanalesAnchos = this.escaparates
+      ? this.escaparates.map((panel, k) => {
+          const repeticiones = anchosVentana[simbolos[k]] || 0;
+          return panel && repeticiones > 1 ? ensancharCara(panel, repeticiones) : null;
+        })
+      : null;
     this.estanterias = altoEst > 0 && nivel.estanteriasMapa
       ? await cargarJuegosPorTipo(nivel.estanteriasMapa, simbolos, RejillaMapa.celda, altoEst) : null;
     // LA TAPA DE UN MURO ES EL MURO, no un techo. Un muro se dibuja con tapa
@@ -697,6 +717,18 @@ export const SueloRejilla = {
   // genérica del tipo, que es la de siempre.
   _caraPara(ta, ia, tSuelo, ax, ay) {
     if (ta === this.tipoPared && this.paredes) {
+      const dueno = this.duenyo && this.duenyo[ia];
+      const ventanalAncho = this.ventanalesAnchos && this.ventanalesAnchos[dueno];
+      if (ventanalAncho) {
+        const R = RejillaMapa;
+        const x = ia % R.ancho;
+        const horizontal = x > 0 && x < R.ancho - 1 &&
+          R.solido[ia - 1] === 1 && R.solido[ia + 1] === 1;
+        // La cara se pinta hacia el sur. Si ese suelo es un pasillo, estamos
+        // mirando la pared inferior del local desde fuera: ahí va el ventanal.
+        if (horizontal && this.esPasillo[tSuelo]) return ventanalAncho;
+        return this.paredes[tSuelo] || this.caras[ta];
+      }
       // UNA PARED CON EL PASILLO AL OTRO LADO ES UN ESCAPARATE, se mire desde
       // donde se mire (Sergio, 22/09/2026). Antes solo salía el cristal cuando
       // se miraba DESDE el pasillo, y como la cara de un muro se pinta hacia

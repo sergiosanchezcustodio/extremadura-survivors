@@ -5,10 +5,9 @@
 // recinto CERRADO con paredes. Lo demás —oleadas, densidad, escalado, jefes— es
 // el mismo contrato de siempre y lo lee el mismo director.
 //
-// ESTADO: PROTOTIPO. La geometría es de verdad y ya se juega; los colores son
-// planos a propósito (no hay arte todavía) y la curva de oleadas está copiada de
-// Mérida y apretada a ojo, sin una sola partida encima. Se ajusta jugando, que
-// es la única forma honesta de ajustar una curva.
+// ESTADO: PROTOTIPO JUGABLE. El mapa es extenso y usa los suelos, paredes,
+// escaparates y estanterías dibujados para el centro comercial. La curva de
+// oleadas y su balance siguen pendientes de probar en partidas completas.
 
 import { MAPA, LEYENDA, CELDA } from './lighthouse-mapa.js';
 
@@ -213,6 +212,12 @@ export const NIVEL = {
     'T': 'assets/niveles/lighthouse/paredes/tipo10.png'         // tablas: tienda cerrada
   },
 
+  // PRUEBA DE CONCEPTO DE VENTANAL ANCHO: la tienda de tecnología usa el
+  // escaparate 1 (`resources/stages/2/pared_tienda1.png`) en franjas de dos
+  // paneles normalizados, solo en sus paredes horizontales inferiores que dan
+  // al pasillo. Cada franja ocupa 64 unidades de fachada.
+  ventanalesAnchosMapa: { 't': 2 },
+
   // LAS ESTANTERÍAS, POR TIENDA: tres dibujos de cada, que se van alternando a
   // lo largo del lineal. Una estantería enseña las de la tienda en la que
   // está —se elige por el suelo que tiene delante— y nunca las de otra.
@@ -284,64 +289,63 @@ export const NIVEL = {
 
   // --- Curva de oleadas -----------------------------------------------------
   //
-  // EL BESTIARIO ES EL DE MÉRIDA, A PROPÓSITO Y DE MOMENTO. El centro comercial
-  // tendrá sus propios enemigos —los tiene pendientes Sergio—, pero hasta que
-  // existan se juega con los del nivel 1: es la única forma de ajustar la curva,
-  // los cierres y el laberinto sin esperar al arte. Cuando lleguen, esto es
-  // cambiar los `tipos` de cada línea; el catálogo está en datos/enemigos.js y es
-  // global y compartido.
+  // LA CURVA YA USA LOS DOCE ENEMIGOS DEL CENTRO COMERCIAL. Su arte y sus ciclos
+  // están en el atlas. Vida, velocidad y daño de contacto son provisionales;
+  // por ahora ninguno tiene ataque a distancia. Los jefes siguen reutilizados
+  // de Mérida hasta diseñar los propios.
   //
   // Copiada de la forma de Mérida y condensada. MENOS MASA que allí y más cosas
-  // que estorban de una en una: en un pasillo de cuatro celdas, veinte
-  // serpientes son un tapón, y un tapón no es dificultad, es una pared que se
-  // mueve. La densidad la lleva el mapa; la curva solo tiene que alimentarla.
+  // que estorban de una en una: en un pasillo de cuatro celdas, veinte enemigos
+  // son un tapón, y un tapón no es dificultad, es una pared que se mueve. La
+  // densidad la lleva el mapa; la curva solo tiene que alimentarla.
   eventos: [
     { desde:    0, hasta:  120, patron: 'anillo', cada: 0.45, cantidad: 2,
-      tipos: ['serpiente'] },
+      tipos: ['n2ChicaPoseida', 'n2ChicoPoseido', 'n2Robotin'] },
     { desde:   30, hasta:  200, patron: 'oleada', cada: 12,   cantidad: 1,
-      tipos: ['gargola'] },
+      tipos: ['n2RobotPersona'] },
     { desde:   95, hasta:  100, patron: 'individual', cada: 60, cantidad: 1,
-      tipos: ['minotauro'] },
+      tipos: ['n2PoliGordo'] },
 
     { desde:  120, hasta:  300, patron: 'anillo', cada: 0.38, cantidad: 2,
-      tipos: ['serpiente', 'serpiente', 'serpiente', 'gargola'] },
+      tipos: ['n2ChicaPoseida', 'n2ChicaPoseida', 'n2ChicaPoseida', 'n2RobotPersona'] },
     { desde:  150, hasta:  320, patron: 'linea',  cada: 20,   cantidad: 9,
-      tipos: ['legionario'] },
+      tipos: ['n2PoliFlaco'] },
     { desde:  200, hasta:  360, patron: 'oleada', cada: 18,   cantidad: 2,
-      tipos: ['gladiador'] },
-    // Las arpías VUELAN y hoy vuelan por encima de las estanterías igual que de
-    // todo lo demás: son el recordatorio de que las paredes te protegen de casi
-    // todo, no de todo.
+      tipos: ['n2AntiDisturbios'] },
+    // Un goteo de robots con ruedas añade siluetas pequeñas entre los grupos.
     { desde:  260, hasta:  480, patron: 'oleada', cada: 16,   cantidad: 3,
-      tipos: ['arpia'] },
+      tipos: ['n2Robotin'] },
+
+    { desde:  220, hasta:  600, patron: 'oleada', cada: 32, cantidad: 2,
+      tipos: ['n2SenoraCarro'] },
 
     { desde:  300, hasta:  600, patron: 'anillo', cada: 0.32, cantidad: 2,
-      tipos: ['serpiente', 'gargola', 'gargola', 'legionario'] },
+      tipos: ['n2ChicaPoseida', 'n2RobotPersona', 'n2RobotPersona', 'n2PoliFlaco'] },
     { desde:  420, hasta:  700, patron: 'oleada', cada: 22,   cantidad: 2,
-      tipos: ['medusa'] },
+      tipos: ['n2PoliRobot'] },
     { desde:  480, hasta:  600, patron: 'cerco',  cada: 30,   cantidad: 12,
-      tipos: ['gladiador', 'legionario'] },
+      tipos: ['n2AntiDisturbios', 'n2PoliFlaco'] },
 
     { desde:  600, hasta:  900, patron: 'anillo', cada: 0.28, cantidad: 2,
-      tipos: ['gargola', 'legionario', 'gladiador', 'serpiente'] },
+      tipos: ['n2RobotPersona', 'n2PoliFlaco', 'n2AntiDisturbios', 'n2ChicaPoseida'] },
     { desde:  700, hasta:  980, patron: 'oleada', cada: 25,   cantidad: 1,
-      tipos: ['minotauro'] },
+      tipos: ['n2PoliGordo'] },
     { desde:  840, hasta:  845, patron: 'individual', cada: 60, cantidad: 1,
-      tipos: ['manticora'], aviso: 'MANTÍCORA' },
+      tipos: ['n2SuperPoli'], aviso: 'SÚPER POLICÍA' },
 
     { desde:  900, hasta: 1200, patron: 'anillo', cada: 0.25, cantidad: 3,
-      tipos: ['gargola', 'legionario', 'gladiador', 'arpia'] },
+      tipos: ['n2RobotPersona', 'n2PoliFlaco', 'n2AntiDisturbios', 'n2Robotin'] },
     { desde: 1020, hasta: 1200, patron: 'linea',  cada: 24,   cantidad: 12,
-      tipos: ['legionario', 'gladiador'] },
+      tipos: ['n2PoliFlaco', 'n2AntiDisturbios'] },
     { desde: 1080, hasta: 1400, patron: 'oleada', cada: 30,   cantidad: 1,
-      tipos: ['ciclope'] },
+      tipos: ['n2MegaRobot'] },
 
     { desde: 1200, hasta: 1800, patron: 'anillo', cada: 0.22, cantidad: 3,
-      tipos: ['gargola', 'gladiador', 'arpia', 'legionario', 'medusa'] },
+      tipos: ['n2RobotPersona', 'n2AntiDisturbios', 'n2Robotin', 'n2SuperRobotin', 'n2PoliFlaco', 'n2PoliRobot'] },
     { desde: 1320, hasta: 1800, patron: 'cerco',  cada: 35,   cantidad: 16,
-      tipos: ['gladiador', 'minotauro'] },
+      tipos: ['n2AntiDisturbios', 'n2PoliGordo'] },
     { desde: 1500, hasta: 1505, patron: 'individual', cada: 60, cantidad: 1,
-      tipos: ['manticora'], aviso: 'MANTÍCORA' }
+      tipos: ['n2SuperPoli'], aviso: 'SÚPER POLICÍA' }
   ],
 
   // Techo de vivos. POR DEBAJO DEL DE MÉRIDA a propósito: aquí la horda no se

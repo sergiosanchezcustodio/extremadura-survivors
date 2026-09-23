@@ -48,6 +48,11 @@ es solo aguantar: hay un objetivo.
 > eso cambia la regla de la partida (un tiempo límite en vez de los treinta
 > minutos de aguante) o es solo ambientación. También falta jefe final.
 
+Los doce enemigos ya están registrados en el bestiario y aparecen en la curva
+del nivel 2. Sus valores de vida, velocidad y daño de contacto son provisionales;
+siguen pendientes de decidir sus ataques propios y los jefes del centro
+comercial.
+
 ## Nivel 3 — Monfragüe
 
 **Animales poseídos.** El parque como escenario, con la fauna vuelta en contra:

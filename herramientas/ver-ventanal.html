@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba de ventanal — CC The Lighthouse</title>
+<style>
+  html,body { margin:0; min-height:100%; background:#10151d; color:#f5f2e9; font:16px system-ui,sans-serif; }
+  body { display:grid; place-items:center; padding:24px; box-sizing:border-box; }
+  main { width:min(960px,100%); text-align:center; }
+  p { color:#c8d0dc; }
+  iframe { width:960px; height:600px; max-width:100%; border:1px solid #657080; image-rendering:pixelated; }
+  #estado { color:#a8e2b2; }
+</style>
+<main>
+  <h1>Escaparate ancho · tienda de tecnología</h1>
+  <p>Prueba del recurso <code>resources/stages/2/pared_tienda1.png</code>, repetido en una franja doble en la pared inferior que da al pasillo.</p>
+  <iframe id="juego" src="../index.html"></iframe>
+  <p id="estado">Cargando el nivel y buscando una fachada...</p>
+</main>
+<script>
+const marco = document.querySelector('#juego');
+marco.addEventListener('load', async () => {
+  const w = marco.contentWindow;
+  for (let i = 0; i < 100 && !(w.EMERITA && w.EMERITA.niveles); i++) await new Promise(r => setTimeout(r, 100));
+  try {
+    const E = w.EMERITA;
+    E.puestos.fill(null);
+    E.puestos[0] = { personaje: 0, listo: true };
+    E.mascotasElegidas.fill('');
+    await E.usarNivel(E.niveles.lista.find(n => n.id === 'lighthouse'));
+    E.empezarPartida();
+    E.jugador.inmortal = true;
+    const instalado = new Promise((resolve, reject) => {
+      const alMensaje = ev => {
+        if (ev.source !== w || !ev.data?.ventanalDemo) return;
+        window.removeEventListener('message', alMensaje);
+        ev.data.error ? reject(new Error(ev.data.error)) : resolve(ev.data);
+      };
+      window.addEventListener('message', alMensaje);
+      const s = w.document.createElement('script');
+      s.type = 'module';
+      s.textContent = `
+        import { SueloRejilla } from './js/sistemas/sueloRejilla.js';
+        const E = window.EMERITA, R = E.rejilla, W = R.ancho;
+        let hallazgo = null;
+        for (let y=100; y<R.alto-2 && !hallazgo; y++) for (let x=1; x<W-1; x++) {
+          const i=y*W+x, dueno=SueloRejilla.duenyo[i];
+          if (R.solido[i]!==1 || R.solido[i-1]!==1 || R.solido[i+1]!==1 || dueno===255) continue;
+          if (R.simbolos[dueno]!=='t' || !SueloRejilla.esPasillo[R.tipo[i+W]]) continue;
+          hallazgo={x,y}; break;
+        }
+        if (!hallazgo) parent.postMessage({ventanalDemo:true,error:'No se encontró una fachada inferior de tecnología junto al pasillo.'}, '*');
+        else {
+          const c=R.celda, j=E.jugador;
+          j.x=(hallazgo.x+0.5)*c; j.y=(hallazgo.y+3)*c;
+          j.xPrev=j.xVista=j.x; j.yPrev=j.yVista=j.y;
+          E.camara.situar(j.x,j.y); E.avanzar(2);
+          parent.postMessage({ventanalDemo:true,x:hallazgo.x,y:hallazgo.y}, '*');
+        }
+      `;
+      w.document.head.appendChild(s);
+      setTimeout(() => reject(new Error('La escena de prueba no respondió.')), 10000);
+    });
+    const lugar = await instalado;
+    document.querySelector('#estado').textContent = `Frente a una tienda de tecnología en la rejilla (${lugar.x}, ${lugar.y}). Usa las flechas para moverte.`;
+  } catch (e) { document.querySelector('#estado').textContent = `No se pudo preparar la vista: ${e.message}`; }
+});
+</script>
+</html>

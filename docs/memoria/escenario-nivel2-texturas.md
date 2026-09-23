@@ -1,10 +1,10 @@
 # Escenario nivel 2: paredes y estanterías por tienda
 
-> Nivel 2 — paredes, estanterías y suelos de Sergio (22/09/2026); todo a escuadra; un pasillo por anillo y un suelo por tienda
+> Nivel 2 — paredes, estanterías y suelos de Sergio (22/09/2026); todo a escuadra; galerías amplias y bloques de tiendas rectangulares
 >
 > Tipo: decisión del proyecto.
 
-A 21/09/2026 el CC The Lighthouse lleva las PAREDES y ESTANTERÍAS de Sergio
+El CC The Lighthouse conserva las PAREDES y ESTANTERÍAS de Sergio
 (`resources/stages/2/pared_tipoN.png`, `estanteria_<tienda>N.png`), horneadas
 a 64x224 por `herramientas/paneles-lighthouse.ps1` y asignadas por tienda en
 `paredesMapa` / `escaparatesMapa` / `estanteriasMapa` de lighthouse.js. Hay
@@ -18,9 +18,13 @@ Reglas que pidió Sergio y que NO se negocian:
 - Celda de 4 (tabique de 4 unidades, "50% más estrecho"), caras de 14 celdas = 56 u.
 - Ni paredes en diagonal, ni oblicuas, ni curvas: anillos cuadrados
   (distancia de tablero) y túneles en L. El generador da 0 esquinas diagonales.
-- Tiendas rectangulares, todas con el mismo trazado: paredes norte y sur forradas de
-  estantería (≥50% de la pared) y filas interiores SOLO horizontales; nada en
-  paredes verticales; sin mostradores ni islas de muro. 60% cerradas: techo `T`.
+- Planta comercial grande y ortogonal: galerías principales rectas y anchas,
+  bloques de locales rectangulares o cuadrados, sin recovecos ni callejones
+  estrechos. El generador centra los cortes para mantener ejes continuos y deja
+  locales más grandes.
+- Locales con estilos de pared, suelo, escaparate y estantería propios. Las
+  estanterías se disponen en lineales horizontales con espacio holgado para
+  combatir; alrededor del 35% de locales cerrados (T) y el resto accesibles.
 - La cara de un muro ES PARED y nadie puede estar dentro, ni llegando por
   arriba ni por abajo: `pie` la marca sólida y `colisionar` no tiene
   excepciones. El "hundirse" de los días 21 y 22/09/2026 se quitó entero; ver

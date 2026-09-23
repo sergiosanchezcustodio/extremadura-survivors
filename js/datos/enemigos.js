@@ -161,6 +161,24 @@ export const ENEMIGOS = {
   serpiente:  { sprite:'serpiente',  rol:'masa',      xp:1, vida:16,    velocidad:10, danyo:4,  radio:2.9,  masa:1.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag'    },
   gargola:    { sprite:'gargola',    rol:'masa',      xp:2, vida:40,    velocidad:16, danyo:5,  radio:5.2,  masa:1.6,  vuela:true,  inmuneEmpuje:false, movimiento:'revoloteo', restos:'piedra' },
 
+  // --- CC THE LIGHTHOUSE: primera integración visual ----------------------
+  // Datos de partida PROVISIONALES (23/09/2026). Todos hacen solo daño por
+  // contacto, sin `ataque` a distancia; Sergio revisará daño y ataques al jugar
+  // el nivel. Los radios siguen la silueta publicada en el atlas; vida,
+  // velocidad y masa son valores iniciales para poder verlos en las oleadas.
+  n2ChicaPoseida:   { sprite:'n2ChicaPoseida',   rol:'masa', xp:1,  vida:16,  velocidad:10, danyo:4, radio:2.7, masa:1.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag' },
+  n2ChicoPoseido:   { sprite:'n2ChicoPoseido',   rol:'masa', xp:1,  vida:16,  velocidad:10, danyo:4, radio:2.7, masa:1.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag' },
+  n2RobotPersona:   { sprite:'n2RobotPersona',   rol:'masa', xp:3,  vida:40,  velocidad:12, danyo:4, radio:3.6, masa:1.5,  vuela:false, inmuneEmpuje:false, movimiento:'directo' },
+  n2Robotin:        { sprite:'n2Robotin',        rol:'masa', xp:2,  vida:22,  velocidad:11, danyo:4, radio:3.6, masa:1.2,  vuela:false, inmuneEmpuje:false, movimiento:'directo' },
+  n2SuperRobotin:   { sprite:'n2SuperRobotin',   rol:'base', xp:8,  vida:80,  velocidad:9,  danyo:4, radio:4.5, masa:3.0,  vuela:false, inmuneEmpuje:false, movimiento:'directo' },
+  n2PoliFlaco:      { sprite:'n2PoliFlaco',      rol:'base', xp:5,  vida:120, velocidad:12, danyo:4, radio:4.5, masa:3.0,  vuela:false, inmuneEmpuje:false, movimiento:'directo' },
+  n2AntiDisturbios: { sprite:'n2AntiDisturbios', rol:'base', xp:8,  vida:180, velocidad:11, danyo:4, radio:5.4, masa:5.0,  vuela:false, inmuneEmpuje:false, movimiento:'directo' },
+  n2SenoraCarro:    { sprite:'n2SenoraCarro',    rol:'base', xp:5,  vida:110, velocidad:8,  danyo:4, radio:6.3, masa:4.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag' },
+  n2PoliGordo:      { sprite:'n2PoliGordo',      rol:'tanque',xp:12, vida:240, velocidad:10, danyo:4, radio:6.3, masa:7.0,  vuela:false, inmuneEmpuje:false, movimiento:'acecho' },
+  n2PoliRobot:      { sprite:'n2PoliRobot',      rol:'tanque',xp:24, vida:400, velocidad:9,  danyo:4, radio:8.1, masa:12.0, vuela:false, inmuneEmpuje:false, movimiento:'acecho' },
+  n2SuperPoli:      { sprite:'n2SuperPoli',      rol:'tanque',xp:28, vida:520, velocidad:9,  danyo:4, radio:8.1, masa:16.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo' },
+  n2MegaRobot:      { sprite:'n2MegaRobot',      rol:'tanque',xp:35, vida:700, velocidad:7,  danyo:4, radio:9.1, masa:22.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo' },
+
   // --- Base: los guardianes humanos ---------------------------------------
   // Casi diez veces la serpiente. Un legionario no es "otra serpiente con
   // casco": es un muro que hay que decidir si rodear o romper. Sus radios suben
